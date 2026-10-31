@@ -3100,6 +3100,7 @@ void ObjectList::merge(bool to_multipart_object)
 
         for (int obj_idx : obj_idxs) {
             ModelObject* object = (*m_objects)[obj_idx];
+            new_object->ai_recommendation.inherit_unknown(object->ai_recommendation);
 
             const Geometry::Transformation& transformation = object->instances[0]->get_transformation();
             // const Vec3d scale     = transformation.get_scaling_factor();
@@ -3329,6 +3330,7 @@ void ObjectList::boolean()
     ModelObject* new_object = model->add_object();
     new_object->name        = object->name;
     new_object->config.assign_config(object->config);
+    new_object->ai_recommendation.inherit_unknown(object->ai_recommendation);
     if (new_object->instances.empty())
         new_object->add_instance();
     ModelVolume* new_volume = new_object->add_volume(mesh);
@@ -8473,10 +8475,6 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         const std::string preview = selected == variants.end() ? std::string() : nozzle_label(*selected);
 
         ImGui::PushID(physical_extruder_id);
-        const ImVec4 combo_background = is_dark ? ImVec4(0.18f, 0.18f, 0.19f, 1.0f)
-                                                 : ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-        const ImVec4 combo_hovered = is_dark ? ImVec4(0.21f, 0.21f, 0.22f, 1.0f)
-                                              : ImVec4(0.97f, 0.98f, 0.98f, 1.0f);
         const ImVec4 combo_border = is_dark ? ImVec4(0.39f, 0.40f, 0.43f, 1.0f)
                                              : ImVec4(0.64f, 0.67f, 0.71f, 1.0f);
         const float vertical_padding = std::max(1.0f, (nozzle_combo_height - ImGui::GetTextLineHeight()) * 0.5f);
@@ -8484,13 +8482,14 @@ void ObjectList::render_printer_preset_by_ImGui(bool folded_view)
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f * scale, vertical_padding));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f * scale);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f * scale);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, combo_background);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, combo_hovered);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, combo_hovered);
+        // Match the printer and bed selectors by showing the sidebar background.
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, transparent);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, transparent);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, transparent);
         ImGui::PushStyleColor(ImGuiCol_Border, combo_border);
-        ImGui::PushStyleColor(ImGuiCol_Button, combo_background);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, combo_hovered);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, combo_hovered);
+        ImGui::PushStyleColor(ImGuiCol_Button, transparent);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, transparent);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, transparent);
         ImGui::PushStyleColor(ImGuiCol_Header, ImGuiWrapper::COL_CREALITY);
         if (should_disable_combo) {
             ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);

@@ -1003,6 +1003,8 @@ void OG_CustomCtrl::OnMotion(wxMouseEvent& event)
                 (opt_idx >= option_set.size() || !option_set[opt_idx].toggle_visible))
                 continue;
             Field* icon_field = field_for_icon(opt_idx);
+            if (icon_field != nullptr && !icon_field->is_enabled())
+                continue;
             if (is_point_in_rect(pos, line.rects_undo_icon[opt_idx])) {
                 if (Slic3r::get_logging_level() >= 5)
                     trace.note("UNDO_HIT", " index=", opt_idx, " field=", icon_field,
@@ -1131,6 +1133,8 @@ void OG_CustomCtrl::OnLeftDown(wxMouseEvent& event)
                 (opt_idx >= option_set.size() || !option_set[opt_idx].toggle_visible))
                 continue;
             Field* icon_field = field_for_icon(opt_idx);
+            if (icon_field != nullptr && !icon_field->is_enabled())
+                continue;
             if (is_point_in_rect(pos, line.rects_undo_icon[opt_idx])) {
                 if (multi_variant != nullptr) {
                     if (icon_field != nullptr)
@@ -1701,7 +1705,7 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
         ensure_rects_size(1);
         rects_undo_icon[0] = wxRect();
         rects_undo_to_sys_icon[0] = wxRect();
-        if (field->undo_to_sys_bitmap() != nullptr && field->undo_bitmap() != nullptr)
+        if (field->is_enabled() && field->undo_to_sys_bitmap() != nullptr && field->undo_bitmap() != nullptr)
             draw_act_bmps(dc, wxPoint(layout.buttons_x, v_pos), field->undo_to_sys_bitmap()->bmp(),
                           field->undo_bitmap()->bmp(), field->blink());
         h_pos = layout.panel_x;
@@ -1736,7 +1740,7 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
     auto draw_buttons = [&h_pos, &dc, &v_pos, this, leading_actions](Field* field, size_t bmp_rect_id = 0) {
         if (leading_actions)
             return;
-        if (field && field->undo_to_sys_bitmap()) {
+        if (field && field->is_enabled() && field->undo_to_sys_bitmap()) {
             h_pos = draw_act_bmps(dc, wxPoint(h_pos, v_pos), field->undo_to_sys_bitmap()->bmp(), field->undo_bitmap()->bmp(), field->blink(), bmp_rect_id).x;
         }
 #ifndef DISABLE_BLINKING

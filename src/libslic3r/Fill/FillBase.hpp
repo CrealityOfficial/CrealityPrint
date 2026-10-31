@@ -66,6 +66,8 @@ struct FillParams
     // Don't connect the fill lines around the inner perimeter.
     bool        dont_connect() const { return anchor_length_max < 0.05f; }
 
+    // Preserve concentric skin offsets from the core towards the visible walls.
+    bool        skin_inside_out = false;
     // Fill density, fraction in <0, 1>
     float       density 		{ 0.f };
     int   multiline{1};

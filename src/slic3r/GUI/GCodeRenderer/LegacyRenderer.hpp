@@ -342,7 +342,7 @@ public:
         ColorRGBA    color;
 
         ~SequentialRangeCap();
-        bool   is_renderable() const { return buffer != nullptr; }
+        bool   is_renderable() const { return buffer != nullptr && vbo != 0 && ibo != 0; }
         void   reset();
         size_t indices_count() const { return 6; }
     };

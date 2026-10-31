@@ -9,6 +9,8 @@
 #include "MainFrame.hpp"
 #include <string>
 namespace Slic3r { namespace GUI {
+
+static constexpr int MAX_PA_PATTERN_COUNT = 21;
     
 wxBoxSizer* create_item_checkbox(wxString title, wxWindow* parent, bool* value, CheckBox*& checkbox)
 {
@@ -357,6 +359,16 @@ void PA_Calibration_Dlg::on_start(wxCommandEvent& event) {
             break;
         default:
             m_params.mode = CalibMode::Calib_PA_Tower;
+    }
+
+    const int pattern_count = static_cast<int>(std::ceil((m_params.end - m_params.start) / m_params.step)) + 1;
+    if (m_params.mode == CalibMode::Calib_PA_Pattern && pattern_count > MAX_PA_PATTERN_COUNT) {
+        MessageDialog msg_dlg(nullptr,
+                              wxString::Format(_L("The V-shape mode supports up to %d patterns. Please reduce the PA range or increase the PA step."),
+                                               MAX_PA_PATTERN_COUNT),
+                              wxEmptyString, wxICON_WARNING | wxOK);
+        msg_dlg.ShowModal();
+        return;
     }
 
     m_params.print_numbers = m_cbPrintNum->GetValue();

@@ -202,6 +202,76 @@ struct SurveyDeviceSnapshot
     bool has_valid_mac = false;
 };
 
+enum class SurveyDeviceSnapshotState
+{
+    MissingRoot,
+    MissingPayload,
+    MissingPrinterList,
+    Ready
+};
+
+struct SurveyDeviceSnapshotReadiness
+{
+    SurveyDeviceSnapshotState state {SurveyDeviceSnapshotState::MissingRoot};
+    std::size_t group_count {0};
+    std::size_t raw_device_count {0};
+};
+
+struct SurveyDeviceDiagnostics
+{
+    std::size_t group_count {0};
+    std::size_t raw_device_count {0};
+    std::size_t invalid_group_count {0};
+    std::size_t invalid_entry_count {0};
+    std::size_t invalid_type_count {0};
+    std::size_t negative_type_count {0};
+    std::size_t invalid_device_count {0};
+    std::size_t missing_identity_count {0};
+    std::size_t accepted_device_count {0};
+    std::size_t unique_device_count {0};
+    std::size_t duplicate_device_count {0};
+    std::size_t missing_model_count {0};
+    std::size_t reported_model_count {0};
+    int connected_count {0};
+};
+
+const char* survey_device_snapshot_state_name(SurveyDeviceSnapshotState state)
+{
+    switch (state) {
+    case SurveyDeviceSnapshotState::MissingRoot: return "missing_root";
+    case SurveyDeviceSnapshotState::MissingPayload: return "missing_payload";
+    case SurveyDeviceSnapshotState::MissingPrinterList: return "missing_printer_list";
+    case SurveyDeviceSnapshotState::Ready: return "ready";
+    }
+    return "unknown";
+}
+
+SurveyDeviceSnapshotReadiness survey_device_snapshot_readiness(const nlohmann::json& data)
+{
+    SurveyDeviceSnapshotReadiness readiness;
+    if (!data.is_object())
+        return readiness;
+
+    if (!data.contains("data") || !data["data"].is_object()) {
+        readiness.state = SurveyDeviceSnapshotState::MissingPayload;
+        return readiness;
+    }
+
+    const auto& payload = data["data"];
+    if (!payload.contains("printerList") || !payload["printerList"].is_array()) {
+        readiness.state = SurveyDeviceSnapshotState::MissingPrinterList;
+        return readiness;
+    }
+
+    readiness.state = SurveyDeviceSnapshotState::Ready;
+    readiness.group_count = payload["printerList"].size();
+    for (const auto& group : payload["printerList"]) {
+        if (group.is_object() && group.contains("list") && group["list"].is_array())
+            readiness.raw_device_count += group["list"].size();
+    }
+    return readiness;
+}
+
 bool is_other_survey_device(const DM::Device& device)
 {
     return device.deviceType != kLocalDeviceType && device.deviceType != kCloudDeviceType;
@@ -229,7 +299,8 @@ std::string survey_device_identity(const nlohmann::json& printer, const DM::Devi
     return address.empty() ? std::string {} : "address:" + address;
 }
 
-std::vector<SurveyDeviceSnapshot> survey_device_page_snapshot(const nlohmann::json& data)
+std::vector<SurveyDeviceSnapshot> survey_device_page_snapshot(const nlohmann::json& data,
+                                                              SurveyDeviceDiagnostics& diagnostics)
 {
     std::vector<SurveyDeviceSnapshot> devices;
     if (!data.is_object() || !data.contains("data") || !data["data"].is_object())
@@ -239,36 +310,51 @@ std::vector<SurveyDeviceSnapshot> survey_device_page_snapshot(const nlohmann::js
     if (!payload.contains("printerList") || !payload["printerList"].is_array())
         return devices;
 
+    diagnostics.group_count = payload["printerList"].size();
     for (const auto& group : payload["printerList"]) {
-        if (!group.is_object() || !group.contains("list") || !group["list"].is_array())
+        if (!group.is_object() || !group.contains("list") || !group["list"].is_array()) {
+            ++diagnostics.invalid_group_count;
             continue;
+        }
 
+        diagnostics.raw_device_count += group["list"].size();
         for (const auto& printer : group["list"]) {
-            if (!printer.is_object())
+            if (!printer.is_object()) {
+                ++diagnostics.invalid_entry_count;
                 continue;
+            }
 
             const auto type_iter = printer.find("deviceType");
-            if (type_iter == printer.end() || !type_iter->is_number_integer())
+            if (type_iter == printer.end() || !type_iter->is_number_integer()) {
+                ++diagnostics.invalid_type_count;
                 continue;
+            }
 
             const int device_type = type_iter->get<int>();
-            if (device_type < 0)
+            if (device_type < 0) {
+                ++diagnostics.negative_type_count;
                 continue;
+            }
 
             nlohmann::json printer_copy = printer;
             DM::Device device = DM::Device::deserialize(printer_copy, false);
-            if (!device.valid)
+            if (!device.valid) {
+                ++diagnostics.invalid_device_count;
                 continue;
+            }
 
             const std::string identity = survey_device_identity(printer, device);
-            if (identity.empty())
+            if (identity.empty()) {
+                ++diagnostics.missing_identity_count;
                 continue;
+            }
 
             SurveyDeviceSnapshot snapshot;
             snapshot.identity = identity;
             snapshot.has_valid_mac = !normalized_mac(device.mac).empty();
             snapshot.device = std::move(device);
             devices.push_back(std::move(snapshot));
+            ++diagnostics.accepted_device_count;
         }
     }
     return devices;
@@ -305,7 +391,8 @@ void merge_survey_device(DM::Device& target, const DM::Device& source)
 }
 
 std::map<std::string, DM::Device> deduplicate_survey_devices(const std::vector<SurveyDeviceSnapshot>& devices,
-                                                            int& undeduplicated_other_count)
+                                                            int& undeduplicated_other_count,
+                                                            SurveyDeviceDiagnostics& diagnostics)
 {
     std::map<std::string, DM::Device> unique_devices;
     undeduplicated_other_count = 0;
@@ -318,9 +405,13 @@ std::map<std::string, DM::Device> deduplicate_survey_devices(const std::vector<S
         }
 
         const auto [iter, inserted] = unique_devices.emplace(snapshot.identity, snapshot.device);
-        if (!inserted)
+        if (!inserted) {
+            ++diagnostics.duplicate_device_count;
             merge_survey_device(iter->second, snapshot.device);
+        }
     }
+    diagnostics.unique_device_count = unique_devices.size() +
+                                      static_cast<std::size_t>(undeduplicated_other_count);
     return unique_devices;
 }
 
@@ -334,7 +425,8 @@ struct SurveyPrinterSummary
 };
 
 SurveyPrinterSummary summarize_survey_printers(const std::map<std::string, DM::Device>& unique_devices,
-                                               int      undeduplicated_other_count)
+                                               int      undeduplicated_other_count,
+                                               SurveyDeviceDiagnostics& diagnostics)
 {
     SurveyPrinterSummary summary;
     summary.other_count = undeduplicated_other_count;
@@ -349,21 +441,25 @@ SurveyPrinterSummary summarize_survey_printers(const std::map<std::string, DM::D
         }
 
         const std::string model_name = device.modelName.empty() ? device.model : device.modelName;
-        if (model_name.empty())
+        if (model_name.empty()) {
+            ++diagnostics.missing_model_count;
             continue;
+        }
         ++summary.creality_models[{device.model, model_name}];
     }
     return summary;
 }
 
-nlohmann::json connected_creality_printers()
+nlohmann::json connected_creality_printers(const nlohmann::json& data,
+                                            SurveyDeviceDiagnostics& diagnostics)
 {
     std::map<std::string, DM::Device> unique_devices;
     int undeduplicated_other_count = 0;
     try {
-        const nlohmann::json data = DM::DataCenter::Ins().GetData();
-        unique_devices = deduplicate_survey_devices(survey_device_page_snapshot(data),
-                                                    undeduplicated_other_count);
+        unique_devices = deduplicate_survey_devices(
+            survey_device_page_snapshot(data, diagnostics),
+            undeduplicated_other_count,
+            diagnostics);
     } catch (const std::exception& exception) {
         BOOST_LOG_TRIVIAL(warning)
             << "[SatisfactionSurvey] failed to snapshot device-page printer models: "
@@ -371,7 +467,7 @@ nlohmann::json connected_creality_printers()
     }
 
     const SurveyPrinterSummary summary =
-        summarize_survey_printers(unique_devices, undeduplicated_other_count);
+        summarize_survey_printers(unique_devices, undeduplicated_other_count, diagnostics);
 
     nlohmann::json result = {
         {"collection_scope", "creality_only"},
@@ -404,14 +500,19 @@ nlohmann::json connected_creality_printers()
             {"quantity", quantity}
         });
         connected_count += quantity;
+        ++model_count;
     }
     result["connected_count"] = connected_count;
+    diagnostics.reported_model_count = model_count;
+    diagnostics.connected_count = connected_count;
     return result;
 }
 
 nlohmann::json survey_shown_context(const AppConfig& app_config,
                                     const std::string& full_version,
-                                    const std::string& channel)
+                                    const std::string& channel,
+                                    const nlohmann::json& device_data,
+                                    SurveyDeviceDiagnostics& device_diagnostics)
 {
     const std::string locale = app_config.get("language").empty()
         ? std::string("en_GB")
@@ -435,7 +536,7 @@ nlohmann::json survey_shown_context(const AppConfig& app_config,
             {"region", app_config.get("region")}
         }},
         {"user", std::move(user_context)},
-        {"devices", connected_creality_printers()}
+        {"devices", connected_creality_printers(device_data, device_diagnostics)}
     };
 }
 
@@ -1288,6 +1389,14 @@ private:
 
         const auto now = std::chrono::steady_clock::now();
         if (now >= m_deadline) {
+            if (m_device_snapshot_wait_logged && !m_device_snapshot_ready_logged) {
+                const auto wait_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - m_post_init_time).count();
+                BOOST_LOG_TRIVIAL(warning)
+                    << "[SatisfactionSurvey] device_snapshot gate=timeout"
+                    << " wait_ms=" << wait_ms
+                    << " state=" << survey_device_snapshot_state_name(m_last_device_snapshot_state);
+            }
             finish_without_showing("startup display window expired");
             return;
         }
@@ -1341,6 +1450,33 @@ private:
             return;
         }
 
+        const nlohmann::json device_data = DM::DataCenter::Ins().GetData();
+        const SurveyDeviceSnapshotReadiness snapshot_readiness =
+            survey_device_snapshot_readiness(device_data);
+        m_last_device_snapshot_state = snapshot_readiness.state;
+        const auto snapshot_wait_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - m_post_init_time).count();
+        if (snapshot_readiness.state != SurveyDeviceSnapshotState::Ready) {
+            if (!m_device_snapshot_wait_logged) {
+                m_device_snapshot_wait_logged = true;
+                BOOST_LOG_TRIVIAL(warning)
+                    << "[SatisfactionSurvey] device_snapshot gate=waiting"
+                    << " wait_ms=" << snapshot_wait_ms
+                    << " state=" << survey_device_snapshot_state_name(snapshot_readiness.state);
+            }
+            debug_startup_gate("waiting_device_snapshot");
+            m_quiet_since = {};
+            return;
+        }
+        if (!m_device_snapshot_ready_logged) {
+            m_device_snapshot_ready_logged = true;
+            BOOST_LOG_TRIVIAL(warning)
+                << "[SatisfactionSurvey] device_snapshot gate=ready"
+                << " wait_ms=" << snapshot_wait_ms
+                << " groups=" << snapshot_readiness.group_count
+                << " raw_devices=" << snapshot_readiness.raw_device_count;
+        }
+
         if (m_quiet_since.time_since_epoch().count() == 0) {
             debug_startup_gate("quiet_window_started");
             m_quiet_since = now;
@@ -1350,7 +1486,7 @@ private:
             return;
 
         debug_startup_gate("ready_to_show");
-        show_survey();
+        show_survey(device_data);
     }
 
     bool can_show_now() const
@@ -1359,18 +1495,39 @@ private:
                wxGetApp().can_show_satisfaction_survey();
     }
 
-    void show_survey()
+    void show_survey(const nlohmann::json& device_data)
     {
         if (m_dialog == nullptr || !m_dialog->page_ready() || m_startup_window_closed)
             return;
 
+        SurveyDeviceDiagnostics device_diagnostics;
         const std::string shown_context =
-            survey_shown_context(m_app_config, m_full_version, m_channel)
+            survey_shown_context(
+                m_app_config, m_full_version, m_channel, device_data, device_diagnostics)
                 .dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
         if (!m_dialog->set_shown_context(shown_context)) {
+            BOOST_LOG_TRIVIAL(warning)
+                << "[SatisfactionSurvey] device_snapshot context=unavailable"
+                << " connected_count=" << device_diagnostics.connected_count;
             finish_without_showing("survey display context was unavailable");
             return;
         }
+        BOOST_LOG_TRIVIAL(warning)
+            << "[SatisfactionSurvey] device_snapshot context=queued"
+            << " groups=" << device_diagnostics.group_count
+            << " raw_devices=" << device_diagnostics.raw_device_count
+            << " invalid_groups=" << device_diagnostics.invalid_group_count
+            << " invalid_entries=" << device_diagnostics.invalid_entry_count
+            << " invalid_types=" << device_diagnostics.invalid_type_count
+            << " negative_types=" << device_diagnostics.negative_type_count
+            << " invalid_devices=" << device_diagnostics.invalid_device_count
+            << " missing_identity=" << device_diagnostics.missing_identity_count
+            << " accepted_devices=" << device_diagnostics.accepted_device_count
+            << " unique_devices=" << device_diagnostics.unique_device_count
+            << " duplicate_devices=" << device_diagnostics.duplicate_device_count
+            << " missing_model=" << device_diagnostics.missing_model_count
+            << " reported_models=" << device_diagnostics.reported_model_count
+            << " connected_count=" << device_diagnostics.connected_count;
 
         const std::string old_consumed = m_app_config.get(m_state_section, "consumed");
         const std::string old_consumed_at =
@@ -1495,8 +1652,11 @@ private:
     bool m_user_activity_during_startup {false};
     bool m_page_ready {false};
     bool m_shutting_down {false};
+    bool m_device_snapshot_wait_logged {false};
+    bool m_device_snapshot_ready_logged {false};
 
     RemoteState m_remote_state {RemoteState::Unknown};
+    SurveyDeviceSnapshotState m_last_device_snapshot_state {SurveyDeviceSnapshotState::MissingRoot};
 #ifdef SATISFACTION_SURVEY_LOCAL_DEBUG
     std::string m_last_debug_startup_gate;
 #endif

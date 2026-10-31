@@ -1,6 +1,9 @@
 #ifndef slic3r_ThumbnailData_hpp_
 #define slic3r_ThumbnailData_hpp_
 
+#include <array>
+#include <functional>
+#include <string>
 #include <vector>
 #include "libslic3r/Point.hpp"
 #include "nlohmann/json.hpp"
@@ -30,6 +33,16 @@ struct ThumbnailData
 //BBS: add plate id into thumbnail render logic
 using ThumbnailsList = std::vector<ThumbnailData>;
 
+struct PlateObjectBitmapInstance
+{
+    size_t                 labeled_id { 0 };
+    size_t                 loaded_id { 0 };
+    int                    object_index { -1 };
+    int                    instance_index { -1 };
+    std::string            object_name;
+    std::array<double, 16> transformation {};
+};
+
 struct ThumbnailsParams
 {
 	const Vec2ds 	sizes;
@@ -38,9 +51,28 @@ struct ThumbnailsParams
 	bool 			show_bed;
 	bool 			transparent_background;
     int             plate_id;
+    std::vector<PlateObjectBitmapInstance> plate_object_instances;
 };
 
 typedef std::function<ThumbnailsList(const ThumbnailsParams&)> ThumbnailsGeneratorCallback;
+struct PlateObjectBitmapParams
+{
+    unsigned int width { 300 };
+    unsigned int height { 300 };
+    int          plate_id { 0 };
+    std::vector<PlateObjectBitmapInstance> instances;
+};
+
+struct PlateObjectBitmapData
+{
+    ThumbnailData top;
+    ThumbnailData pick;
+
+    bool is_valid() const { return top.is_valid() && pick.is_valid(); }
+};
+
+using PlateObjectBitmapGeneratorCallback = std::function<PlateObjectBitmapData(const PlateObjectBitmapParams&)>;
+
 
 struct BBoxData
 {

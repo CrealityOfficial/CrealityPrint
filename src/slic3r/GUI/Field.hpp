@@ -240,6 +240,7 @@ public:
 
 	/// Fires the enable or disable function, based on the input.
     void			toggle(bool en);
+    bool            is_enabled();
 
 	virtual wxString	get_tooltip_text(const wxString& default_string);
 

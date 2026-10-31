@@ -773,15 +773,8 @@ public:
 
             auto binbb = sl::boundingBox(m_bin);
 
-            auto starting_point = cfg.starting_point == PConfig::Alignment::BOTTOM_LEFT ? binbb.minCorner() : binbb.center();
-            // if we have wipe tower, items should be arranged around wipe tower
-            for (Item itm : items) {
-                if (itm.is_wipe_tower) {
-                    starting_point = itm.boundingBox().center();
-                    BOOST_LOG_TRIVIAL(debug) << "arrange we have wipe tower, change starting point to: " << starting_point;
-                    break;
-                }
-            }
+            auto starting_point = cfg.starting_point == PConfig::Alignment::BOTTOM_LEFT ? binbb.minCorner() :
+                cfg.starting_point == PConfig::Alignment::TOP_RIGHT ? binbb.maxCorner() : binbb.center();
 
             cfg.object_function = [this, binbb, starting_point](const Item &item, const ItemGroup &packed_items) {
                 return fixed_overfit(objfunc(item, starting_point), binbb);

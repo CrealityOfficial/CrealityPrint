@@ -2,6 +2,7 @@
 #include <future>
 #include <thread>
 #include <chrono>
+#include <wx/datetime.h>
 #include <string>
 #include <cstring>
 #include <fstream>
@@ -29,13 +30,17 @@
 #include "slic3r/GUI/print_manage/data/DataType.hpp"
 #include "slic3r/GUI/print_manage/data/DataCenter.hpp"
 #include "slic3r/GUI/print_manage/AccountDeviceMgr.hpp"
+#include "slic3r/GUI/print_manage/PrinterMgr.hpp"
+#include <cctype>
 #include "CrProject.hpp"
 #include "libslic3r/Platform.hpp"
 #include "slic3r/GUI/SystemId/SystemId.hpp"
 #include "slic3r/Utils/Http.hpp"
+#include "slic3r/Utils/GCodeTaskId.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include <boost/filesystem.hpp>
+#include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/nowide/fstream.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -498,6 +503,9 @@ void AnalyticsDataUploadManager::processUploadData(AnalyticsDataEventType dataEv
     case AnalyticsDataEventType::ANALYTICS_SOFTWARE_CLOSE:
         uploadSoftwareCloseData();
         break;
+    case AnalyticsDataEventType::ANALYTICS_PRINTER_BINDING_SNAPSHOT:
+        uploadPrinterBindingSnapshot();
+        break;
     case AnalyticsDataEventType::ANALYTICS_DEVICE_INFO:
         uploadDeviceInfoData();
         break;
@@ -901,6 +909,129 @@ void AnalyticsDataUploadManager::uploadSoftwareCloseData()
     track_model_action("software_close", js);
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " end";
     boost::log::core::get()->flush();
+}
+
+// Read the same initialized native device data as the existing device_info event.
+// The saved list identifies added LAN devices; DataCenter supplies cloud bindings and display models.
+static nlohmann::json collect_binding_printers(const nlohmann::json& saved, const nlohmann::json& state)
+{
+    using nlohmann::json;
+    if (!saved.is_object() || !state.contains("data") || !state["data"].is_object() ||
+        !state["data"].contains("printerList") || !state["data"]["printerList"].is_array())
+        return nullptr;
+    const auto text = [](const json& item, const char* key) -> std::string {
+        return item.contains(key) && item[key].is_string() ? item[key].get<std::string>() : std::string();
+    };
+    const auto mac_key = [](const std::string& value) {
+        std::string result;
+        for (unsigned char ch : value) {
+            if (ch == ':' || ch == '-' || ch == '.' || std::isspace(ch)) continue;
+            if (!std::isxdigit(ch)) return std::string();
+            result += static_cast<char>(std::toupper(ch));
+        }
+        if (result.size() != 12 || result == "000000000000" || result == "FFFFFFFFFFFF") return std::string();
+        return result;
+    };
+    const auto model_name = [](std::string name) {
+        boost::algorithm::trim(name);
+        if (name == "CR-K1") return std::string("K1");
+        if (name == "CR-K1 Max" || name == "K1Max") return std::string("K1 Max");
+        return name;
+    };
+    std::map<std::string, std::string> models;
+    const auto& groups = state["data"]["printerList"];
+    for (const auto& group : groups) {
+        if (!group.contains("list") || !group["list"].is_array()) return nullptr;
+        for (const auto& item : group["list"]) {
+            const auto mac = mac_key(text(item, "mac"));
+            const auto model = model_name(text(item, "modelName").empty() ? text(item, "model") : text(item, "modelName"));
+            if (!mac.empty() && !model.empty()) models[mac] = model;
+        }
+    }
+    std::map<std::string, json> machines;
+    const auto add = [&](const json& item, const char* network) {
+        const auto mac = mac_key(text(item, "mac"));
+        const auto model = models.count(mac) ? models.at(mac) : model_name(text(item, "model"));
+        if (mac.empty() || model.empty()) return;
+        auto found = machines.find(mac);
+        if (found == machines.end()) machines[mac] = {{"mac", mac}, {"printer", model}, {"network", network}};
+        else if (found->second["network"] != network) found->second["network"] = "both";
+    };
+    if (saved.contains("groups")) {
+        if (!saved["groups"].is_array()) return nullptr;
+        for (const auto& group : saved["groups"]) {
+            if (!group.contains("list") || !group["list"].is_array()) return nullptr;
+            for (const auto& item : group["list"]) {
+                const int type = item.value("connectType", -1);
+                if (type == 3 || type == 4 || type == 1001) add(item, "lan");
+            }
+        }
+    }
+    for (const auto& group : groups) {
+        for (const auto& item : group["list"]) {
+            if (item.value("deviceType", -1) == 1)
+                add(item, "wan");
+        }
+    }
+    json printers = json::array();
+    for (const auto& machine : machines) printers.push_back(machine.second);
+    return printers;
+}
+
+void AnalyticsDataUploadManager::uploadPrinterBindingSnapshot()
+{
+    auto& app = wxGetApp();
+    if (m_binding_snapshot_collected || !app.mainframe || !app.is_privacy_checked()) return;
+    const auto state = DM::DataCenter::Ins().GetData();
+    const auto account = app.is_login() ? app.get_user().userId : std::string();
+    const auto region = app.app_config->get("region");
+    if (!state.contains("data") || !state["data"].is_object() ||
+        !state["data"].value("deviceListInitialized", false) ||
+        state["data"].value("deviceListAccount", "") != account ||
+        state["data"].value("deviceListRegion", "") != region) return;
+    const auto printers = collect_binding_printers(DM::DeviceMgr::Ins().GetData(), state);
+    if (printers.is_null()) return;
+    const auto device_id = SystemId::get_system_id();
+    if (device_id.empty() || region.empty()) return;
+    m_binding_snapshot_collected = true;
+    if (printers.empty()) return;
+    const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    try {
+        const auto day_number = (now_ms / 1000 + 8 * 3600) / (24 * 3600);
+        const auto day = boost::gregorian::to_iso_extended_string(
+            boost::gregorian::date(1970, 1, 1) + boost::gregorian::days(day_number));
+        const auto parent = boost::filesystem::path(data_dir()) / "cache" / "printer_binding" / device_id / "prod";
+        boost::filesystem::create_directories(parent);
+        // Keep an existing numeric marker effective when upgrading during the same day.
+        if (boost::filesystem::exists(parent / std::to_string(day_number))) return;
+        if (!boost::filesystem::create_directory(parent / day)) return;
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(warning) << "Printer binding daily marker: " << e.what();
+        return;
+    }
+    const auto event_time = wxDateTime(static_cast<time_t>(now_ms / 1000))
+        .Format("%Y-%m-%d %H:%M:%S", wxDateTime::GMT8).ToStdString();
+    const auto uuid = generate_uuid();
+    nlohmann::json common = {{"type_code", "slice830"}, {"event_name", "print_bind_snapshot"},
+        {"uuid", uuid}, {"event_time", event_time}, {"device_id", device_id}, {"user_account_id", account},
+        {"region", region == "China" ? "cn" : "overseas"}};
+    auto timer = new wxTimer();
+    timer->Bind(wxEVT_TIMER, [this, timer, printers, common, index = size_t{0}](wxTimerEvent&) mutable {
+        if (!wxGetApp().mainframe || !wxGetApp().is_privacy_checked()) {
+            timer->Stop();
+            delete timer;
+            return;
+        }
+        auto row = common;
+        row.update(printers[index++]);
+        track_model_action("print_bind_snapshot", row);
+        if (index == printers.size()) {
+            timer->Stop();
+            delete timer;
+        }
+    });
+    timer->Start(200);
 }
 
 void AnalyticsDataUploadManager::uploadDeviceInfoData()
@@ -1916,7 +2047,7 @@ std::string AnalyticsDataUploadManager::ProjectModificationTracker::generate_tas
     return std::string(buf);
 }
 
-// Replace task_id_pending placeholder in gcode file, renaming field to creality_task_id (in-place overwrite, no file content shift)
+// Replace the placeholder or refresh an existing task ID without shifting G-code offsets.
 // Layout: "; creality_task_id_pending:73B_placeholder\n" (101B) → "; creality_task_id:81B_real_task_id\n" (101B)
 bool AnalyticsDataUploadManager::ProjectModificationTracker::replace_task_id_placeholder_in_gcode(
     const std::string& gcode_path, const std::string& task_id)
@@ -1936,52 +2067,13 @@ bool AnalyticsDataUploadManager::ProjectModificationTracker::replace_task_id_pla
         return false;
     }
     
-    // Read first 4KB (header block should be within this range)
-    const size_t buffer_size = 4096;
-    std::string buffer(buffer_size, '\0');
-    file.read(&buffer[0], buffer_size);
-    size_t bytes_read = file.gcount();
-    buffer.resize(bytes_read);
-    
-    const std::string marker = "; creality_task_id_pending: ";
-    size_t marker_pos = buffer.find(marker);
-    if (marker_pos == std::string::npos) {
-        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] Placeholder marker not found in: " << gcode_path;
-        file.close();
-        return false;
-    }
-    
-    const size_t value_len = 81;
-    
-    // Clear eofbit to ensure seekp works even when file is smaller than buffer_size
-    file.clear();
-    
-    // Seek to start of marker (replace entire line, not just value)
-    file.seekp(static_cast<std::streamoff>(marker_pos));
-    if (!file) {
-        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] seekp failed in: " << gcode_path;
-        file.close();
-        return false;
-    }
-    
-    std::string task_id_padded = task_id;
-    if (task_id_padded.length() < value_len) {
-        task_id_padded.append(value_len - task_id_padded.length(), ' ');
-    } else if (task_id_padded.length() > value_len) {
-        task_id_padded = task_id_padded.substr(0, value_len);
-    }
-    std::string new_line = "; creality_task_id: ";
-    new_line += task_id_padded;
-    new_line += "\n";
-    // Use str.length() instead of hardcoded constant to avoid missed updates when field name or value changes
-    file.write(new_line.c_str(), new_line.length());
-    if (!file) {
-        BOOST_LOG_TRIVIAL(warning) << "[TaskIdReplace] write failed in: " << gcode_path;
-        file.close();
+    if (!Slic3r::update_gcode_task_id(file, task_id)) {
+        BOOST_LOG_TRIVIAL(warning)
+            << "[TaskIdReplace] Missing/undersized task ID header or write failure in: " << gcode_path;
         return false;
     }
     file.close();
-    return true;
+    return !file.fail();
 }
 
 // 【新增】按盘索引存储 task_id（导出时写入，发送时复用）
@@ -2402,6 +2494,7 @@ const AnalyticsDataUploadManager::ProjectModificationTracker::ParamDef
     {"prime_tower_enhance_type", "prime_tower_enhance_type", ParamType::Enum},
     {"wipe_tower_extra_flow", "wipe_tower_extra_flow", ParamType::Percent},
     {"wipe_tower_no_sparse_layers", "wipe_tower_no_sparse_layers", ParamType::Bool},
+    {"wipe_tower_extra_interlayer_wipe_layers", "wipe_tower_extra_interlayer_wipe_layers", ParamType::Int},
     // 裙边/Brim
     {"skirt_type", "skirt_type", ParamType::Enum},
     {"min_skirt_length", "min_skirt_length", ParamType::Float},

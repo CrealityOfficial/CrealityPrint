@@ -25,12 +25,7 @@
     "default_filament_colour": "\"\"",
     "during_print_exhaust_fan_speed": "60",
     "enable_overhang_bridge_fan": "1",
-    "enable_pressure_advance": [
-        "0",
-        "0",
-        "0",
-        "0"
-    ],
+    "enable_pressure_advance": "1",
     "enable_special_area_additional_cooling_fan": "0",
     "eng_plate_temp": "35",
     "eng_plate_temp_initial_layer": "35",
@@ -99,12 +94,6 @@
         "100%",
         "100%"
     ],
-    "filament_retract_length_toolchange": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
-    ],
     "filament_retract_lift_above": [
         "0",
         "0",
@@ -128,12 +117,6 @@
         "0",
         "0",
         "0"
-    ],
-    "filament_retract_restart_extra_toolchange": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
     ],
     "filament_retract_when_changing_layer": [
         "0",
@@ -210,7 +193,7 @@
     "full_fan_speed_layer": "0",
     "hot_plate_temp": "40",
     "hot_plate_temp_initial_layer": "40",
-    "idle_temperature": "140",
+    "idle_temperature": "0",
     "material_flow_dependent_temperature": "0",
     "material_flow_temp_graph": "[[3.0,210],[10.0,220],[12.0,230]]",
     "nozzle_temperature": [
@@ -225,17 +208,12 @@
         "230",
         "230"
     ],
-    "nozzle_temperature_range_high": "220",
+    "nozzle_temperature_range_high": "250",
     "nozzle_temperature_range_low": "200",
     "overhang_fan_speed": "100",
     "overhang_fan_threshold": "95%",
     "pellet_flow_coefficient": "0.4157",
-    "pressure_advance": [
-        "0.4",
-        "0.4",
-        "0.4",
-        "0.4"
-    ],
+    "pressure_advance": "0.4",
     "reduce_fan_stop_start_freq": "1",
     "required_nozzle_HRC": "0",
     "slow_down_for_layer_cooling": "1",

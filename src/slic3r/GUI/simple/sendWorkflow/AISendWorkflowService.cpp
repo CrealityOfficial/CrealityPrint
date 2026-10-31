@@ -3,6 +3,7 @@
 #include "AIProcessPresetIntentResolver.hpp"
 #include "AIProcessSwitchService.hpp"
 #include "EasyPrintSender.hpp"
+#include "../../AnalyticsDataUploadManager.hpp"
 #include "../../GLCanvas3D.hpp"
 #include "../../GUI_App.hpp"
 #include "../filamentMapping/ImGuiFilamentPanel.hpp"
@@ -2218,6 +2219,36 @@ bool AISendWorkflowService::start_send_internal(const std::string& card_id, bool
                 } else if (!can_send_locked(session, message)) {
                     error_envelope = build_error_envelope_locked(session, "SEND_NOT_AVAILABLE", message);
                 } else {
+                    session.gcode_task_id.clear();
+                    session.recommendation_metrics = {};
+                    session.recommendation_metrics.unknown = true;
+                    // LAN and cloud upload the same file. Refresh its task ID before
+                    // either transport reads it, including when resending without slicing.
+                    auto* plater = wxGetApp().plater();
+                    const int plate_index = resolve_selected_plate_index_locked(session);
+                    if (plater && plate_index >= 0) {
+                        if (auto* plate = plater->get_partplate_list().get_plate(plate_index))
+                            session.recommendation_metrics = plate->ai_recommendation_metrics_for_file(file_path);
+                        plater->get_preview_canvas3D()->get_gcode_viewer().release_gcode_file_mapping();
+                        auto& tracker = AnalyticsDataUploadManager::ProjectModificationTracker::getInstance();
+                        const std::string task_id = tracker.generate_task_id(plate_index + 1);
+                        if (tracker.replace_task_id_placeholder_in_gcode(file_path, task_id)) {
+                            session.gcode_task_id = task_id;
+                            // Rewriting only TaskId keeps the file's parameter snapshot valid.
+                            if (auto* plate = plater->get_partplate_list().get_plate(plate_index))
+                                plate->bind_ai_recommendation_file(session.recommendation_metrics, file_path);
+                            tracker.set_plate_task_id(plate_index, task_id);
+                            tracker.set_current_task_id(task_id);
+                            log_ai_send_stage("task_id_updated", card_id, request_id, "task_id=" + task_id);
+                        } else {
+                            // Imported/non-reportable G-code may have no reserved header.
+                            // Preserve sending support, but never cache an ID absent from the file.
+                            tracker.clear_plate_task_id(plate_index);
+                            tracker.set_current_task_id({});
+                            log_ai_send_stage("task_id_update_skipped", card_id, request_id,
+                                              "file_path=" + file_path);
+                        }
+                    }
                     session.sender = std::make_shared<EasyPrintSender>();
                     session.in_progress = true;
                     session.waiting_user_action = false;
@@ -3140,6 +3171,17 @@ json AISendWorkflowService::build_result_envelope_locked(
     session.status = result_type;
     session.status_text = message;
 
+    json result_details = details;
+    const auto& metrics = session.recommendation_metrics;
+    const bool metrics_valid = result_type == "print_started" && metrics.valid();
+    result_details["recommend_id"] = metrics.recommend_id.empty() ? json(nullptr) : json(metrics.recommend_id);
+    result_details["total_count"] = metrics_valid ? json(metrics.total_count) : json(nullptr);
+    result_details["matched_count"] = metrics_valid ? json(metrics.matched_count) : json(nullptr);
+    result_details["recommend_metrics_status"] = metrics.status();
+    result_details["error_code"] = result_type == "print_started" ? "OK" : result_type == "canceled" ? "Cancel" : result_type;
+    if (!session.gcode_task_id.empty())
+        result_details["gcode_task_id"] = session.gcode_task_id;
+
     const json envelope = {
         {"version", "1.0"},
         {"request_id", session.request_id},
@@ -3147,11 +3189,11 @@ json AISendWorkflowService::build_result_envelope_locked(
         {"timestamp_ms", current_timestamp_ms()},
         {"result_type", result_type},
         {"message", message},
-        {"details", details},
+        {"details", result_details},
         {"data", {
             {"result_type", result_type},
             {"message", message},
-            {"details", details}
+            {"details", result_details}
         }}
     };
 

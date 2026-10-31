@@ -1,4 +1,5 @@
 #include "slic3r/GUI/GCodeRenderer/LegacyRenderer.hpp"
+#include "PreviewLayerRange.hpp"
 
 #include "libslic3r/ExtrusionEntity.hpp"
 
@@ -491,10 +492,10 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
         }
     };
     //BBS: modify a lot to support arc travel
-    auto add_indices_as_line = [](const GCodeProcessorResult::MoveVertex& prev, const GCodeProcessorResult::MoveVertex& curr, TBuffer& buffer,
+    auto add_indices_as_line = [this](const GCodeProcessorResult::MoveVertex& prev, const GCodeProcessorResult::MoveVertex& curr, TBuffer& buffer,
         size_t& vbuffer_size, unsigned int ibuffer_id, IndexBuffer& indices, size_t move_id) {
 
-            if (buffer.paths.empty() || prev.type != curr.type || !buffer.paths.back().matches(curr)) {
+            if (buffer.paths.empty() || preview_move_type(prev, m_is_lite_mode) != curr.type || !buffer.paths.back().matches(curr)) {
                 buffer.add_path(curr, ibuffer_id, indices.size(), move_id - 1);
                 buffer.paths.back().sub_paths.front().first.position = prev.position;
             }
@@ -539,7 +540,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
             
         };
 
-        if (buffer.paths.empty() || prev.type != curr.type || !buffer.paths.back().matches(curr)) {
+        if (buffer.paths.empty() || preview_move_type(prev, m_is_lite_mode) != curr.type || !buffer.paths.back().matches(curr)) {
             buffer.add_path(curr, vbuffer_id, vertices.size(), move_id - 1);
             buffer.paths.back().sub_paths.back().first.position = prev.position;
         }
@@ -643,7 +644,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
                 store_triangle(indices, v_offsets[4], v_offsets[5], v_offsets[6]);
             };
 
-            if (buffer.paths.empty() || prev.type != curr.type || !buffer.paths.back().matches(curr)) {
+            if (buffer.paths.empty() || preview_move_type(prev, m_is_lite_mode) != curr.type || !buffer.paths.back().matches(curr)) {
                 buffer.add_path(curr, ibuffer_id, indices.size(), move_id - 1);
                 buffer.paths.back().sub_paths.back().first.position = prev.position;
             }
@@ -730,7 +731,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
                 sq_prev_length = sq_length;
             }
 
-            if (next != nullptr && (curr.type != next->type || !last_path.matches(*next)))
+            if (next != nullptr && (curr.type != preview_move_type(*next, m_is_lite_mode) || !last_path.matches(*next)))
                 // ending cap triangles
                 append_ending_cap_triangles(indices, (is_first_segment && !curr.is_arc_move_with_interpolation_points()) ? first_seg_v_offsets : non_first_seg_v_offsets);
 
@@ -967,7 +968,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
         if (i == 0)
             continue;
 
-        if (is_lite_mode && !(curr.type == EMoveType::Extrude || curr.type == EMoveType::Seam || curr.type == EMoveType::Unretract || curr.type == EMoveType::Pause_Print))
+        if (is_lite_mode && !(preview_move_type(curr, true) == EMoveType::Extrude || curr.type == EMoveType::Seam || curr.type == EMoveType::Unretract || curr.type == EMoveType::Pause_Print))
             continue;
 
         const GCodeProcessorResult::MoveVertex& prev = gcode_result.moves[i - 1];
@@ -1074,7 +1075,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
             v_multibuffer.push_back(VertexBuffer(enable_mem_compress));
             if (t_buffer.render_primitive_type == TBuffer::ERenderPrimitiveType::Triangle) {
                 Path& last_path = t_buffer.paths.back();
-                if (prev.type == curr.type && last_path.matches(curr))
+                if (preview_move_type(prev, m_is_lite_mode) == curr.type && last_path.matches(curr))
                     last_path.add_sub_path(prev, static_cast<unsigned int>(v_multibuffer.size()) - 1, 0, move_id - 1);
             }
         }
@@ -1492,7 +1493,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
         if (i == 0)
             continue;
 
-        if (is_lite_mode && !(curr.type == EMoveType::Extrude || curr.type == EMoveType::Seam || curr.type == EMoveType::Unretract || curr.type == EMoveType::Pause_Print))
+        if (is_lite_mode && !(preview_move_type(curr, true) == EMoveType::Extrude || curr.type == EMoveType::Seam || curr.type == EMoveType::Unretract || curr.type == EMoveType::Pause_Print))
             continue;
 
         const GCodeProcessorResult::MoveVertex& prev = gcode_result.moves[i - 1];
@@ -1548,7 +1549,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
             //}
             if (t_buffer.render_primitive_type == TBuffer::ERenderPrimitiveType::Triangle) {
                 Path& last_path = t_buffer.paths.back();
-                if (prev.type == curr.type && last_path.matches(curr))
+                if (preview_move_type(prev, m_is_lite_mode) == curr.type && last_path.matches(curr))
                     last_path.add_sub_path(prev, static_cast<unsigned int>(i_multibuffer.size()) - 1, 0, move_id - 1);
             }
         }
@@ -1576,7 +1577,7 @@ bool LegacyRenderer::load_toolpaths(const GCodeProcessorResult& gcode_result, co
             //}
             if (t_buffer.render_primitive_type == TBuffer::ERenderPrimitiveType::Triangle) {
                 Path& last_path = t_buffer.paths.back();
-                if (prev.type == curr.type && last_path.matches(curr))
+                if (preview_move_type(prev, m_is_lite_mode) == curr.type && last_path.matches(curr))
                     last_path.add_sub_path(prev, static_cast<unsigned int>(i_multibuffer.size()) - 1, 0, move_id - 1);
             }
         }
@@ -2737,6 +2738,11 @@ void LegacyRenderer::reset()
     m_statistics.reset_all();
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
 
+    // Caps borrow the toolpath VBOs. Invalidate them before deleting those VBOs:
+    // load() may yield and render again before refresh_render_paths() rebuilds them.
+    for (SequentialRangeCap& cap : m_sequential_range_caps)
+        cap.reset();
+
 	m_moves_count = 0;
     m_ssid_arc_extra_segments.clear();
     m_ssid_arc_extra_segments.shrink_to_fit();
@@ -2782,7 +2788,9 @@ void LegacyRenderer::render(int canvas_width, int canvas_height)
         }
     }
 
-    if (empty_roles)
+    // Loading may yield to the UI with partially populated toolpath data.
+    // Shells can render independently, but paths, markers and sliders cannot.
+    if (empty_roles || !is_gcode_result_valid())
         return;
 
     if ((!m_no_render_path) && (!is_capture_mode)) {
@@ -3428,9 +3436,15 @@ void LegacyRenderer::update_sequential_view_current(unsigned int first, unsigned
 
 void LegacyRenderer::set_layers_z_range(const std::array<unsigned int, 2>& layers_z_range) 
 {
-    bool keep_sequential_current_first = layers_z_range[0] >= m_layers_z_range[0];
-    bool keep_sequential_current_last  = layers_z_range[1] <= m_layers_z_range[1];
-    m_layers_z_range                   = layers_z_range;
+    const auto range = clamp_preview_layer_range(layers_z_range, m_layers.size());
+    if (!range) {
+        m_layers_z_range = {0, 0};
+        return;
+    }
+
+    bool keep_sequential_current_first = (*range)[0] >= m_layers_z_range[0];
+    bool keep_sequential_current_last  = (*range)[1] <= m_layers_z_range[1];
+    m_layers_z_range                   = *range;
     refresh_render_paths(keep_sequential_current_first, keep_sequential_current_last);
     update_moves_slider(true);
 }

@@ -6,7 +6,10 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <functional>
+#include <limits>
+#include <unordered_map>
 
 #include <boost/next_prior.hpp>
 #include "CgalUtils.hpp"
@@ -570,6 +573,257 @@ static bool adaptive_split_by_vertex_clusters(
     return true;
 }
 
+// A validated pre-Windows candidate may normalize moderately damaged boundary components and
+// try larger cycles. The normal RepairMesh default remains unchanged for all other callers and
+// fallback paths.
+static constexpr std::size_t MAX_PRE_WINDOWS_REPAIR_HOLE_EDGES = 1024;
+
+// Large raw boundary counts may come from duplicated vertices along otherwise closed seams.
+// Keep this candidate deliberately narrow: it is normalization-only (no hole filling), and
+// the result still has to pass the same strict topology/bbox validation as the bounded repair.
+static constexpr std::size_t MAX_PRE_WINDOWS_SEAM_NORMALIZATION_OPEN_EDGES = 100000;
+static constexpr std::size_t MIN_FACES_PER_SEAM_NORMALIZATION_OPEN_EDGE = 20;
+static constexpr double MIN_PAIRED_SEAM_BOUNDARY_RATIO = 0.80;
+static constexpr double MAX_PRE_WINDOWS_REPAIR_FACE_CHANGE_RATIO = 0.01;
+
+struct BoundaryPreflightStats
+{
+    std::size_t total_edges = 0;
+    std::size_t component_count = 0;
+    std::size_t max_component_edges = 0;
+    std::size_t non_cycle_vertices = 0;
+    std::size_t max_vertex_degree = 0;
+    bool all_components_are_cycles = true;
+};
+
+struct BoundaryGeometryEdgeKey
+{
+    std::array<std::uint32_t, 3> first;
+    std::array<std::uint32_t, 3> second;
+
+    bool operator==(const BoundaryGeometryEdgeKey& rhs) const
+    {
+        return first == rhs.first && second == rhs.second;
+    }
+};
+
+struct BoundaryGeometryEdgeKeyHash
+{
+    std::size_t operator()(const BoundaryGeometryEdgeKey& key) const
+    {
+        std::size_t seed = 0xcbf29ce484222325ULL;
+        auto mix = [&seed](std::uint32_t value) {
+            seed ^= static_cast<std::size_t>(value) + 0x9e3779b9U + (seed << 6) + (seed >> 2);
+        };
+        for (std::uint32_t value : key.first)
+            mix(value);
+        for (std::uint32_t value : key.second)
+            mix(value);
+        return seed;
+    }
+};
+
+struct SeamNormalizationPreflightStats
+{
+    std::size_t total_edges = 0;
+    std::size_t geometrically_paired_edges = 0;
+    std::size_t duplicate_edge_keys = 0;
+    std::size_t max_edge_multiplicity = 0;
+};
+
+static std::array<std::uint32_t, 3> vertex_coordinate_bits(const Vec3f& vertex)
+{
+    std::array<std::uint32_t, 3> bits{};
+    for (std::size_t axis = 0; axis < bits.size(); ++axis) {
+        // Treat +0 and -0 as the same coordinate, matching geometric equality.
+        const float coordinate = vertex[axis] == 0.0f ? 0.0f : vertex[axis];
+        std::memcpy(&bits[axis], &coordinate, sizeof(coordinate));
+    }
+    return bits;
+}
+
+struct VertexCoordinateBitsHash
+{
+    std::size_t operator()(const std::array<std::uint32_t, 3>& bits) const
+    {
+        std::size_t seed = 0xcbf29ce484222325ULL;
+        for (std::uint32_t value : bits)
+            seed ^= static_cast<std::size_t>(value) + 0x9e3779b9U + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+
+struct ExactVertexWeldStats
+{
+    std::size_t merged_vertices = 0;
+    std::size_t degenerate_faces = 0;
+    std::size_t invalid_face_indices = 0;
+};
+
+// Merge vertices with bit-identical coordinates while preserving face order and count. Because
+// face ids do not change, per-face texture colors remain valid and need no nearest-face resample.
+static bool weld_exact_duplicate_vertices(
+    const TriMesh& mesh, TriMesh& out_mesh, ExactVertexWeldStats& stats)
+{
+    if (mesh.vertices.empty() || mesh.indices.empty() ||
+        mesh.vertices.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+        return false;
+
+    std::unordered_map<std::array<std::uint32_t, 3>, int, VertexCoordinateBitsHash> unique_vertices;
+    unique_vertices.reserve(mesh.vertices.size());
+    TriVertices welded_vertices;
+    welded_vertices.reserve(mesh.vertices.size());
+    std::vector<int> vertex_remap(mesh.vertices.size(), -1);
+
+    for (std::size_t vertex_idx = 0; vertex_idx < mesh.vertices.size(); ++vertex_idx) {
+        const auto bits = vertex_coordinate_bits(mesh.vertices[vertex_idx]);
+        const int next_index = static_cast<int>(welded_vertices.size());
+        const auto [it, inserted] = unique_vertices.emplace(bits, next_index);
+        if (inserted)
+            welded_vertices.push_back(mesh.vertices[vertex_idx]);
+        else
+            ++stats.merged_vertices;
+        vertex_remap[vertex_idx] = it->second;
+    }
+
+    TriFaces welded_faces;
+    welded_faces.reserve(mesh.indices.size());
+    for (const TriFace& face : mesh.indices) {
+        TriFace welded_face = face;
+        bool valid = true;
+        for (int corner = 0; corner < 3; ++corner) {
+            if (face[corner] < 0 || static_cast<std::size_t>(face[corner]) >= vertex_remap.size()) {
+                ++stats.invalid_face_indices;
+                valid = false;
+                break;
+            }
+            welded_face[corner] = vertex_remap[face[corner]];
+        }
+        if (!valid)
+            continue;
+        if (welded_face[0] == welded_face[1] || welded_face[1] == welded_face[2] ||
+            welded_face[2] == welded_face[0])
+            ++stats.degenerate_faces;
+        welded_faces.push_back(welded_face);
+    }
+
+    if (stats.merged_vertices == 0 || stats.degenerate_faces != 0 ||
+        stats.invalid_face_indices != 0 || welded_faces.size() != mesh.indices.size())
+        return false;
+
+    out_mesh = TriMesh(std::move(welded_faces), std::move(welded_vertices));
+    return true;
+}
+
+// Count raw boundary edges that have another boundary edge with exactly the same geometric
+// endpoints. This cheaply distinguishes duplicated OBJ seams from tens of thousands of real
+// hole edges before paying for a full polygon-soup normalization pass.
+static SeamNormalizationPreflightStats seam_normalization_preflight_stats(
+    const TriMesh& mesh, const std::vector<Vec3i32>& face_neighbors, std::size_t open_edges)
+{
+    SeamNormalizationPreflightStats stats;
+    if (face_neighbors.size() != mesh.indices.size())
+        return stats;
+
+    std::unordered_map<BoundaryGeometryEdgeKey, std::size_t, BoundaryGeometryEdgeKeyHash> edge_counts;
+    edge_counts.reserve(2 * open_edges);
+    for (std::size_t face_idx = 0; face_idx < face_neighbors.size(); ++face_idx) {
+        for (int edge_idx = 0; edge_idx < 3; ++edge_idx) {
+            if (face_neighbors[face_idx][edge_idx] >= 0)
+                continue;
+            const auto edge = its_triangle_edge(mesh.indices[face_idx], edge_idx);
+            auto first = vertex_coordinate_bits(mesh.vertices[edge[0]]);
+            auto second = vertex_coordinate_bits(mesh.vertices[edge[1]]);
+            if (second < first)
+                std::swap(first, second);
+            ++edge_counts[{first, second}];
+            ++stats.total_edges;
+        }
+    }
+
+    for (const auto& [edge, count] : edge_counts) {
+        (void) edge;
+        if (count > 1) {
+            ++stats.duplicate_edge_keys;
+            stats.geometrically_paired_edges += count - count % 2;
+        }
+        stats.max_edge_multiplicity = std::max(stats.max_edge_multiplicity, count);
+    }
+    return stats;
+}
+
+// Measure the raw boundary graph before copying and repairing a multi-million-triangle mesh.
+// Branching/non-manifold boundaries are allowed only on this bounded candidate path: RepairMesh
+// first normalizes its polygon soup, and the repaired result is accepted only after strict checks.
+static BoundaryPreflightStats boundary_preflight_stats(
+    const TriMesh& mesh, const std::vector<Vec3i32>& face_neighbors)
+{
+    BoundaryPreflightStats stats;
+    if (face_neighbors.size() != mesh.indices.size())
+        return stats;
+
+    std::unordered_map<int, std::size_t> vertex_nodes;
+    vertex_nodes.reserve(2 * std::min<std::size_t>(MAX_REPAIRABLE_MESH_BOUNDARY_EDGES,
+                                                   its_num_open_edges(face_neighbors)));
+    std::vector<std::size_t> parent;
+    std::vector<std::size_t> degrees;
+    std::vector<std::pair<std::size_t, std::size_t>> boundary_edges;
+
+    auto node_for = [&](int vertex) {
+        const auto [it, inserted] = vertex_nodes.emplace(vertex, parent.size());
+        if (inserted) {
+            parent.push_back(it->second);
+            degrees.push_back(0);
+        }
+        return it->second;
+    };
+    auto find_root = [&](std::size_t node) {
+        while (parent[node] != node) {
+            parent[node] = parent[parent[node]];
+            node = parent[node];
+        }
+        return node;
+    };
+    auto unite = [&](std::size_t lhs, std::size_t rhs) {
+        lhs = find_root(lhs);
+        rhs = find_root(rhs);
+        if (lhs != rhs)
+            parent[rhs] = lhs;
+    };
+
+    for (std::size_t face_idx = 0; face_idx < face_neighbors.size(); ++face_idx) {
+        for (int edge_idx = 0; edge_idx < 3; ++edge_idx) {
+            if (face_neighbors[face_idx][edge_idx] >= 0)
+                continue;
+            const auto edge = its_triangle_edge(mesh.indices[face_idx], edge_idx);
+            const std::size_t lhs = node_for(edge[0]);
+            const std::size_t rhs = node_for(edge[1]);
+            ++degrees[lhs];
+            ++degrees[rhs];
+            unite(lhs, rhs);
+            boundary_edges.emplace_back(lhs, rhs);
+        }
+    }
+
+    stats.total_edges = boundary_edges.size();
+    std::vector<std::size_t> component_edges(parent.size(), 0);
+    for (const auto& edge : boundary_edges)
+        ++component_edges[find_root(edge.first)];
+    for (std::size_t count : component_edges) {
+        if (count == 0)
+            continue;
+        ++stats.component_count;
+        stats.max_component_edges = std::max(stats.max_component_edges, count);
+    }
+    for (std::size_t degree : degrees) {
+        stats.max_vertex_degree = std::max(stats.max_vertex_degree, degree);
+        if (degree != 2)
+            ++stats.non_cycle_vertices;
+    }
+    stats.all_components_are_cycles = stats.non_cycle_vertices == 0;
+    return stats;
+}
+
 // Shared pipeline: mesh repair -> color clustering -> label assignment -> smoothing.
 // Called by both TextureToColor (after UV sampling) and ClusterAndSmooth (after vertex-color oversample).
 // progress_callback reports 0~100 within this function; the caller maps it to its own global range.
@@ -580,8 +834,21 @@ static bool repair_cluster_smooth(
     const TextureToColorSettings& settings,
     AlgoProgressCallback progress_callback,
     AlgoCancelCallback cancel_callback,
-    const char* log_prefix)
+    const char* log_prefix,
+    PreparedTextureColorData* prepared_output)
 {
+    using Clock = std::chrono::steady_clock;
+    const auto total_started_at = Clock::now();
+    auto stage_started_at = total_started_at;
+    auto log_stage = [&](const char* stage) {
+        const auto now = Clock::now();
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix << " stage=" << stage
+                                << " elapsed_ms="
+                                << std::chrono::duration<double, std::milli>(now - stage_started_at).count()
+                                << " faces=" << mesh.facets_count();
+        stage_started_at = now;
+    };
+
     auto report = [&](int pct, const char* msg) {
         if (progress_callback)
             progress_callback({pct, msg});
@@ -599,18 +866,30 @@ static bool repair_cluster_smooth(
 
     // Resample face colors onto a repaired mesh via centroid nearest-neighbor.
     auto resample_face_colors = [&](TriMesh&& repaired_mesh) -> bool {
+        const auto resample_started_at = Clock::now();
         TriVertices old_vertices = std::move(mesh.vertices);
         TriFaces    old_indices  = std::move(mesh.indices);
+        const size_t old_vertex_count = old_vertices.size();
+        const size_t old_face_count   = old_indices.size();
+        const size_t new_vertex_count = repaired_mesh.vertices.size();
+        const size_t new_face_count   = repaired_mesh.indices.size();
+
+        const auto aabb_started_at = Clock::now();
         auto aabb_tree = AABBTreeIndirect::build_aabb_tree_over_indexed_triangle_set(old_vertices, old_indices);
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                   << " stage=repair_resample_aabb_build elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - aabb_started_at).count()
+                                   << " old_vertices=" << old_vertex_count
+                                   << " old_faces=" << old_face_count;
         mesh = std::move(repaired_mesh);
 
-        if (is_closed(mesh)) {
-            BOOST_LOG_TRIVIAL(debug) << log_prefix << ": repaired mesh is closed.";
-        } else {
-            BOOST_LOG_TRIVIAL(debug) << log_prefix << ": repaired mesh is open.";
-        }
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                   << " stage=repaired_mesh_closed_check skipped=true reason=diagnostic_only"
+                                   << " new_vertices=" << new_vertex_count
+                                   << " new_faces=" << new_face_count;
 
         std::vector<RGB> new_face_colors(mesh.facets_count());
+        const auto query_started_at = Clock::now();
         tbb::parallel_for(tbb::blocked_range<std::size_t>(0, mesh.facets_count()), [&](const tbb::blocked_range<size_t>& range) {
             for (std::size_t fid = range.begin(); fid < range.end(); ++fid) {
                 const auto& face = mesh.indices[fid];
@@ -622,59 +901,307 @@ static bool repair_cluster_smooth(
                 new_face_colors[fid] = face_colors[hit_idx];
             }
         });
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                   << " stage=repair_resample_nearest_face_queries elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - query_started_at).count()
+                                   << " source_faces=" << old_face_count
+                                   << " query_faces=" << new_face_count;
         face_colors = std::move(new_face_colors);
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                   << " stage=repair_resample_total elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - resample_started_at).count()
+                                   << " old_vertices=" << old_vertex_count
+                                   << " old_faces=" << old_face_count
+                                   << " new_vertices=" << new_vertex_count
+                                   << " new_faces=" << new_face_count;
         return true;
     };
 
-    auto repair_and_resample = [&]() -> bool {
+    auto run_internal_repair = [&](const char* source, const RepairSetting& repair_setting) -> std::shared_ptr<TriMesh> {
+        const size_t input_vertices = mesh.vertices.size();
+        const size_t input_faces    = mesh.indices.size();
+        const auto repair_started_at = Clock::now();
         std::shared_ptr<TriMesh> repaired_mesh;
-        if (!RepairMesh(mesh, repaired_mesh)) {
+        const bool repaired = RepairMesh(
+            mesh, repaired_mesh,
+            [&](AlgoProgress repair_progress) { report(5, repair_progress.message); },
+            [&]() { return cancelled(); }, repair_setting);
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                   << " stage=internal_repair_mesh elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - repair_started_at).count()
+                                   << " source=" << source
+                                   << " success=" << repaired
+                                   << " max_hole_edges=" << repair_setting.max_hole_edges
+                                   << " max_boundary_edges=" << repair_setting.max_boundary_edges
+                                   << " input_vertices=" << input_vertices
+                                   << " input_faces=" << input_faces
+                                   << " output_vertices=" << (repaired_mesh ? repaired_mesh->vertices.size() : 0)
+                                   << " output_faces=" << (repaired_mesh ? repaired_mesh->indices.size() : 0);
+        if (!repaired || !repaired_mesh) {
             BOOST_LOG_TRIVIAL(debug) << log_prefix << ": RepairMesh failed.";
-            return false;
+            return {};
         }
+        return repaired_mesh;
+    };
+
+    auto repair_and_resample = [&]() -> bool {
+        std::shared_ptr<TriMesh> repaired_mesh = run_internal_repair("halfedge_fallback", RepairSetting{});
+        if (!repaired_mesh)
+            return false;
         if (cancelled()) return false;
         return resample_face_colors(std::move(*repaired_mesh));
     };
 
-    {
-        TriangleMesh stats_mesh(static_cast<const indexed_triangle_set&>(mesh));
-        const auto& stats = stats_mesh.stats();
-        if (!stats.manifold() /*|| stats.has_open_edges()*/) {
-            BOOST_LOG_TRIVIAL(info) << log_prefix << ": mesh has non-manifold geometry or open boundaries, open_edges="
-                                    << stats.open_edges /*<< ", non_manifold_edges=" << stats.non_manifold_edges
-                                    << ", non_manifold_vertices=" << stats.non_manifold_vertices*/;
-            if (settings.mesh_repair_decision == MeshRepairDecision::Ask) {
-                if (settings.mesh_repair_decision_required)
-                    *settings.mesh_repair_decision_required = true;
-                return false;
-            }
-            if (settings.mesh_repair_decision == MeshRepairDecision::RepairAndImport) {
-                indexed_triangle_set repaired_its;
-                std::string repair_error;
-                bool repaired = settings.mesh_repair_callback && settings.mesh_repair_callback(
-                    static_cast<const indexed_triangle_set&>(mesh), repaired_its,
-                    [&](const char* message, unsigned /*percent*/) {
-                        report(5, message ? message : "Repairing mesh");
-                    },
-                    [&]() { return cancelled(); }, &repair_error);
-                if (repaired) {
-                    if (cancelled()) return false;
-                    BOOST_LOG_TRIVIAL(info) << log_prefix << ": Windows 3D mesh repair finished.";
-                    if (!resample_face_colors(TriMesh(std::move(repaired_its))))
-                        return false;
-                } else {
-                    BOOST_LOG_TRIVIAL(warning) << log_prefix << ": Windows 3D mesh repair failed: " << repair_error;
+    auto validate_internal_repair = [&](const TriMesh& candidate, const char* source) -> bool {
+        const auto validation_started_at = Clock::now();
+        if (candidate.vertices.empty() || candidate.indices.empty())
+            return false;
+
+        bool finite_vertices = true;
+        Vec3f source_min   = Vec3f::Constant(std::numeric_limits<float>::max());
+        Vec3f source_max   = Vec3f::Constant(std::numeric_limits<float>::lowest());
+        Vec3f repaired_min = source_min;
+        Vec3f repaired_max = source_max;
+        for (const Vec3f& vertex : mesh.vertices) {
+            source_min = source_min.cwiseMin(vertex);
+            source_max = source_max.cwiseMax(vertex);
+        }
+        for (const Vec3f& vertex : candidate.vertices) {
+            finite_vertices = finite_vertices && std::isfinite(vertex.x()) &&
+                              std::isfinite(vertex.y()) && std::isfinite(vertex.z());
+            repaired_min = repaired_min.cwiseMin(vertex);
+            repaired_max = repaired_max.cwiseMax(vertex);
+        }
+
+        const auto repaired_neighbors = its_face_neighbors_par(static_cast<const indexed_triangle_set&>(candidate));
+        const std::size_t repaired_open_edges = its_num_open_edges(repaired_neighbors);
+        const bool halfedge_compatible = repaired_open_edges == 0 &&
+            cgalutils::is_mesh_halfedge_compatible(candidate);
+        const double source_diag = (source_max - source_min).cast<double>().norm();
+        const double center_drift = (((repaired_min + repaired_max) - (source_min + source_max)) * 0.5f)
+                                        .cast<double>().norm();
+        const double size_delta = ((repaired_max - repaired_min) - (source_max - source_min))
+                                      .cast<double>().norm();
+        const double bbox_tolerance = 0.01 * std::max(1.0, source_diag);
+        const double face_change_ratio = std::abs(
+            static_cast<double>(candidate.indices.size()) - static_cast<double>(mesh.indices.size())) /
+            static_cast<double>(std::max<std::size_t>(1, mesh.indices.size()));
+        const bool accepted = finite_vertices && halfedge_compatible &&
+            center_drift <= bbox_tolerance && size_delta <= bbox_tolerance &&
+            face_change_ratio <= MAX_PRE_WINDOWS_REPAIR_FACE_CHANGE_RATIO;
+
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                   << " stage=internal_repair_fast_path_validation elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - validation_started_at).count()
+                                   << " source=" << source
+                                   << " accepted=" << accepted
+                                   << " finite_vertices=" << finite_vertices
+                                   << " open_edges=" << repaired_open_edges
+                                   << " halfedge_compatible=" << halfedge_compatible
+                                   << " center_drift=" << center_drift
+                                   << " size_delta=" << size_delta
+                                   << " bbox_tolerance=" << bbox_tolerance
+                                   << " face_change_ratio=" << face_change_ratio
+                                   << " face_change_limit=" << MAX_PRE_WINDOWS_REPAIR_FACE_CHANGE_RATIO
+                                   << " vertices=" << candidate.vertices.size()
+                                   << " faces=" << candidate.indices.size();
+        return accepted;
+    };
+
+    if (!settings.mesh_prevalidated) {
+        bool mesh_known_halfedge_compatible = false;
+        if (settings.mesh_repair_decision != MeshRepairDecision::ImportWithoutRepair) {
+            const auto mesh_stats_started_at = Clock::now();
+            const auto face_neighbors = its_face_neighbors_par(static_cast<const indexed_triangle_set&>(mesh));
+            const std::size_t open_edges = its_num_open_edges(face_neighbors);
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix << " stage=mesh_open_edge_check elapsed_ms="
+                                       << std::chrono::duration<double, std::milli>(Clock::now() - mesh_stats_started_at).count()
+                                       << " faces=" << mesh.facets_count() << " open_edges=" << open_edges;
+            if (open_edges != 0) {
+                BOOST_LOG_TRIVIAL(info) << log_prefix << ": mesh has non-manifold geometry or open boundaries, open_edges="
+                                        << open_edges;
+                if (settings.mesh_repair_decision == MeshRepairDecision::Ask) {
+                    if (settings.mesh_repair_decision_required)
+                        *settings.mesh_repair_decision_required = true;
+                    return false;
                 }
-            } else {
-                BOOST_LOG_TRIVIAL(info) << log_prefix << ": importing mesh without Windows 3D repair.";
+                if (settings.mesh_repair_decision == MeshRepairDecision::RepairAndImport) {
+                    bool internal_fast_path_succeeded = false;
+                    BoundaryPreflightStats boundary_stats;
+                    if (open_edges <= MAX_REPAIRABLE_MESH_BOUNDARY_EDGES)
+                        boundary_stats = boundary_preflight_stats(mesh, face_neighbors);
+                    const bool internal_fast_path_eligible =
+                        boundary_stats.total_edges == open_edges &&
+                        boundary_stats.max_component_edges <= MAX_PRE_WINDOWS_REPAIR_HOLE_EDGES;
+                    const bool seam_candidate_size_eligible =
+                        open_edges > MAX_REPAIRABLE_MESH_BOUNDARY_EDGES &&
+                        open_edges <= MAX_PRE_WINDOWS_SEAM_NORMALIZATION_OPEN_EDGES &&
+                        open_edges <= mesh.facets_count() / MIN_FACES_PER_SEAM_NORMALIZATION_OPEN_EDGE;
+                    SeamNormalizationPreflightStats seam_stats;
+                    if (seam_candidate_size_eligible)
+                        seam_stats = seam_normalization_preflight_stats(mesh, face_neighbors, open_edges);
+                    const double paired_boundary_ratio = seam_stats.total_edges == 0 ? 0.0 :
+                        static_cast<double>(seam_stats.geometrically_paired_edges) /
+                        static_cast<double>(seam_stats.total_edges);
+                    const bool seam_normalization_eligible =
+                        seam_candidate_size_eligible &&
+                        seam_stats.total_edges == open_edges &&
+                        paired_boundary_ratio >= MIN_PAIRED_SEAM_BOUNDARY_RATIO;
+                    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                               << " stage=internal_repair_fast_path_preflight eligible="
+                                               << internal_fast_path_eligible
+                                               << " total_boundary_edges=" << boundary_stats.total_edges
+                                               << " component_count=" << boundary_stats.component_count
+                                               << " max_component_edges=" << boundary_stats.max_component_edges
+                                               << " all_components_are_cycles=" << boundary_stats.all_components_are_cycles
+                                               << " non_cycle_vertices=" << boundary_stats.non_cycle_vertices
+                                               << " max_vertex_degree=" << boundary_stats.max_vertex_degree
+                                               << " requires_boundary_normalization=" << !boundary_stats.all_components_are_cycles
+                                               << " default_component_limit=" << MAX_REPAIRABLE_MESH_HOLE_EDGES
+                                               << " candidate_component_limit=" << MAX_PRE_WINDOWS_REPAIR_HOLE_EDGES;
+                    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                               << " stage=seam_normalization_preflight eligible="
+                                               << seam_normalization_eligible
+                                               << " size_eligible=" << seam_candidate_size_eligible
+                                               << " total_boundary_edges=" << seam_stats.total_edges
+                                               << " geometrically_paired_edges=" << seam_stats.geometrically_paired_edges
+                                               << " paired_boundary_ratio=" << paired_boundary_ratio
+                                               << " duplicate_edge_keys=" << seam_stats.duplicate_edge_keys
+                                               << " max_edge_multiplicity=" << seam_stats.max_edge_multiplicity
+                                               << " open_edge_limit=" << MAX_PRE_WINDOWS_SEAM_NORMALIZATION_OPEN_EDGES
+                                               << " min_faces_per_open_edge=" << MIN_FACES_PER_SEAM_NORMALIZATION_OPEN_EDGE
+                                               << " min_paired_ratio=" << MIN_PAIRED_SEAM_BOUNDARY_RATIO;
+                    if (internal_fast_path_eligible) {
+                        report(5, "Repairing mesh");
+                        RepairSetting pre_windows_repair_setting;
+                        pre_windows_repair_setting.max_hole_edges = MAX_PRE_WINDOWS_REPAIR_HOLE_EDGES;
+                        std::shared_ptr<TriMesh> internal_repaired = run_internal_repair(
+                            "pre_windows_fast_path_extended_holes", pre_windows_repair_setting);
+                        if (cancelled()) return false;
+                        if (internal_repaired && validate_internal_repair(
+                                *internal_repaired, "pre_windows_fast_path_extended_holes")) {
+                            if (!resample_face_colors(std::move(*internal_repaired)))
+                                return false;
+                            internal_fast_path_succeeded = true;
+                            mesh_known_halfedge_compatible = true;
+                        }
+                    } else if (seam_normalization_eligible) {
+                        report(5, "Welding duplicate mesh seams");
+                        const auto weld_started_at = Clock::now();
+                        TriMesh directly_welded_mesh;
+                        ExactVertexWeldStats weld_stats;
+                        const bool weld_succeeded = weld_exact_duplicate_vertices(
+                            mesh, directly_welded_mesh, weld_stats);
+                        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                                   << " stage=exact_seam_vertex_weld elapsed_ms="
+                                                   << std::chrono::duration<double, std::milli>(Clock::now() - weld_started_at).count()
+                                                   << " success=" << weld_succeeded
+                                                   << " input_vertices=" << mesh.vertices.size()
+                                                   << " output_vertices=" << directly_welded_mesh.vertices.size()
+                                                   << " faces=" << mesh.indices.size()
+                                                   << " merged_vertices=" << weld_stats.merged_vertices
+                                                   << " degenerate_faces=" << weld_stats.degenerate_faces
+                                                   << " invalid_face_indices=" << weld_stats.invalid_face_indices;
+                        if (cancelled()) return false;
+                        if (weld_succeeded && validate_internal_repair(
+                                directly_welded_mesh, "pre_windows_exact_seam_vertex_weld")) {
+                            mesh = std::move(directly_welded_mesh);
+                            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                                       << " stage=repair_resample_total skipped=true"
+                                                       << " reason=face_order_and_count_preserved"
+                                                       << " faces=" << mesh.indices.size();
+                            internal_fast_path_succeeded = true;
+                            mesh_known_halfedge_compatible = true;
+                        }
+
+                        if (!internal_fast_path_succeeded) {
+                            report(5, "Normalizing mesh seams");
+                            RepairSetting normalization_only_setting;
+                            normalization_only_setting.max_hole_edges = 0;
+                            normalization_only_setting.max_boundary_edges = 0;
+                            std::shared_ptr<TriMesh> internal_repaired = run_internal_repair(
+                                "pre_windows_seam_normalization_only", normalization_only_setting);
+                            if (cancelled()) return false;
+                            if (internal_repaired && validate_internal_repair(
+                                    *internal_repaired, "pre_windows_seam_normalization_only")) {
+                                if (!resample_face_colors(std::move(*internal_repaired)))
+                                    return false;
+                                internal_fast_path_succeeded = true;
+                                mesh_known_halfedge_compatible = true;
+                            }
+                        }
+                    } else {
+                        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                                   << " stage=internal_repair_fast_path skipped=true reason=boundary_preflight"
+                                                   << " open_edges=" << open_edges
+                                                   << " total_limit=" << MAX_REPAIRABLE_MESH_BOUNDARY_EDGES
+                                                   << " component_limit=" << MAX_PRE_WINDOWS_REPAIR_HOLE_EDGES
+                                                   << " seam_normalization_eligible=" << seam_normalization_eligible;
+                    }
+
+                    if (!internal_fast_path_succeeded) {
+                        indexed_triangle_set repaired_its;
+                        std::string repair_error;
+                        const size_t repair_input_vertices = mesh.vertices.size();
+                        const size_t repair_input_faces    = mesh.indices.size();
+                        const auto windows_repair_started_at = Clock::now();
+                        bool repaired = settings.mesh_repair_callback && settings.mesh_repair_callback(
+                            static_cast<const indexed_triangle_set&>(mesh), repaired_its,
+                            [&](const char* message, unsigned /*percent*/) {
+                                report(5, message ? message : "Repairing mesh");
+                            },
+                            [&]() { return cancelled(); }, &repair_error);
+                        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                                   << " stage=windows_mesh_repair elapsed_ms="
+                                                   << std::chrono::duration<double, std::milli>(Clock::now() - windows_repair_started_at).count()
+                                                   << " callback_available=" << static_cast<bool>(settings.mesh_repair_callback)
+                                                   << " success=" << repaired
+                                                   << " input_vertices=" << repair_input_vertices
+                                                   << " input_faces=" << repair_input_faces
+                                                   << " output_vertices=" << repaired_its.vertices.size()
+                                                   << " output_faces=" << repaired_its.indices.size()
+                                                   << " error=" << (repair_error.empty() ? "none" : repair_error);
+                        if (repaired) {
+                            if (cancelled()) return false;
+                            BOOST_LOG_TRIVIAL(info) << log_prefix << ": Windows 3D mesh repair finished.";
+                            if (!resample_face_colors(TriMesh(std::move(repaired_its))))
+                                return false;
+                        } else {
+                            BOOST_LOG_TRIVIAL(warning) << log_prefix << ": Windows 3D mesh repair failed: " << repair_error;
+                        }
+                    }
+                }
+            }
+        } else {
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                       << " stage=mesh_open_edge_check skipped=true faces=" << mesh.facets_count();
+        }
+
+        if (mesh_known_halfedge_compatible) {
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                       << " stage=halfedge_compatibility_check skipped=true reason=internal_fast_path_validated"
+                                       << " faces=" << mesh.facets_count();
+        } else {
+            const auto halfedge_check_started_at = Clock::now();
+            const bool halfedge_compatible = cgalutils::is_mesh_halfedge_compatible(mesh);
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix << " stage=halfedge_compatibility_check elapsed_ms="
+                                       << std::chrono::duration<double, std::milli>(Clock::now() - halfedge_check_started_at).count()
+                                       << " faces=" << mesh.facets_count() << " compatible=" << halfedge_compatible;
+            if (!halfedge_compatible) {
+                BOOST_LOG_TRIVIAL(info) << log_prefix << ": mesh not halfedge-compatible, attempting RepairMesh.";
+                if (!repair_and_resample())
+                    return false;
             }
         }
+    } else {
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix
+                                   << " stage=mesh_validation_and_repair cache_hit=true faces=" << mesh.facets_count();
     }
+    log_stage("mesh_validation_and_repair");
 
-    if (!cgalutils::is_mesh_halfedge_compatible(mesh)) {
-        BOOST_LOG_TRIVIAL(info) << log_prefix << ": mesh not halfedge-compatible, attempting RepairMesh.";
-        if (!repair_and_resample())
-            return false;
+    if (prepared_output) {
+        prepared_output->mesh        = mesh;
+        prepared_output->face_colors = face_colors;
     }
 
 #ifdef OUTPUT_TEST_RESULT
@@ -712,6 +1239,7 @@ static bool repair_cluster_smooth(
         BOOST_LOG_TRIVIAL(debug) << log_prefix << ": no cluster center generated.";
         return false;
     }
+    log_stage("color_clustering");
 
     report(40, "Assigning cluster labels");
     if (cancelled()) return false;
@@ -743,6 +1271,7 @@ static bool repair_cluster_smooth(
     } else {
         ensure_all_cluster_centers_used(face_colors, cluster_centers, clustered_face_labels, "cluster assignment");
     }
+    log_stage("cluster_assignment");
 
 #ifdef OUTPUT_TEST_RESULT
     {
@@ -768,12 +1297,18 @@ static bool repair_cluster_smooth(
     } else {
         ensure_all_cluster_centers_used(face_colors, cluster_centers, clustered_face_labels, "color smoothing");
     }
+    log_stage("region_smoothing");
 
     report(90, "Updating face colors");
     if (cancelled()) return false;
 
     for (std::size_t i = 0; i < out_clustered_face_colors.size(); ++i)
         out_clustered_face_colors[i] = cluster_centers[clustered_face_labels[i]];
+    log_stage("write_face_colors");
+
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] " << log_prefix << " stage=repair_cluster_smooth_total elapsed_ms="
+                            << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                            << " faces=" << mesh.facets_count();
 
 #ifdef OUTPUT_TEST_RESULT
     SaveToOFF(std::string(log_prefix) + "_4_smooth.off", mesh, out_clustered_face_colors);
@@ -785,7 +1320,7 @@ static bool repair_cluster_smooth(
 
 bool TextureToColor(const TriMesh& texture_mesh, const std::vector<std::vector<Vec2f>>& texture_mesh_uv_coords, const cv::Mat& texture, TriMesh& color_mesh,
                     std::vector<std::array<std::size_t, 3>>& face_colors, const TextureToColorSettings& settings, AlgoProgressCallback progress_callback,
-                    AlgoCancelCallback cancel_callback) {
+                    AlgoCancelCallback cancel_callback, PreparedTextureColorData* prepared_output) {
     auto report = [&](int pct, const char* msg) {
         if (progress_callback) {
             progress_callback({pct, msg});
@@ -940,7 +1475,7 @@ bool TextureToColor(const TriMesh& texture_mesh, const std::vector<std::vector<V
 
     std::vector<RGB> clustered_face_colors;
     if (!repair_cluster_smooth(color_mesh, face_colors, clustered_face_colors,
-                               settings, rcs_progress, cancel_callback, "TextureToColor"))
+                               settings, rcs_progress, cancel_callback, "TextureToColor", prepared_output))
         return false;
 
     face_colors = std::move(clustered_face_colors);
@@ -959,7 +1494,8 @@ bool ClusterAndSmooth(const TriMesh& mesh,
                       const TextureToColorSettings& settings,
                       AlgoProgressCallback progress_callback,
                       AlgoCancelCallback cancel_callback,
-                      const std::vector<std::array<float, 4>>& vertex_colors)
+                      const std::vector<std::array<float, 4>>& vertex_colors,
+                      PreparedTextureColorData* prepared_output)
 {
     auto report = [&](int pct, const char* msg) {
         if (progress_callback)
@@ -1031,7 +1567,7 @@ bool ClusterAndSmooth(const TriMesh& mesh,
     std::vector<RGB> clustered_face_colors;
     if (!repair_cluster_smooth(out_mesh, face_colors, clustered_face_colors,
                                settings, progress_callback, cancel_callback,
-                               "ClusterAndSmooth"))
+                               "ClusterAndSmooth", prepared_output))
         return false;
 
     out_face_colors = std::move(clustered_face_colors);

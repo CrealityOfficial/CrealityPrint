@@ -393,14 +393,16 @@ void GLGizmoSimplePaint::on_render_input_window(float x, float y, float bottom_l
     const float approx_height = m_imgui->scaled(22.0f);
     y = std::min(y, bottom_limit - approx_height);
     GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f, force_update_pos);
-    m_imgui_start_pos[0] = x;
-    m_imgui_start_pos[1] = y;
 
     // 空态提示：没有模型时只显示简短文案
     if (model_obj == nullptr) {
         ImGuiWrapper::push_toolbar_style(m_parent.get_scale());
         GizmoImguiBegin(get_name(false), ImGuiWrapper::TOOLBAR_WINDOW_FLAGS);
         ImGui::TextUnformatted(into_u8(_L("请选择模型以开始涂色")).c_str());
+        // Use the actual window position, which may have changed after dragging.
+        const ImVec2 window_pos = ImGui::GetWindowPos();
+        m_imgui_start_pos[0] = window_pos.x;
+        m_imgui_start_pos[1] = window_pos.y;
         m_imgui_end_pos[0] = m_imgui_start_pos[0] + ImGui::GetWindowWidth();
         m_imgui_end_pos[1] = m_imgui_start_pos[1] + ImGui::GetWindowHeight();
         GizmoImguiEnd();
@@ -634,6 +636,10 @@ void GLGizmoSimplePaint::on_render_input_window(float x, float y, float bottom_l
         m_parent.set_as_dirty();
     }
     ImGui::PopStyleVar(1);
+    // Use the actual window position, which may have changed after dragging.
+    const ImVec2 window_pos = ImGui::GetWindowPos();
+    m_imgui_start_pos[0] = window_pos.x;
+    m_imgui_start_pos[1] = window_pos.y;
     m_imgui_end_pos[0] = m_imgui_start_pos[0] + ImGui::GetWindowWidth();
     m_imgui_end_pos[1] = m_imgui_start_pos[1] + ImGui::GetWindowHeight();
     GizmoImguiEnd();

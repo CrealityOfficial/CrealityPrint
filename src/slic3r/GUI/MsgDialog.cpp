@@ -445,13 +445,13 @@ ChangeBtnRichMsgDlg::ChangeBtnRichMsgDlg(wxWindow*       parent, const wxString&
 
 void ChangeBtnRichMsgDlg::apply_style(long style) {
     if (style & wxOK)
-        add_button(wxID_OK, true, _L("Adjust Model"));
+        add_button(wxID_OK, true, _L("Cancel Export"));
     if (style & wxYES)
         add_button(wxID_YES, true, _L("Yes"));
     if (style & wxNO)
         add_button(wxID_NO, false, _L("No"));
     if (style & wxCANCEL)
-        add_button(wxID_CANCEL, false, _L("Continue Export (Not Recommended)"));
+        add_button(wxID_CANCEL, false, _L("Continue Export"));
 
     logo->SetBitmap( create_scaled_bitmap(style & wxAPPLY        ? "completed" :
                                           style & wxICON_WARNING        ? "exclamation" : // ORCA "exclamation" used for dialogs "obj_warning" used for 16x16 areas

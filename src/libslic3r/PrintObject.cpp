@@ -34,7 +34,6 @@
 #include <float.h>
 #include <atomic>
 #include <chrono>
-#include <type_traits>
 #include <limits>
 #include <unordered_set>
 #include <oneapi/tbb/blocked_range.h>
@@ -1628,6 +1627,7 @@ bool PrintObject::invalidate_state_by_config_options(const ConfigOptionResolver&
                    opt_key == "top_surface_line_width" || opt_key == "initial_layer_line_width" ||
                    opt_key == "infill_lock_depth" || opt_key == "skin_infill_depth" ||
                    opt_key == "skin_infill_density" || opt_key == "skeleton_infill_density" ||
+                   opt_key == "minimum_skeleton_infill_density" ||
                    opt_key == "skin_infill_line_width" || opt_key == "skeleton_infill_line_width" ||
                    opt_key == "locked_skin_infill_pattern" || opt_key == "locked_skeleton_infill_pattern") {
             steps.emplace_back(posInfill);
@@ -4473,52 +4473,6 @@ void PrintObject::remove_bridges_from_contacts(const Layer* lower_layer,
                        offset(layerm->unsupported_bridge_edges, scale_(SUPPORT_MATERIAL_MARGIN), SUPPORT_SURFACES_OFFSET_PARAMETERS));
         append(all_bridges, bridges);
     }
-
-    // Thin two-ended walls (the usual max_bridge_length test) often survive the perimeter inflation
-    // because unsupported_bridge_edges expanded by SUPPORT_MATERIAL_MARGIN swallow the bridge strip.
-    // Drop any overhang island that is shorter than max_bridge_length along a span whose both ends
-    // still touch the grown lower layer. See #11937.
-    if (max_bridge_length > 0.f && overhang_regions != nullptr) {
-        const ExPolygons lower_grown = offset_ex(lower_layer->lslices, 0.5f * fw);
-        const coord_t    band        = std::max(coord_t(fw), coord_t(scale_(0.2)));
-        auto             two_ended_short_bridge = [&](const ExPolygon& expoly) {
-            const BoundingBox bb = get_extents(expoly);
-            const Point       sz = bb.size();
-            auto              end_anchored = [&](coord_t x0, coord_t y0, coord_t x1, coord_t y1) {
-                if (x1 <= x0 || y1 <= y0)
-                    return false;
-                Polygon strip;
-                strip.points = {Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1)};
-                const ExPolygons sliver = intersection_ex(ExPolygons{expoly}, ExPolygons{ExPolygon{strip}});
-                return !sliver.empty() && overlaps(sliver, lower_grown);
-            };
-            const coord_t x_band  = std::min(band, sz.x() / 2);
-            const coord_t y_band  = std::min(band, sz.y() / 2);
-            const bool    x_bridge = x_band > 0 && sz.x() < max_bridge_length &&
-                                  end_anchored(bb.min.x(), bb.min.y(), bb.min.x() + x_band, bb.max.y()) &&
-                                  end_anchored(bb.max.x() - x_band, bb.min.y(), bb.max.x(), bb.max.y());
-            const bool y_bridge = y_band > 0 && sz.y() < max_bridge_length &&
-                                  end_anchored(bb.min.x(), bb.min.y(), bb.max.x(), bb.min.y() + y_band) &&
-                                  end_anchored(bb.min.x(), bb.max.y() - y_band, bb.max.x(), bb.max.y());
-            return x_bridge || y_bridge;
-        };
-
-        for (const auto& region : *overhang_regions) {
-            if constexpr (std::is_same_v<PolysType, ExPolygons>) {
-                if (two_ended_short_bridge(region))
-                    polygons_append(all_bridges, to_polygons(region));
-            } else {
-                if (region.size() < 3)
-                    continue;
-                ExPolygon ex;
-                ex.contour = region;
-                if (two_ended_short_bridge(ex))
-                    all_bridges.emplace_back(region);
-            }
-        }
-        all_bridges = union_(all_bridges);
-    }
-
     if (typeid(overhang_regions) == typeid(ExPolygons*)) {
         *(ExPolygons*) overhang_regions = diff_ex(*overhang_regions, all_bridges, ApplySafetyOffset::Yes);
     } else if (typeid(overhang_regions) == typeid(Polygons*)) {

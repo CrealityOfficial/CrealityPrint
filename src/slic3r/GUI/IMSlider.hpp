@@ -197,6 +197,7 @@ private:
     bool m_render_as_disabled{ false };
 
     SelectedSlider m_selection;
+    bool m_higher_handle_selected = true;
     bool m_is_one_layer       = false;
     bool m_menu_enable        = true; //menu
     bool m_show_menu          = false; //menu

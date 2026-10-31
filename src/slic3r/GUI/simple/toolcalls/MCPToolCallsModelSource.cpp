@@ -11,6 +11,7 @@ namespace {
 bool IsModelSourceTool(const std::string& tool)
 {
     return tool == "import_model" ||
+           tool == "import_generated_model" ||
            tool == "open_model_library" ||
            tool == "recommend_model" ||
            tool == "smart_model_search" ||
@@ -28,6 +29,42 @@ bool MCPChatPanel::TryHandleModelSourceToolCall(const std::string& request_id,
 
     if (!m_cxagent_bridge)
         return true;
+
+    if (tool == "import_generated_model") {
+        m_cxagent_bridge->MarkRequestStarted(request_id);
+        m_cxagent_bridge->SendToolProgress(request_id, 10, "Downloading generated model", "downloading");
+
+        CallAfter([this, request_id, args]() {
+            json bridge_result = Bridge::SlicerBridge::Instance().Execute(
+                Bridge::ActionID::IMPORT_GENERATED_MODEL, args);
+            if (!bridge_result.value("success", false)) {
+                m_cxagent_bridge->SendToolResult(request_id, false, {
+                    {"code", "IMPORT_GENERATED_MODEL_FAILED"},
+                    {"message", bridge_result.value("message", std::string("Failed to import generated model"))},
+                    {"details", bridge_result}
+                });
+                m_cxagent_bridge->MarkRequestFinished(request_id);
+                NotifyCxAgentStatus();
+                return;
+            }
+
+            json result = {
+                {"import", bridge_result},
+                {"source_action", Bridge::ActionID::IMPORT_GENERATED_MODEL}
+            };
+            json state_result = Bridge::SlicerBridge::Instance().Execute(
+                Bridge::ActionID::GET_SLICER_STATE, json::object());
+            if (state_result.value("success", false))
+                result["project_context"] = state_result.value("state", json::object());
+
+            m_cxagent_bridge->SendToolProgress(request_id, 100, "Generated model imported", "completed", "completed");
+            m_cxagent_bridge->SendToolResult(request_id, true, result);
+            m_cxagent_bridge->MarkRequestFinished(request_id);
+            NotifyCxAgentStatus();
+        });
+
+        return true;
+    }
 
     if (tool == "import_model") {
         m_cxagent_bridge->MarkRequestStarted(request_id);

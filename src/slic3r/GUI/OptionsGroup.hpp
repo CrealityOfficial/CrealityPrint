@@ -168,6 +168,8 @@ public:
         append_line(create_single_option_line(option, path, subline));
     }
     void append_separator();
+    // Optional control rendered on the right side of a tab option-group header.
+    void set_header_widget(const widget_t widget) { m_header_widget = widget; }
 
     // return a non-owning pointer reference 
     inline Field*	get_field(const t_config_option_key& id) const{
@@ -175,6 +177,7 @@ public:
 							return m_fields.at(id).get();
     }
 
+    const t_optionfield_map& fields() const { return m_fields; }
 	bool			set_value(const t_config_option_key& id, const boost::any& value, bool change_event = false) {
 							if (m_fields.find(id) == m_fields.end()) return false;
 							m_fields.at(id)->set_value(value, change_event);
@@ -224,6 +227,7 @@ protected:
     std::vector<wxWindow*>                  m_extra_column_item_ptrs;
 
     std::vector<Line>                       m_lines;
+    widget_t                                m_header_widget {nullptr};
 
     /// Field list, contains unique_ptrs of the derived type.
     /// using types that need to know what it is beyond the public interface 
@@ -305,6 +309,8 @@ public:
     }
 	
 	void		on_change_OG(const t_config_option_key& opt_id, const boost::any& value) override;
+    // Called before writing the field value; true means handled or rejected.
+    std::function<bool(const t_config_option_key&, const boost::any&)> m_on_before_change;
 	void		back_to_initial_value(const std::string& opt_key) override;
 	void		back_to_sys_value(const std::string& opt_key) override;
 	void		back_to_config_value(const DynamicPrintConfig& config, const std::string& opt_key);

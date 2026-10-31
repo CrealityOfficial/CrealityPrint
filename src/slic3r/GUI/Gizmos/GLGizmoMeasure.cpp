@@ -294,6 +294,13 @@ bool GLGizmoMeasure::on_mouse(const wxMouseEvent &mouse_event)
 {
     m_mouse_pos = { double(mouse_event.GetX()), double(mouse_event.GetY()) };
 
+    // Let the canvas finish a rectangle selection started outside the measured object,
+    // even if the pointer moves over a measurement feature before the button is released.
+    if (m_parent.is_rectangle_selection_dragging() && (mouse_event.Dragging() || mouse_event.LeftUp())) {
+        m_mouse_left_down = false;
+        return false;
+    }
+
     if (mouse_event.Moving()) {
         // only for sure 
         m_mouse_left_down = false;

@@ -185,6 +185,7 @@ namespace DM {
     DeviceMgrRoutes::DeviceMgrRoutes()
     {
         this->Handler({ "init_device" }, [](wxWebView* browse, const std::string& data, nlohmann::json& json_data, const std::string cmd) {
+            AnalyticsDataUploadManager::getInstance().resetPrinterBindingInitialization();
             nlohmann::json device_data = DM::DeviceMgr::Ins().GetData();
             std::string    selected_mac;
 
@@ -232,6 +233,8 @@ namespace DM {
         // form device, real time update of the data
         this->Handler({ "update_devices" }, [this](wxWebView* browse, const std::string& data, nlohmann::json& json_data, const std::string cmd) {
             DM::DataCenter::Ins().update_data(json_data);
+            AnalyticsDataUploadManager::getInstance().triggerUploadTasks(AnalyticsUploadTiming::ON_SOFTWARE_LAUNCH,
+                {AnalyticsDataEventType::ANALYTICS_PRINTER_BINDING_SNAPSHOT});
             Slic3r::GUI::NotifyAIChatDeviceStatusChanged();
             
             // 7.1.0版本先屏蔽此事件上报

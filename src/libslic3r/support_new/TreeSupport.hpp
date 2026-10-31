@@ -451,7 +451,7 @@ private:
     size_t                                        m_highest_overhang_layer = 0;
     std::vector<std::vector<MinimumSpanningTree>> m_spanning_trees;
     std::vector<std::unordered_map<Line, bool, LineHash>> m_mst_line_x_layer_contour_caches;
-    float                                                 DO_NOT_MOVER_UNDER_MM         = 0.0;
+    float                                                 DO_NOT_MOVER_UNDER_MM         = 2.0;
     coordf_t                                              base_radius                   = 0.0;
     const coordf_t                                        MAX_BRANCH_RADIUS             = 10.0;
     const coordf_t                                        MIN_BRANCH_RADIUS             = 0.4;
@@ -460,6 +460,10 @@ private:
     double                                                diameter_angle_scale_factor   = tan(5.0 * M_PI / 180.0);
     // minimum roof area (1 mm^2), area smaller than this value will not have interface
     double minimum_roof_area{SQ(scaled<double>(1.))};
+    // A base support area carried by less than this fraction of itself is floating.
+    const double MIN_CARRIED_RATIO = 0.3;
+    // Interface areas bridge across branch tips, so they only need a small anchor.
+    const double MIN_CARRIED_RATIO_INTERFACE = 0.02;
     float  top_z_distance = 0.0;
 
     bool is_strong   = false;
@@ -477,6 +481,9 @@ private:
      * \param contact_nodes The nodes to draw as support.
      */
     void draw_circles();
+
+    // Remove final support regions which are not carried by support below or by the model.
+    void prune_floating_supports();
 
     /*!
      * \brief Drops down the nodes of the tree support towards the build plate.

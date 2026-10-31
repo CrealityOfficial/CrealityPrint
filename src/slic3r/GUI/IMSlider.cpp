@@ -1025,8 +1025,10 @@ bool IMSlider::vertical_slider(const char* str_id, int* higher_value, int* lower
 
     bool value_changed = false;
     if (!one_layer_flag){
-        // select higher handle by default
-        static bool h_selected = (selection == ssHigher);
+        bool& h_selected = m_higher_handle_selected;
+        // Track clicks reuse this slider's last selected handle (initially the upper one).
+        if (hovered && context.IO.MouseClicked[0])
+            selection = h_selected ? ssHigher : ssLower;
         if (ImGui::ItemHoverable(higher_handle, id) && context.IO.MouseClicked[0]) {
             selection = ssHigher; 
             h_selected = true;
@@ -1111,7 +1113,9 @@ bool IMSlider::vertical_slider(const char* str_id, int* higher_value, int* lower
             auto text_utf8    = into_u8(higher_label);
             text_content_size = ImGui::CalcTextSize(text_utf8.c_str());
             text_size = text_content_size + text_padding * 2;
-            ImVec2 text_start = ImVec2(higher_handle.Min.x - text_size.x - 8.0f * m_scale,higher_handle_center.y - text_size.y * 0.5f);
+            // Keep the upper bubble above its handle so nearby layer labels cannot overlap.
+            ImVec2 text_start = ImVec2(higher_handle.Min.x - text_size.x - 8.0f * m_scale,
+                                       higher_handle_center.y - text_size.y);
             ImRect text_rect(text_start, text_start + text_size);
 
             ImGui::SetNextWindowPos(text_start);
@@ -1124,10 +1128,10 @@ bool IMSlider::vertical_slider(const char* str_id, int* higher_value, int* lower
                 ImGui::RenderFrame(text_rect.Min, text_rect.Max, tip_bg, false, bubble_rounding);
                 const float tri_w = 8.0f * m_scale;
                 const float tri_h = 10.0f * m_scale;
-                const float cy    = (text_rect.Min.y + text_rect.Max.y) * 0.5f;
+                const float cy    = text_rect.Max.y - bubble_rounding - tri_h * 0.5f;
                 ImVec2 pos_1(text_rect.Max.x, cy - tri_h * 0.5f);
                 ImVec2 pos_2(text_rect.Max.x, cy + tri_h * 0.5f);
-                ImVec2 pos_3(text_rect.Max.x + tri_w, cy);
+                ImVec2 pos_3(text_rect.Max.x + tri_w, higher_handle_center.y);
                 window->DrawList->AddTriangleFilled(pos_1, pos_2, pos_3, tip_bg);
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1,1,1,1));
                 ImGui::RenderText(text_start + text_padding, higher_label.c_str());
@@ -1142,8 +1146,9 @@ bool IMSlider::vertical_slider(const char* str_id, int* higher_value, int* lower
             auto text_utf8    = into_u8(lower_label);
             text_content_size = ImGui::CalcTextSize(text_utf8.c_str());
             text_size = text_content_size + text_padding * 2;
+            // Keep the lower bubble below its handle, including when both values are equal.
             ImVec2 text_start = ImVec2(lower_handle.Min.x - text_size.x - 8.0f * m_scale,
-                                       lower_handle_center.y - text_size.y * 0.5f);
+                                       lower_handle_center.y);
             ImRect text_rect(text_start, text_start + text_size);
 #if 0
             ImVec4 bgc          = ImVec4(1.0, 1.0, 1.0, 1.0);
@@ -1159,10 +1164,10 @@ bool IMSlider::vertical_slider(const char* str_id, int* higher_value, int* lower
                 ImGui::RenderFrame(text_rect.Min, text_rect.Max, tip_bg, false, bubble_rounding);
                 const float tri_w = 8.0f * m_scale;
                 const float tri_h = 10.0f * m_scale;
-                const float cy    = (text_rect.Min.y + text_rect.Max.y) * 0.5f;
+                const float cy    = text_rect.Min.y + bubble_rounding + tri_h * 0.5f;
                 ImVec2 pos_1(text_rect.Max.x, cy - tri_h * 0.5f);
                 ImVec2 pos_2(text_rect.Max.x, cy + tri_h * 0.5f);
-                ImVec2 pos_3(text_rect.Max.x + tri_w, cy);
+                ImVec2 pos_3(text_rect.Max.x + tri_w, lower_handle_center.y);
                 window->DrawList->AddTriangleFilled(pos_1, pos_2, pos_3, tip_bg);
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1,1,1,1));
                 ImGui::RenderText(text_start + text_padding, lower_label.c_str());

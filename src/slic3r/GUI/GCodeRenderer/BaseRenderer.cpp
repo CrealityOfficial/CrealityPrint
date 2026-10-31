@@ -75,7 +75,7 @@ namespace GUI {
         { 0.00f, 0.50f, 0.00f, 1.0f },   // erSupportMaterialInterface
         { 0.00f, 0.25f, 0.00f, 1.0f },   // erSupportTransition
         { 0.70f, 0.89f, 0.67f, 1.0f },   // erWipeTower
-        { 1.00f, 0.49f, 0.22f, 1.0f },   // erSkinInfill
+        { 0.00f, 0.80f, 0.90f, 1.0f },   // erSkinInfill
         { 0.37f, 0.82f, 0.58f, 1.0f },   // erCustom
         { 0.70f, 0.70f, 0.70f, 1.0f }    // erMixed
     } };
@@ -767,11 +767,16 @@ void BaseRenderer::GCodeWindow::renderGcode(uint64_t curr_line_id, int canvas_wi
     // center the text in the window by pushing down the first line
     const float f_lines_count = static_cast<float>(lines_count);
     ImGui::SetCursorPosY(0.5f * (wnd_height - f_lines_count * text_height - (f_lines_count - 1.0f) * style.ItemSpacing.y)+ pos.y);
-    static const ImVec4 LINE_NUMBER_COLOR = ImGuiWrapper::COL_ORANGE_LIGHT;
-    static const ImVec4 SELECTION_RECT_COLOR = ImGuiWrapper::COL_ORANGE_DARK;
-    static const ImVec4 COMMAND_COLOR = { 0.8f, 0.8f, 0.0f, 1.0f };
+    // Keep the light theme readable over the toolpath preview. The previous
+    // light orange/yellow colors had very little contrast against the translucent
+    // window and the model behind it.
+    const ImVec4 LINE_NUMBER_COLOR = m_is_dark ? ImGuiWrapper::COL_ORANGE_LIGHT : ImVec4{ 0.604f, 0.302f, 0.0f, 1.0f };
+    const ImVec4 SELECTION_FILL_COLOR = m_is_dark ? ImVec4{ 0.0f, 0.0f, 0.0f, 0.0f } : ImVec4{ 0.863f, 0.922f, 1.0f, 0.85f };
+    const ImVec4 SELECTION_RECT_COLOR = m_is_dark ? ImGuiWrapper::COL_ORANGE_DARK : ImVec4{ 0.157f, 0.471f, 0.784f, 1.0f };
+    const ImVec4 G_COMMAND_COLOR = m_is_dark ? ImVec4{ 0.8f, 0.8f, 0.0f, 1.0f } : ImVec4{ 0.0f, 0.439f, 0.373f, 1.0f };
+    const ImVec4 M_COMMAND_COLOR = m_is_dark ? ImVec4{ 0.8f, 0.8f, 0.0f, 1.0f } : ImVec4{ 0.027f, 0.373f, 0.722f, 1.0f };
     const ImVec4 PARAMETERS_COLOR = m_is_dark ? ImVec4{ 1.0f, 1.0f, 1.0f, 1.0f } : ImVec4{ 0.0f, 0.0f, 0.0f, 1.0f };
-    const ImVec4 COMMENT_COLOR = m_is_dark ? ImVec4{ 0.7f, 0.7f, 0.7f, 1.0f } : ImVec4{ 0.0f, 0.0f, 0.0f, 0.7f };
+    const ImVec4 COMMENT_COLOR = m_is_dark ? ImVec4{ 0.7f, 0.7f, 0.7f, 1.0f } : ImVec4{ 0.357f, 0.392f, 0.439f, 1.0f };
 
     ImGuiWrapper& imgui = *wxGetApp().imgui();
     for (uint64_t id = start_id; id <= end_id; ++id) {
@@ -784,10 +789,12 @@ void BaseRenderer::GCodeWindow::renderGcode(uint64_t curr_line_id, int canvas_wi
             const float pos_x = ImGui::GetCursorScreenPos().x;
             const float half_ItemSpacing_y = 0.5f * style.ItemSpacing.y;
             const float half_ItemSpacing_x = 0.5f * style.ItemSpacing.x;
-            ImGui::GetWindowDrawList()->AddRect({ pos_x, pos_y - half_ItemSpacing_y },
-                { pos_x+ImGui::GetCurrentWindow()->Size.x - half_ItemSpacing_x- 2*style.WindowPadding.x ,
-                pos_y + text_height + half_ItemSpacing_y },
-                ImGui::GetColorU32(SELECTION_RECT_COLOR));
+            const ImVec2 rect_min{ pos_x, pos_y - half_ItemSpacing_y };
+            const ImVec2 rect_max{ pos_x + ImGui::GetCurrentWindow()->Size.x - half_ItemSpacing_x - 2 * style.WindowPadding.x,
+                                   pos_y + text_height + half_ItemSpacing_y };
+            if (!m_is_dark)
+                ImGui::GetWindowDrawList()->AddRectFilled(rect_min, rect_max, ImGui::GetColorU32(SELECTION_FILL_COLOR));
+            ImGui::GetWindowDrawList()->AddRect(rect_min, rect_max, ImGui::GetColorU32(SELECTION_RECT_COLOR));
         }
 
         // render line number
@@ -807,7 +814,8 @@ void BaseRenderer::GCodeWindow::renderGcode(uint64_t curr_line_id, int canvas_wi
 
         // render command
         if (!line.command.empty()) {
-            ImGui::PushStyleColor(ImGuiCol_Text, COMMAND_COLOR);
+            const bool is_m_command = line.command.front() == 'M' || line.command.front() == 'm';
+            ImGui::PushStyleColor(ImGuiCol_Text, is_m_command ? M_COMMAND_COLOR : G_COMMAND_COLOR);
             DispConfig().boldText(line.command, zoom);
             ImGui::PopStyleColor();
         }
@@ -2464,9 +2472,10 @@ void BaseRenderer::load(const GCodeProcessorResult& gcode_result, const Print& p
             if (!only_gcode)
             {
                 wxGetApp().notification_manager()->set_slicing_progress_hidden();
-                wxGetApp().process_msg_loop();
+                // Preview::load_print_as_fff() updates the layer slider after
+                // this load returns. Pumping events here lets a paint callback
+                // write the old slider range into the newly loaded layers.
             }
-            m_bLoaded = true;
         });
 
     //BBS: add logs
@@ -2596,6 +2605,7 @@ void BaseRenderer::load(const GCodeProcessorResult& gcode_result, const Print& p
 
     m_toolpath_outside_result = gcode_result.toolpath_outside_result;
 
+    m_bLoaded = true;
     //BBS: add mutex for protection of gcode result
     gcode_result.unlock();
     {
@@ -2792,6 +2802,7 @@ void BaseRenderer::reset_shell()
 
 void BaseRenderer::reset()
 {
+    m_bLoaded = false;
     //BBS: should also reset the result id
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": current result id %1% ")%m_last_result_id;
     m_last_result_id = -1;
@@ -3629,7 +3640,9 @@ void BaseRenderer::render_legend(int canvas_width, int canvas_height)
                        m_filament_diameters, m_filament_densities, m_fold_icon_svg_texture);
 
     auto wcfg = helper.prepare(m_fold, m_contentWidth);
-    // wcfg.bgalpha = 5/100.f;
+    // A nearly opaque light background prevents the model/toolpath colors from
+    // reducing G-code text contrast. Preserve the existing dark-theme opacity.
+    wcfg.bgalpha = m_is_dark ? 0.2f : 0.95f;
     DispConfig().processWindows(
         "gcode_legend",
         [&]() {

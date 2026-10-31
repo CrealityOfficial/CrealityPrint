@@ -40,7 +40,8 @@ void SlicerBridge::RegisterAllActions()
           "Capture Model Views",
           "Capture multi-view screenshots for the selected or specified model object and return PNG data URLs.",
           false,
-          { {"object_index", "number", "Target model object index. Defaults to the current selection when omitted.", false, ""},
+          { {"scope", "string", "object (existing default) or global (complete project recommendation input).", false, "object"},
+            {"object_index", "number", "Target model object index. Defaults to the current selection when omitted.", false, ""},
             {"views", "string[]|string", "Requested views. Defaults to front,rear,left,right,top,bottom,iso,iso_front_right,iso_rear_right,iso_rear_left.", false, "front,rear,left,right,top,bottom,iso,iso_front_right,iso_rear_right,iso_rear_left"},
             {"width", "number", "Output image width in pixels.", false, "512"},
             {"height", "number", "Output image height in pixels.", false, "512"} } },
@@ -60,8 +61,23 @@ void SlicerBridge::RegisterAllActions()
           "\xe8\x8e\xb7\xe5\x8f\x96\xe5\xbd\x93\xe5\x89\x8d\xe9\x85\x8d\xe7\xbd\xae",  // Get current config (localized Chinese label)
           "Get Current Config",
           "Return key print/filament/printer parameters of the active configuration.",
-          false, {} },
+          false, {{"scope", "string", "global reads process presets without object overrides", false, ""}} },
         [this](const json& p) { return DoGetEditedConfig(p); });
+
+    RegisterAction(
+        { ActionID::GET_PROJECT_3MF_CONTEXT,
+          "Get Project 3MF Context",
+          "Get Project 3MF Context",
+          "Return the secure, fully resolved current project settings required to build a native Creality Print 3MF.",
+          false, {} },
+        [this](const json& p) { return DoGetProject3mfContext(p); });
+
+    RegisterAction(
+        { ActionID::GET_PARAMETER_DIFFERENCES,
+          "Get Parameter Differences", "Get Parameter Differences",
+          "Compare process parameters with their inherited baseline without exporting the full project.",
+          false, {{"scope", "string", "global or object", false, "global"}} },
+        [this](const json& p) { return DoGetParameterDifferences(p); });
 
     // ----- mutation actions (some need confirmation) -----
 
@@ -213,6 +229,19 @@ void SlicerBridge::RegisterAllActions()
           false,
           { {"path", "string", "File path to import.", true, ""}, {"file_path", "string", "Alias of path.", false, ""} } },
         [this](const json& p) { return DoImportModel(p); });
+
+    RegisterAction(
+        { ActionID::IMPORT_GENERATED_MODEL,
+          "Import AI Generated Model",
+          "Import AI Generated Model",
+          "Download a signed 3MF from CxAgent, verify its SHA-256 digest, and import it.",
+          false,
+          { {"download_url", "string", "Short-lived signed HTTPS URL.", true, ""},
+            {"sha256", "string", "Expected lowercase SHA-256 hex digest.", true, ""},
+            {"size_bytes", "number", "Expected byte size.", true, ""},
+            {"file_name", "string", "Display file name.", false, "ai-generated-model.3mf"},
+            {"expires", "number", "Signed URL expiration time.", false, "0"} } },
+        [this](const json& p) { return DoImportGeneratedModel(p); });
 
     RegisterAction(
         { ActionID::OPEN_MODEL_LIBRARY,

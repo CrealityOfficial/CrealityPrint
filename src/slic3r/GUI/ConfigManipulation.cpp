@@ -1,7 +1,9 @@
 // #include "libslic3r/GCodeSender.hpp"
 #include "ConfigManipulation.hpp"
+#include "NoTowerOptions.hpp"
 #include "I18N.hpp"
 #include "GUI_App.hpp"
+#include "MainFrame.hpp"
 #include "format.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Model.hpp"
@@ -48,6 +50,88 @@ void ConfigManipulation::apply(DynamicPrintConfig* config, DynamicPrintConfig* n
     if (modified && load_config != nullptr)
         load_config();
     m_applying_keys.clear();
+}
+
+bool ConfigManipulation::resolve_arc_fitting_smoothing_conflict(DynamicPrintConfig* config, const std::string& changed_key)
+{
+    if (is_msg_dlg_already_exist)
+        return false;
+
+    const auto* arc_fitting = config->option<ConfigOptionBool>("enable_arc_fitting");
+    const auto* rate_smoothing = config->option<ConfigOptionFloat>("max_volumetric_extrusion_rate_slope");
+    const auto* speed_smoothing = config->option<ConfigOptionBool>("smooth_speed_discontinuity_area");
+    const bool rate_smoothing_enabled = rate_smoothing != nullptr && rate_smoothing->value > 0.;
+    const bool speed_smoothing_enabled = speed_smoothing != nullptr && speed_smoothing->value;
+    if (arc_fitting == nullptr || !arc_fitting->value || (!rate_smoothing_enabled && !speed_smoothing_enabled))
+        return false;
+
+    const bool explicit_edit = changed_key == "enable_arc_fitting" ||
+                               changed_key == "max_volumetric_extrusion_rate_slope" ||
+                               changed_key == "smooth_speed_discontinuity_area";
+    bool disable_smoothing = changed_key == "enable_arc_fitting";
+    is_msg_dlg_already_exist = true;
+    ScopeGuard reset_dialog_guard([this] { is_msg_dlg_already_exist = false; });
+
+    const auto append_smoothing_actions = [&](wxString& message) {
+        if (rate_smoothing_enabled)
+            message += "\n  - " + format_wxstr(_L("Set \"%1%\" to 0 (disabled)"), _L("Extrusion rate smoothing"));
+        if (speed_smoothing_enabled)
+            message += "\n  - " + format_wxstr(_L("Uncheck \"%1%\""), _L("Smooth speed discontinuity area (Beta)"));
+    };
+
+    if (explicit_edit) {
+        const wxString winner = disable_smoothing ? _L("Arc fitting") :
+            changed_key == "smooth_speed_discontinuity_area" ? _L("Smooth speed discontinuity area (Beta)") :
+                                                              _L("Extrusion rate smoothing");
+        wxString message = format_wxstr(_L("Enabling \"%1%\" conflicts with the following active settings."), winner);
+        message += "\n\n" + _L("To keep the feature you just enabled, Creality Print will make the following changes:");
+        if (disable_smoothing)
+            append_smoothing_actions(message);
+        else
+            message += "\n  - " + format_wxstr(_L("Uncheck \"%1%\""), _L("Arc fitting"));
+        message += "\n\n" + _L("Apply these changes?");
+        MessageDialog dialog(wxGetApp().mainframe, message, _L("Resolve process parameter conflicts"),
+                             wxICON_WARNING | wxYES | wxNO);
+        dialog.SetEscapeId(wxID_NO);
+        // No (including closing the dialog) cancels this enable, leaving the
+        // existing feature intact. Do not change either setting before the choice.
+        if (dialog.ShowModal() != wxID_YES)
+            disable_smoothing = !disable_smoothing;
+    } else if (speed_smoothing_enabled) {
+        // Imported speed-smoothing conflicts have no edit order. Ask which
+        // feature to keep before changing the configuration.
+        wxString message = _L("The loaded configuration enables arc fitting together with incompatible smoothing settings.\n\n"
+                              "Choose Yes to keep arc fitting and turn off the settings listed below. "
+                              "Choose No to keep those settings and turn off arc fitting.");
+        append_smoothing_actions(message);
+        MessageDialog dialog(wxGetApp().mainframe, message, _L("Resolve process parameter conflicts"),
+                             wxICON_WARNING | wxYES | wxNO | wxNO_DEFAULT);
+        dialog.SetEscapeId(wxID_NO);
+        disable_smoothing = dialog.ShowModal() == wxID_YES;
+    }
+
+    DynamicPrintConfig new_config = *config;
+    if (disable_smoothing) {
+        // Rejecting a smoothing enable only reverts the feature just edited.
+        // Keeping arc fitting (including on import) disables both active kinds.
+        if (rate_smoothing_enabled && changed_key != "smooth_speed_discontinuity_area")
+            new_config.set_key_value("max_volumetric_extrusion_rate_slope", new ConfigOptionFloat(0.));
+        if (speed_smoothing_enabled && changed_key != "max_volumetric_extrusion_rate_slope")
+            new_config.set_key_value("smooth_speed_discontinuity_area", new ConfigOptionBool(false));
+    } else {
+        new_config.set_key_value("enable_arc_fitting", new ConfigOptionBool(false));
+    }
+    apply(config, &new_config);
+
+    if (!explicit_edit && !speed_smoothing_enabled) {
+        // Imported conflicts have no last edit to cancel. Preserve the existing
+        // compatibility rule: keep smoothing and close arc fitting.
+        MessageDialog dialog(wxGetApp().mainframe,
+            _L("Arc fitting and extrusion rate smoothing cannot be enabled at the same time. Arc fitting has been turned off."),
+            _L("Warning"), wxICON_WARNING | wxOK);
+        dialog.ShowModal();
+    }
+    return true;
 }
 
 bool ConfigManipulation::is_applying() const { return is_msg_dlg_already_exist; }
@@ -238,6 +322,26 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
     if (is_msg_dlg_already_exist ||
         (wxGetApp().plater() != nullptr && wxGetApp().plater()->is_zaa_ui_normalization_in_progress()))
         return;
+
+    // Keep intelligent infill off in no-tower mode, including imported presets
+    // and explicit object overrides.
+    if (!config->opt_bool("enable_prime_tower") && config->opt_bool("ai_infill")) {
+        DynamicPrintConfig new_config = *config;
+        new_config.set_key_value("ai_infill", new ConfigOptionBool(false));
+        apply(config, &new_config);
+    }
+
+    // Loading a preset/project does not carry an individual changed key.
+    resolve_arc_fitting_smoothing_conflict(config);
+    if (is_global_config && config->opt_bool("enable_arc_fitting")) {
+        if (Plater* plater = wxGetApp().plater(); plater != nullptr) {
+            // Imported conflicts have no edit order. Preserve global/object ZAA
+            // and close arc fitting through the same guarded normalization path.
+            const ZaaUiNormalizationRequest request {"enable_arc_fitting", ZaaUiChangeScope::Global, true, true};
+            if (plater->apply_zaa_ui_normalization(request, {}, config, false) && load_config != nullptr)
+                load_config();
+        }
+    }
 
     if (auto *tower_filament = config->option<ConfigOptionInt>("wipe_tower_filament"); tower_filament != nullptr) {
         const size_t physical_count = wxGetApp().preset_bundle->filament_presets.size();
@@ -738,9 +842,9 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     
     bool have_volumetric_extrusion_rate_slope = config->option<ConfigOptionFloat>("max_volumetric_extrusion_rate_slope")->value > 0;
     float have_volumetric_extrusion_rate_slope_segment_length = config->option<ConfigOptionFloat>("max_volumetric_extrusion_rate_slope_segment_length")->value;
-    toggle_field("enable_arc_fitting", !have_volumetric_extrusion_rate_slope);
+    toggle_field("enable_arc_fitting", true);
     toggle_line("max_volumetric_extrusion_rate_slope_segment_length", have_volumetric_extrusion_rate_slope);
-    if(have_volumetric_extrusion_rate_slope) config->set_key_value("enable_arc_fitting", new ConfigOptionBool(false));
+    toggle_line("extrusion_rate_smoothing_external_perimeter_only", have_volumetric_extrusion_rate_slope);
     if(have_volumetric_extrusion_rate_slope_segment_length < 0.5) {
         DynamicPrintConfig new_conf = *config;
         new_conf.set_key_value("max_volumetric_extrusion_rate_slope_segment_length", new ConfigOptionFloat(1));
@@ -759,6 +863,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
         toggle_field(el, have_perimeters);
     
     bool have_infill = has_effective_sparse_infill(config);
+    toggle_field("ai_infill", config->opt_bool("enable_prime_tower"));
     // sparse_infill_filament uses the same logic as in Print::extruders()
     for (auto el : { "sparse_infill_pattern", "infill_combination", "minimum_sparse_infill_area", "sparse_infill_filament", "infill_anchor_max",
           "infill_shift_step", "infill_rotate_step", "symmetric_infill_y_axis"})//"sparse_infill_rotate_template",
@@ -810,9 +915,12 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     //toggle_line("infill_shift_step", is_cross_zag || is_locked_zig);
     toggle_line("infill_shift_step", is_cross_zag);
     
-    for (auto el : {"skeleton_infill_density", "skin_infill_density", "infill_lock_depth", "skin_infill_depth", "skin_infill_line_width",
-                    "skeleton_infill_line_width", "locked_skin_infill_pattern", "locked_skeleton_infill_pattern"})
+    for (auto el : {"skin_infill_density", "infill_lock_depth", "skin_infill_depth", "skin_infill_line_width",
+                    "skeleton_infill_line_width", "skeleton_wipe_line_width", "locked_skin_infill_pattern", "locked_skeleton_infill_pattern"})
         toggle_line(el, is_locked_zig);
+    const bool tower_enabled = config->opt_bool("enable_prime_tower");
+    toggle_line("skeleton_infill_density", is_locked_zig && tower_enabled);
+    toggle_line("minimum_skeleton_infill_density", is_locked_zig && !tower_enabled);
     toggle_field("skin_infill_depth", is_locked_zig && !flush_into_skeleton_enabled);
     toggle_line("skeleton_wipe_line_width", false);
 
@@ -1010,26 +1118,40 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
 
     toggle_line("ooze_prevention", !bSEMM);
     bool have_ooze_prevention = config->opt_bool("ooze_prevention");
+    toggle_line("wait_for_temperature_after_toolchange", have_ooze_prevention && !bSEMM);
     toggle_line("standby_temperature_delta", have_ooze_prevention);
     toggle_line("preheat_temperature_delta", have_ooze_prevention);
     toggle_line("preheat_time", have_ooze_prevention);
     int preheat_steps = config->opt_int("preheat_steps");
     toggle_line("preheat_steps", have_ooze_prevention && (preheat_steps > 0));
 
-    toggle_line("flush_into_infill", bSEMM);
-    toggle_line("flush_into_objects", bSEMM);
-    toggle_line("flush_into_support", bSEMM);
+    // Match the capability used by Print::_make_wipe_tower for multi-nozzle filament changes.
+    const auto* filament_nozzle_mapping = printer_preset.config.option<ConfigOptionBool>("support_filament_nozzle_mapping");
+    const auto* nozzle_diameters = printer_preset.config.option<ConfigOptionFloats>("nozzle_diameter");
+    const bool supports_mapped_filament_changes = filament_nozzle_mapping != nullptr && filament_nozzle_mapping->value &&
+                                                 nozzle_diameters != nullptr && nozzle_diameters->values.size() > 1;
+    const bool show_flush_options = bSEMM || supports_mapped_filament_changes;
+    toggle_line("flush_into_infill", show_flush_options);
+    toggle_line("flush_into_objects", show_flush_options);
+    toggle_line("flush_into_support", show_flush_options);
     toggle_line("flush_into_skeleton", bSEMM);
 
     bool have_prime_tower = config->opt_bool("enable_prime_tower");
+    const bool link_no_tower_options = printer_preset.config.has("prime_tower_toolchange_at_start") &&
+        printer_preset.config.opt_bool("prime_tower_toolchange_at_start");
+    const bool show_linked_no_tower_options =
+        show_machine_linked_no_tower_options(have_prime_tower, link_no_tower_options);
+    const bool lock_no_tower_infill_pattern = show_linked_no_tower_options;
+    toggle_field("sparse_infill_pattern", !lock_no_tower_infill_pattern);
+    toggle_field("locked_skin_infill_pattern", !lock_no_tower_infill_pattern);
     const bool use_creality_tower = !is_BBL_Printer &&
         creality::is_firmwaresoft_mm_printer_from_string(printer_preset.config.opt_string("printer_model"));
     toggle_line("wipe_tower_filament", use_creality_tower);
     toggle_field("wipe_tower_filament", use_creality_tower && have_prime_tower);
     toggle_line("flush_into_solid_skeleton", !have_prime_tower);
-    toggle_line("bottom_fill_flush_layers", false);
-    toggle_line("top_fill_flush_layers", false);
-    toggle_line("skeleton_flush_slowdown_speed", false);
+    toggle_line("bottom_fill_flush_layers", show_linked_no_tower_options);
+    toggle_line("top_fill_flush_layers", show_linked_no_tower_options);
+    toggle_line("skeleton_flush_slowdown_speed", show_linked_no_tower_options);
     const bool flush_into_objects_enabled  = config->has("flush_into_objects") && config->opt_bool("flush_into_objects");
     for (auto el : {"prime_tower_width", "prime_tower_brim_width", "prime_tower_skip_points", "prime_tower_rib_wall", "prime_tower_enable_framework"})
         toggle_line(el, have_prime_tower);
@@ -1069,9 +1191,16 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
         toggle_line("wipe_tower_bridging", false);
     }
     
-    toggle_field("flush_into_infill", have_prime_tower && !flush_into_skeleton_enabled);
-    toggle_field("flush_into_support", have_prime_tower);
-    toggle_field("flush_into_objects", have_prime_tower && !flush_into_skeleton_enabled);
+    toggle_line("wipe_tower_extra_interlayer_wipe_layers",
+                have_prime_tower && !is_BBL_Printer && !config->opt_bool("wipe_tower_no_sparse_layers"));
+
+    const bool smooth_timelapse_no_prime_tower = !have_prime_tower &&
+        config->has("timelapse_type") &&
+        config->opt_enum<TimelapseType>("timelapse_type") == TimelapseType::tlSmooth;
+    const bool flush_into_model_available = have_prime_tower || smooth_timelapse_no_prime_tower;
+    toggle_field("flush_into_infill", flush_into_model_available && !flush_into_skeleton_enabled);
+    toggle_field("flush_into_support", flush_into_model_available);
+    toggle_field("flush_into_objects", flush_into_model_available && !flush_into_skeleton_enabled);
     toggle_field("flush_into_skeleton", have_prime_tower && can_flush_into_skeleton_for_printer &&
         !flush_into_infill_enabled && !flush_into_objects_enabled);
     
@@ -1084,13 +1213,13 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     // todo multi_extruders:
     bool has_overhang_speed = config->opt_bool("enable_overhang_speed", 0);
     for (auto el :
-         {"overhang_speed_classic", "overhang_1_4_speed", "overhang_2_4_speed", "overhang_3_4_speed", "overhang_4_4_speed"})
+         {"overhang_speed_classic", "overhang_1_4_speed", "overhang_2_4_speed", "overhang_3_4_speed", "overhang_4_4_speed", "overhang_totally_speed"})
         toggle_line(el, has_overhang_speed);
     
     bool has_overhang_speed_classic = config->opt_bool("overhang_speed_classic");
     toggle_line("slowdown_for_curled_perimeters",!has_overhang_speed_classic && has_overhang_speed);
 
-    for (auto el : {"smooth_speed_discontinuity_area", "smooth_coefficient", "overhang_totally_speed"})
+    for (auto el : {"smooth_speed_discontinuity_area", "smooth_coefficient"})
         toggle_line(el, has_overhang_speed_classic && has_overhang_speed);
 
     toggle_line("smooth_coefficient",

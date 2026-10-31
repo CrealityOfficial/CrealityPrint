@@ -20,6 +20,17 @@ void DataCenter::update_data(const nlohmann::json& datas)
     p->m_data = datas;
 
     DM::Device current_device_last = DM::Device::deserialize(p->m_current_device);
+    const auto has_mappable_material = [](const DM::Device& device) {
+        for (const auto& box : device.materialBoxes) {
+            if (box.box_type == 0 || box.box_type == 2) {
+                for (const auto& material : box.materials) {
+                    if (!material.color.empty())
+                        return true;
+                }
+            }
+        }
+        return false;
+    };
     unsigned long last_box_info_hash = -1, cur_box_info_hash = -1;
     get_device_box_info_hash(p->m_current_device, last_box_info_hash);
 
@@ -32,7 +43,15 @@ void DataCenter::update_data(const nlohmann::json& datas)
     p->m_current_device_data = DM::Device::deserialize(p->m_current_device);
     set_cur_active_address(p->m_current_device_data.address);
 
-    p->m_current_device_changed_state = box_info_hash_changed || p->m_current_device_data.address != current_device_last.address;
+    // The device list can fill in multi-color capability and material boxes after
+    // the initial selection, without changing the device address.
+    p->m_current_device_changed_state = box_info_hash_changed ||
+        p->m_current_device_data.valid != current_device_last.valid ||
+        p->m_current_device_data.mac != current_device_last.mac ||
+        p->m_current_device_data.address != current_device_last.address ||
+        p->m_current_device_data.model != current_device_last.model ||
+        p->m_current_device_data.isMultiColorDevice != current_device_last.isMultiColorDevice ||
+        has_mappable_material(p->m_current_device_data) != has_mappable_material(current_device_last);
 }
 
 // return empty string or hashBoxsInfo

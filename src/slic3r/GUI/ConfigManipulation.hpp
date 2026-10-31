@@ -86,17 +86,25 @@ struct ZaaUiGlobalState {
     bool scarf_enabled { false };
     bool spiral_enabled { false };
     bool mixed_sublayer_enabled { false };
+    bool arc_fitting_enabled { false };
+    bool extrusion_smoothing_enabled { false };
+    bool speed_smoothing_enabled { false };
 };
 
 struct ZaaUiNormalizationRequest {
     std::string      changed_key;
     ZaaUiChangeScope scope { ZaaUiChangeScope::Global };
     bool             changed_feature_enabled { false };
+    bool             config_load { false };
 };
 
 struct ZaaUiNormalizationPlan {
     bool                reject_changed_feature { false };
+    bool                arc_fitting_conflict { false };
     bool                disable_global_zaa { false };
+    bool                disable_global_arc_fitting { false };
+    bool                disable_global_extrusion_smoothing { false };
+    bool                disable_global_speed_smoothing { false };
     bool                disable_global_scarf { false };
     bool                disable_global_spiral { false };
     bool                disable_global_mixed { false };
@@ -109,6 +117,7 @@ struct ZaaUiNormalizationPlan {
     bool empty() const
     {
         return !reject_changed_feature && !disable_global_zaa && !disable_global_scarf &&
+               !disable_global_arc_fitting && !disable_global_extrusion_smoothing && !disable_global_speed_smoothing &&
                !disable_global_spiral && !disable_global_mixed && zaa_false_object_ids.empty() &&
                scarf_none_object_ids.empty() && spiral_false_object_ids.empty();
     }
@@ -127,8 +136,40 @@ inline ZaaUiNormalizationPlan plan_zaa_ui_normalization(const ZaaUiNormalization
     const bool is_scarf = request.changed_key == "seam_slope_type";
     const bool is_spiral = request.changed_key == "spiral_mode";
     const bool is_mixed = request.changed_key == "enable_mixed_color_sublayer";
-    if (!is_zaa && !is_scarf && !is_spiral && !is_mixed)
+    const bool is_arc = request.changed_key == "enable_arc_fitting";
+    if (!is_zaa && !is_scarf && !is_spiral && !is_mixed && !is_arc)
         return plan;
+
+    // Imports have no last edit. Keep the existing ZAA preference without
+    // treating the validation pass as a new request to enable arc fitting.
+    if (request.config_load) {
+        const bool any_zaa_enabled = global_state.zaa_enabled ||
+            std::any_of(states.begin(), states.end(), [](const ZaaUiObjectState& state) { return state.zaa_enabled; });
+        plan.disable_global_arc_fitting = global_state.arc_fitting_enabled && any_zaa_enabled;
+        plan.arc_fitting_conflict = plan.disable_global_arc_fitting;
+        return plan;
+    }
+
+    // Arc fitting is global. Clear both inherited and explicit object ZAA, and
+    // smoothing, in one transaction before any tab can refresh the configuration.
+    if (is_arc) {
+        plan.disable_global_zaa = global_state.zaa_enabled;
+        plan.disable_global_extrusion_smoothing = global_state.extrusion_smoothing_enabled;
+        plan.disable_global_speed_smoothing = global_state.speed_smoothing_enabled;
+        for (const ZaaUiObjectState& state : states) {
+            if (!state.zaa_enabled)
+                continue;
+            if (state.object_zaa_enabled)
+                plan.zaa_false_object_ids.emplace_back(state.object_id);
+            plan.affected_object_ids.emplace_back(state.object_id);
+        }
+        plan.arc_fitting_conflict = !plan.empty();
+        return plan;
+    }
+    if (is_zaa) {
+        plan.disable_global_arc_fitting = global_state.arc_fitting_enabled;
+        plan.arc_fitting_conflict = plan.disable_global_arc_fitting;
+    }
 
     if (is_spiral) {
         if (is_global) {
@@ -303,6 +344,9 @@ public:
     t_config_option_keys const &applying_keys() const;
     void    toggle_field(const std::string& field_key, const bool toggle, int opt_index = -1);
     void    toggle_line(const std::string& field_key, const bool toggle);
+
+    // Keep the most recently enabled feature; imported conflicts retain smoothing.
+    bool    resolve_arc_fitting_smoothing_conflict(DynamicPrintConfig* config, const std::string& changed_key = {});
 
     // FFF print
     void    update_print_fff_config(DynamicPrintConfig* config, const bool is_global_config = false, const bool is_plate_config = false);

@@ -1143,9 +1143,6 @@ void sample_overhang_area(
         const double estimated_width = perimeter > 0. ? 2. * area_abs / perimeter : std::numeric_limits<double>::max();
         return perimeter > 4. * connect_length && estimated_width < 2. * double(interface_placer.config.support_line_width);
     };
-    auto edge_sample_count = [connect_length](const Polygons& area) {
-        return std::max<size_t>(3, size_t(total_length(area) / connect_length));
-    };
     auto point_coverage = [&interface_placer](const Points& points) {
         Polygons covered;
         if (!points.empty()) {
@@ -1161,27 +1158,42 @@ void sample_overhang_area(
         }
         return covered;
     };
-    auto uncovered_edge_polylines = [&](const Polygons& area, const Points& existing_points) {
-        Polylines edge_lines;
-        if (!is_long_narrow_area(area))
-            return edge_lines;
-
-        const Polygons covered = point_coverage(existing_points);
-        Polylines      sampled = ensure_maximum_distance_polyline(to_polylines(area), connect_length, edge_sample_count(area));
-        for (const Polyline& line : sampled) {
-            Polyline uncovered;
+    // Add only candidates outside existing support coverage and far enough from
+    // accepted points, so contour sampling repairs sparse infill without replacing it.
+    auto filter_uncovered_polylines = [&](const Polylines& candidates, const Points& existing_points, coord_t min_spacing) {
+        Polylines result;
+        Polygons covered = point_coverage(existing_points);
+        Points accepted_points = existing_points;
+        const double min_distance = std::max(0., double(min_spacing) - double(scaled<coord_t>(0.005)));
+        const double min_distance_squared = sqr(min_distance);
+        for (const Polyline& line : candidates) {
+            Polyline accepted;
             for (const Point& point : line) {
-                if (covered.empty() || !contains(covered, point)) {
-                    uncovered.points.emplace_back(point);
-                } else if (!uncovered.empty()) {
-                    edge_lines.emplace_back(std::move(uncovered));
-                    uncovered = Polyline{};
+                const bool too_close = std::any_of(accepted_points.begin(), accepted_points.end(), [&](const Point& other) {
+                    return (point - other).cast<double>().squaredNorm() < min_distance_squared;
+                });
+                if (!too_close && (covered.empty() || !contains(covered, point))) {
+                    accepted.points.emplace_back(point);
+                    accepted_points.emplace_back(point);
+                    covered = union_(covered, point_coverage(Points{point}));
+                } else if (!accepted.empty()) {
+                    result.emplace_back(std::move(accepted));
+                    accepted = Polyline{};
                 }
             }
-            if (!uncovered.empty())
-                edge_lines.emplace_back(std::move(uncovered));
+            if (!accepted.empty())
+                result.emplace_back(std::move(accepted));
         }
-        return edge_lines;
+        return result;
+    };
+    auto uncovered_edge_polylines = [&](const Polygons& area, const Points& existing_points) {
+        if (!is_long_narrow_area(area))
+            return Polylines{};
+
+        // Reuse the empirically tuned connect_length so contour supplementation does not
+        // make tree tips denser than the regular sampling strategy.
+        Polylines sampled = ensure_maximum_distance_polyline(to_polylines(area), connect_length, 1);
+        return filter_uncovered_polylines(sampled, existing_points, connect_length);
     };
     auto collect_points = [](const Polylines& lines) {
         Points points;
@@ -1289,7 +1301,6 @@ void sample_overhang_area(
                                                                                            mesh_group_settings.support_tree_branch_distance),
                                              continuous_tips ? interface_placer.config.min_radius / 2 : connect_length, 1);
         const double overhang_perimeter = total_length(overhang_area);
-        append(polylines, uncovered_edge_polylines(overhang_area, collect_points(polylines)));
         size_t       point_count        = count_polyline_points(polylines);
         const coord_t min_point_floor   = large_horizontal_roof ? coord_t(1) : coord_t(2);
         const size_t min_support_points =
@@ -1302,16 +1313,20 @@ void sample_overhang_area(
             // angle of about < 60 degrees so there is a fallback, as some support is better than none.
             Polygons reduced_overhang_area = offset(union_ex(overhang_area), -interface_placer.config.support_line_width / 2.2, jtMiter,
                                                     1.2);
-            polylines                      = ensure_maximum_distance_polyline(to_polylines(
-                                                             !reduced_overhang_area.empty() &&
-                                                                     area(offset(diff_ex(overhang_area, reduced_overhang_area),
-                                                                                                      std::max(interface_placer.config.support_line_width,
-                                                                                                               connect_length),
-                                                                                                      jtMiter, 1.2)) < sqr(scaled<double>(0.001)) ?
-                                                                 reduced_overhang_area :
-                                                                 overhang_area),
-                                                                              connect_length, min_support_points);
+            Polygons fallback_area = !reduced_overhang_area.empty() &&
+                                             area(offset(diff_ex(overhang_area, reduced_overhang_area),
+                                                         std::max(interface_placer.config.support_line_width, connect_length), jtMiter, 1.2)) <
+                                                 sqr(scaled<double>(0.001)) ?
+                                         reduced_overhang_area :
+                                         overhang_area;
+            Polylines fallback_polylines = ensure_maximum_distance_polyline(to_polylines(fallback_area), connect_length,
+                                                                              min_support_points);
+            // Preserve internal samples and add contour points only where their
+            // support reach does not already cover the overhang.
+            append(polylines, filter_uncovered_polylines(fallback_polylines, collect_points(polylines), connect_length));
         }
+        // Finish the original insufficient-point fallback before supplementing edges.
+        append(polylines, uncovered_edge_polylines(overhang_area, collect_points(polylines)));
         overhang_lines = convert_lines_to_internal(interface_placer.volumes, interface_placer.config, polylines, layer_idx - dtt_roof);
     }
 
@@ -4850,8 +4865,8 @@ static void generate_support_areas(Print&                     print,
         for (size_t i = 0; i < print_object.layer_count(); i++) {
             const size_t support_layer_idx = i + num_raft_layers;
             for (auto& expoly_type : print_object.get_layer(i)->loverhangs_with_type) {
-                Polygons polys = to_polygons(expoly_type.first);
-                const bool   is_sharp_tail = (expoly_type.second & TreeSupport::SharpTail) != 0;
+                Polygons   polys         = to_polygons(expoly_type.first);
+                const bool is_sharp_tail = (expoly_type.second & TreeSupport::SharpTail) != 0;
 
                 if (is_sharp_tail) {
                     polys = offset(polys, scale_(0.2));
@@ -5601,13 +5616,6 @@ void organic_draw_branches(PrintObject&                  print_object,
                             if (fully_supported) {
                                 for (LayerIndex j = 0; j < i; ++j)
                                     slices[j].clear();
-                            } else {
-                                // The overlap is already carried by the support surface below.  Only the remaining
-                                // unsupported part should keep searching for a lower landing.
-                                for (LayerIndex j = 0; j < i; ++j) {
-                                    if (!slices[j].empty())
-                                        slices[j] = intersection_clipped(slices[j], unsupported);
-                                }
                             }
 
                             double retained_area = 0.;

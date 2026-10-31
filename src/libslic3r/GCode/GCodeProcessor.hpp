@@ -9,6 +9,8 @@
 #include "PathologicalSegmentProbe.hpp"
 
 #include <cstdint>
+#include <map>
+#include <unordered_map>
 #include <array>
 #include <vector>
 #include <mutex>
@@ -564,6 +566,21 @@ enum class PathologicalProbeLifecycle {
         }
         void  lock() const { result_mutex.lock(); }
         void  unlock() const { result_mutex.unlock(); }
+    };
+
+    // Creality: per-object record for the EXCLUDE_OBJECT_ID_BLOCK trailing block (Klipper exclude-object).
+    // id/name are provided by the exporter; END_POS and END_OFFSET are collected inside GCodeProcessor:
+    //   - end_pos:    last valid forward-extrusion endpoint, captured during the move-analysis pass.
+    //   - end_offset: byte offset of the '\n' terminating the object's last EXCLUDE_OBJECT_END line,
+    //                 captured during the final output pass.
+    struct ExcludeObjectEndInfo
+    {
+        int           id             = -1;              // object id, matches "; OBJECT_ID:" and the pick image (ModelInstance::get_labeled_id())
+        std::string   name;                             // instance name, identical to EXCLUDE_OBJECT_START/END NAME=
+        Vec3d         end_pos        = Vec3d::Zero();   // last valid forward-extrusion endpoint in machine coordinates
+        std::uint64_t end_offset     = 0;               // byte offset of the '\n' terminating the object's last EXCLUDE_OBJECT_END line
+        bool          has_end_pos    = false;
+        bool          has_end_offset = false;
     };
 
     class GCodeProcessor
@@ -1307,6 +1324,12 @@ enum class PathologicalProbeLifecycle {
         Print* m_print{ nullptr };
 
         GCodeProcessorResult m_result;
+        // Creality: EXCLUDE_OBJECT_ID_BLOCK data, filled entirely inside GCodeProcessor.
+        static constexpr size_t                 InvalidExcludeObjectIndex = static_cast<size_t>(-1);
+        std::vector<ExcludeObjectEndInfo>       m_exclude_object_end_infos;
+        std::unordered_map<int, size_t>         m_exclude_object_id_to_index;   // object id -> index, used to collect END_POS during the analysis pass
+        std::map<std::string, size_t>           m_exclude_object_name_to_index; // object name -> index, used to collect END_OFFSET during final output
+        size_t                                  m_exclude_object_current_index = InvalidExcludeObjectIndex; // cached index of the current object, updated on "; OBJECT_ID:"
         static unsigned int s_result_id;
 
 #if ENABLE_GCODE_VIEWER_DATA_CHECKING
@@ -1342,6 +1365,21 @@ enum class PathologicalProbeLifecycle {
         const GCodeProcessorResult& get_result() const { return m_result; }
         GCodeProcessorResult& result() { return m_result; }
         GCodeProcessorResult&& extract_result() { return std::move(m_result); }
+        // Creality: register the id/name mapping before the body is analyzed, so END_POS can be collected during parsing.
+        void set_exclude_object_end_infos(const std::vector<ExcludeObjectEndInfo>& infos) {
+            m_exclude_object_end_infos = infos;
+            m_exclude_object_id_to_index.clear();
+            m_exclude_object_name_to_index.clear();
+            for (size_t i = 0; i < m_exclude_object_end_infos.size(); ++i) {
+                m_exclude_object_id_to_index.emplace(m_exclude_object_end_infos[i].id, i);
+                m_exclude_object_name_to_index.emplace(m_exclude_object_end_infos[i].name, i);
+            }
+            m_exclude_object_current_index = InvalidExcludeObjectIndex;
+        }
+        // line excludes its terminating LF. end_offset is the absolute byte offset
+        // of that LF, or the output size for the legacy unterminated-last-line case.
+        bool process_exclude_object_output_line(std::string_view line, std::uint64_t end_offset);
+        std::string build_exclude_object_id_block() const;
 
         // Load a G-code into a stand-alone G-code viewer.
         // throws CanceledException through print->throw_if_canceled() (sent by the caller as callback).

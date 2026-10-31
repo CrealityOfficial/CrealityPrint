@@ -6,6 +6,7 @@
 #include <string>
 #include <regex>
 #include <future>
+#include <filesystem>
 #include <glad/gl.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
@@ -2222,6 +2223,113 @@ void PartPlate::set_print(PrintBase* print, GCodeResult* result, int index)
 	return;
 }
 
+
+std::string PartPlate::get_ai_recommend_id()
+{
+    std::string id;
+    uint64_t latest = 0;
+    for (const auto& instance : obj_to_instance_set) {
+        const int object_index = instance.first, instance_index = instance.second;
+        if (object_index < 0 || object_index >= int(m_model->objects.size())) continue;
+        const auto* object = m_model->objects[object_index];
+        if (!object->printable || instance_index < 0 || instance_index >= int(object->instances.size()) ||
+            !object->instances[instance_index]->printable || instance_outside_set.count(instance)) continue;
+        for (const auto& [key, value] : object->ai_recommendation.values) {
+            if (value.apply_seq >= latest) { latest = value.apply_seq; id = value.recommend_id; }
+        }
+    }
+    return id;
+}
+
+AIRecommendationMetrics PartPlate::capture_ai_recommendation_metrics(const Model& model) const
+{
+    AIRecommendationMetrics result;
+    try {
+        if (!m_print) { result.unknown = true; return result; }
+        if (std::none_of(model.objects.begin(), model.objects.end(), [](const ModelObject* object) {
+                return !object->ai_recommendation.values.empty(); })) return result;
+        // Multiple instances/PrintObjects of one logical object count each key once.
+        std::map<size_t, std::vector<const PrintObject*>> objects;
+        for (const auto* printed : m_print->objects())
+            if (!printed->instances().empty()) objects[printed->model_object()->id().id].push_back(printed);
+        for (const auto& object_entry : objects) {
+            const auto& id              = object_entry.first;
+            const auto& printed_objects = object_entry.second;
+            const auto found = std::find_if(model.objects.begin(), model.objects.end(),
+                [id](const ModelObject* object) { return object->id().id == id; });
+            if (found == model.objects.end()) { result.unknown = true; continue; }
+            const auto& object = **found;
+            const auto& baseline = object.ai_recommendation;
+            // V1 does not infer attribution through topology changes or modifier/range overrides.
+            const bool topology_known = !baseline.incomplete && baseline.volume_ids == object.ai_recommendation_volume_ids() &&
+                object.volumes.size() == 1 && object.volumes.front()->is_model_part() && object.layer_config_ranges.empty();
+            for (const auto& value_entry : baseline.values) {
+                const auto& key   = value_entry.first;
+                const auto& value = value_entry.second;
+                bool comparable = topology_known, matches = true;
+                if (key == "layer_height" && !object.layer_height_profile.empty()) comparable = false;
+                auto compare = [&](const ConfigOption* option) {
+                    const auto comparison = compare_ai_recommendation_option(value, option);
+                    if (comparison == AIRecommendationComparison::Unknown) comparable = false;
+                    matches = matches && comparison == AIRecommendationComparison::Equal;
+                };
+                for (const auto* printed : printed_objects) {
+                    if (const auto* option = printed->config().option(key)) compare(option);
+                    else if (m_print->default_region_config().option(key)) {
+                        const auto regions = printed->all_regions();
+                        if (regions.empty()) comparable = false;
+                        for (const auto& region : regions) compare(region.get().config().option(key));
+                    } else comparable = false; // V1 compares only effective object/region parameters.
+                }
+                result.observe(value, comparable, matches);
+            }
+        }
+    } catch (...) {
+        result.unknown = true;
+        BOOST_LOG_TRIVIAL(warning) << "[AIRecommendation] slice metrics unavailable";
+    }
+    return result;
+}
+
+void PartPlate::bind_ai_recommendation_file(const AIRecommendationMetrics& metrics, const std::string& path)
+{
+    m_ai_file_metrics = metrics;
+    m_ai_metrics_path.clear();
+    try {
+        const auto file = std::filesystem::u8path(path);
+        if (path.empty() || !std::filesystem::is_regular_file(file)) return;
+        m_ai_metrics_size = std::filesystem::file_size(file);
+        m_ai_metrics_mtime = std::filesystem::last_write_time(file).time_since_epoch().count();
+        m_ai_metrics_path = path;
+    } catch (...) { m_ai_file_metrics.unknown = true; }
+}
+
+void PartPlate::finish_ai_recommendation_slice(bool success)
+{
+    if (m_ai_metrics_pending && success)
+        bind_ai_recommendation_file(m_ai_pending_metrics, get_tmp_gcode_path());
+    m_ai_metrics_pending = false;
+}
+
+bool PartPlate::ai_recommendation_file_matches(const std::string& path) const
+{
+    try {
+        const auto file = std::filesystem::u8path(path);
+        return !m_ai_metrics_path.empty() && path == m_ai_metrics_path &&
+            std::filesystem::is_regular_file(file) && std::filesystem::file_size(file) == m_ai_metrics_size &&
+            std::filesystem::last_write_time(file).time_since_epoch().count() == m_ai_metrics_mtime;
+    } catch (...) { return false; }
+}
+
+AIRecommendationMetrics PartPlate::ai_recommendation_metrics_for_file(const std::string& path) const
+{
+    if (ai_recommendation_file_matches(path)) return m_ai_file_metrics;
+    // Do not use today's live recommendation to attribute a file with no known snapshot.
+    AIRecommendationMetrics result;
+    result.unknown = true;
+    return result;
+}
+
 std::string PartPlate::get_gcode_filename()
 {
 	if (is_slice_result_valid() && get_slice_result()) {
@@ -3169,6 +3277,7 @@ void PartPlate::update_slice_context(BackgroundSlicingProcess & process)
 		wxQueueEvent(m_plater, event);
 	};
 
+	m_print->set_plate_index(m_plate_index);
 	process.set_fff_print(m_print);
 	process.set_gcode_result(m_gcode_result);
 	process.select_technology(this->printer_technology);

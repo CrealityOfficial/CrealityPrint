@@ -38,7 +38,7 @@ public:
     LockedZagSkeletonSimulation(const LockedZagSkeletonSimulation&) = delete;
     LockedZagSkeletonSimulation& operator=(const LockedZagSkeletonSimulation&) = delete;
 
-    LockedZagSkeletonMetricsByRegion simulate(float skeleton_density_percent) const;
+    LockedZagSkeletonMetricsByRegion simulate(float skeleton_density_percent, const LayerRegion* only_region = nullptr) const;
 
 private:
     struct Impl;

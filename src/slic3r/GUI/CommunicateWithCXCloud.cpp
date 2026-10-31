@@ -950,6 +950,27 @@ CommunicateWithFrontPage::CommunicateWithFrontPage() {
 }
 CommunicateWithFrontPage::~CommunicateWithFrontPage() {}
 
+static std::vector<std::string> parse_compatible_printer_names(const std::string& serialized)
+{
+    std::vector<std::string> printer_names;
+
+    // Current cloud presets use ConfigOptionStrings' C-style representation,
+    // which quotes names containing spaces. Older presets used commas instead.
+    const bool legacy_comma_separated = serialized.find('"') == std::string::npos &&
+                                        serialized.find(';') == std::string::npos &&
+                                        serialized.find(',') != std::string::npos;
+    if (!legacy_comma_separated && unescape_strings_cstyle(serialized, printer_names))
+        return printer_names;
+
+    boost::split(printer_names, serialized, boost::is_any_of(legacy_comma_separated ? "," : ";"));
+    for (std::string& printer_name : printer_names) {
+        boost::algorithm::trim(printer_name);
+        if (printer_name.size() >= 2 && printer_name.front() == '"' && printer_name.back() == '"')
+            printer_name = printer_name.substr(1, printer_name.size() - 2);
+    }
+    return printer_names;
+}
+
 int CommunicateWithFrontPage::getUserPresetParams(const std::map<std::string, std::map<std::string, std::string>>& mapUserCloudPresets,
                                                   std::string&                                                     ssJsonData)
 {
@@ -966,6 +987,32 @@ int CommunicateWithFrontPage::getUserPresetParams(const std::map<std::string, st
             std::string              printer_model;
             std::string              nozzle;
             std::string              preset_type = item.second["type"];
+            // The cloud keeps historical names; present references using installed profiles.
+            // Work on the display copy without changing cloud identity or revision metadata.
+            const auto *bundle = GUI::wxGetApp().preset_bundle;
+            if (bundle) {
+                const PresetCollection *collection = preset_type == "printer" ? &bundle->printers :
+                    (preset_type == "filament" || preset_type == "materia") ? &bundle->filaments :
+                    (preset_type == "print" || preset_type == "process") ? &bundle->prints : nullptr;
+                if (collection) {
+                    auto inherits = item.second.find("inherits");
+                    if (inherits != item.second.end())
+                        inherits->second = collection->canonical_preset_name(inherits->second);
+                    std::map<std::string, std::string> references;
+                    for (const char *key : {"printer_model", "compatible_printers", "print_compatible_printers",
+                                            "default_print_profile", "default_filament_profile"}) {
+                        auto found = item.second.find(key);
+                        if (found != item.second.end())
+                            references.emplace(*found);
+                    }
+                    DynamicPrintConfig config;
+                    config.load_string_map(references, ForwardCompatibilitySubstitutionRule::Enable);
+                    bundle->migrate_preset_references(config);
+                    for (const auto &reference : references)
+                        if (const auto *option = config.option(reference.first))
+                            item.second[reference.first] = option->serialize();
+                }
+            }
             std::string              preset_type_path;
             if (i == 0) {
                 if (preset_type == "printer") {
@@ -1132,11 +1179,7 @@ int CommunicateWithFrontPage::getFilamentPresetParams(const std::map<std::string
         printer_name = printer_name.substr(pos + 1);
         printer_names.emplace_back(printer_name);
     } else {
-        if (printer_name.find(",") != std::string::npos) {
-            boost::split(printer_names, printer_name, boost::is_any_of(","));
-        } else {
-            boost::split(printer_names, printer_name, boost::is_any_of(";"));
-        }
+        printer_names = parse_compatible_printer_names(printer_name);
     }
 
     std::regex  re(R"((\d+\.\d+ )nozzle)");
@@ -1171,6 +1214,10 @@ int CommunicateWithFrontPage::getFilamentPresetParams(const std::map<std::string
                 if (std::regex_search(printer_name, match, re)) {
                     nozzle        = match[1];
                     printer_model = printer_name.substr(0, match.position() - 1);
+                } else {
+                    // Unified profiles such as K3 no longer encode a nozzle in the name.
+                    nozzle.clear();
+                    printer_model = printer_name;
                 }
             } else {
                 printer_model = printer_name;
@@ -1299,11 +1346,7 @@ int CommunicateWithFrontPage::getProcessPresetParams(const std::map<std::string,
         printer_name = printer_name.substr(pos + 1);
         printer_names.emplace_back(printer_name);
     } else {
-        if (printer_name.find(",") != std::string::npos) {
-            boost::split(printer_names, printer_name, boost::is_any_of(","));
-        } else {
-            boost::split(printer_names, printer_name, boost::is_any_of(";"));
-        }
+        printer_names = parse_compatible_printer_names(printer_name);
     }
 
     std::regex  re(R"((\d+\.\d+ )nozzle)");
@@ -1338,6 +1381,10 @@ int CommunicateWithFrontPage::getProcessPresetParams(const std::map<std::string,
                 if (std::regex_search(printer_name, match, re)) {
                     nozzle        = match[1];
                     printer_model = printer_name.substr(0, match.position() - 1);
+                } else {
+                    // Unified profiles such as K3 no longer encode a nozzle in the name.
+                    nozzle.clear();
+                    printer_model = printer_name;
                 }
             } else {
                 printer_model = printer_name;

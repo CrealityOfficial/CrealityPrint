@@ -184,6 +184,7 @@ modules:
     build-commands:
       # start build
       - |
+        set -e
         export CFLAGS=""
         export CXXFLAGS=""
         rm -rf deps/build && mkdir deps/build && cd deps/build
@@ -380,6 +381,7 @@ modules:
         CMAKE_POLICY_VERSION_MINIMUM: "3.5"
     build-commands:
       - |
+        set -e
         export CFLAGS=""
         export CXXFLAGS=""
         mkdir -p build

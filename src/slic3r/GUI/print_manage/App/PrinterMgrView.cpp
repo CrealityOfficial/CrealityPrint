@@ -979,8 +979,14 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
     try
     {
 
+        // Parse the WebView message once as UTF-8. Re-parsing wxString iterators
+        // corrupts non-BMP characters in proxied print commands on Windows.
+        const wxString strInput = evt.GetString();
+        const auto utf8_input = strInput.ToUTF8();
+        json j = json::parse(utf8_input.data(), utf8_input.data() + utf8_input.length());
+
         // Invalidate old credentials before the shared get_user route returns to JS.
-        const auto incoming = json::parse(evt.GetString().ToUTF8().data());
+        const auto& incoming = j;
         if (incoming.value("command", std::string()) == "get_user") initMqtt();
         if (incoming.value("command", std::string()) == "set_cloud_device_mqtt") {
             const auto& user = wxGetApp().get_user();
@@ -989,14 +995,12 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
                 setMqttDeviceDN(dn);
             return;
         }
-        if (DM::AppMgr::Ins().Invoke(m_browser, evt.GetString().ToUTF8().data()))
+        if (DM::AppMgr::Ins().Invoke(m_browser, std::string(utf8_input.data(), utf8_input.length())))
         {
             return;
         }
 
-        wxString strInput = evt.GetString();
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;OnRecv:" << strInput.c_str();
-        json     j = json::parse(strInput);
 
         wxString strCmd = j["command"];
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Command:" << strCmd;
@@ -1541,10 +1545,9 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             BOOST_LOG_TRIVIAL(trace) << "PrinterMgrView::OnScriptMessage;Unknown Command:" << strCmd;
         }
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
-        // wxMessageBox(e.what(), "json Exception", MB_OK);
-        BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Error:" << e.what();
+        BOOST_LOG_TRIVIAL(error) << "PrinterMgrView::OnScriptMessage;Error:" << e.what();
     }
 
 }
@@ -2428,6 +2431,15 @@ void PrinterMgrView::request_refresh_all_device()
     };
 
     ExecuteScriptCommand(commandJson.dump());
+}
+
+void PrinterMgrView::set_send_page_cloud_device(const std::string& address)
+{
+    const nlohmann::json commandJson = {
+        {"command", "set_send_page_cloud_device"},
+        {"data", {{"address", address}}}
+    };
+    ExecuteScriptCommand(RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
 }
 
 void PrinterMgrView::update_current_cxy_device_filament(const std::string& mac)

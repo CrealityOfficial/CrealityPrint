@@ -109,7 +109,8 @@ enum class AnalyticsDataEventType {
     ANALYTICS_OTA_UPDATE_SUCCESS,
     ANALYTICS_OTA_UPDATE_FAIL,
     ANALYTICS_PRINT_VIDEO_CONNECT,
-    ANALYTICS_TAB_MAKENOW
+    ANALYTICS_TAB_MAKENOW,
+    ANALYTICS_PRINTER_BINDING_SNAPSHOT
 };
 
 struct AnalyticsEventPayload {
@@ -141,6 +142,7 @@ public:
     }
 
     ~AnalyticsDataUploadManager();
+    void resetPrinterBindingInitialization() { m_binding_snapshot_collected = false; }
 
     void triggerUploadTasks(AnalyticsUploadTiming triggerTiming, const std::vector<AnalyticsDataEventType>& dataEventTypes, int plate_idx = 0, const std::string& device_mac = "");
     void triggerUploadTasksWithPayload(const AnalyticsEventPayload& payload, int plate_idx = 0, const std::string& device_mac = "");
@@ -421,6 +423,8 @@ private:
     void uploadSoftwareBadAlloc();
     void uploadSoftwareCloseData();
     void uploadDeviceInfoData();
+    void uploadPrinterBindingSnapshot();
+    bool m_binding_snapshot_collected = false;
     void uploadAccountDeviceInfoData();
     void uploadOnlineModelsEvent();
     void uploadPrepareEvent();

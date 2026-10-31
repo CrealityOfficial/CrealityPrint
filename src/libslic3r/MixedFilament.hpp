@@ -423,7 +423,10 @@ public:
     // its slot even though it is temporarily unavailable for slicing.
     int mixed_index_from_filament_id(unsigned int filament_id, size_t num_physical) const;
 
-    // Blend N colours using weighted FilamentMixer blending.
+    // Blend N colours using weighted FilamentMixer blending. Prefers K-M
+    // spectral mixing when every colour matches a measured base-color
+    // spectrum (see BaseColorSpectra), falling back to the polynomial mixer
+    // otherwise.
     // color_percents: vector of (hex_color, percent) where percents sum to 100.
     static std::string blend_color_multi(
         const std::vector<std::pair<std::string, int>> &color_percents);
@@ -437,7 +440,9 @@ public:
     ExpandedFilamentUsage expand_filament_usage(const std::vector<unsigned int> &filament_ids,
                                                 size_t                           num_physical) const;
 
-    // Compute a display colour by blending two colours with FilamentMixer.
+    // Compute a display colour by blending two colours. Prefers K-M spectral
+    // mixing when both colours match measured base-color spectra (see
+    // BaseColorSpectra), falling back to the polynomial mixer otherwise.
     static std::string blend_color(const std::string &color_a,
                                    const std::string &color_b,
                                    int ratio_a, int ratio_b);
@@ -459,7 +464,9 @@ public:
     // Return display colours for all allocated virtual slots, in ID order.
     std::vector<std::string> display_colors() const;
 
-    // Refresh display colors when physical filament colors change
+    // Refresh display colors when physical filament colors change. Display
+    // colors prefer K-M spectral mixing when component colours match measured
+    // base-color spectra (see BaseColorSpectra).
     void refresh_display_colors(const std::vector<std::string> &filament_colours);
 
 private:

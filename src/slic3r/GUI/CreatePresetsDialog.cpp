@@ -4798,6 +4798,16 @@ wxColour export_text_colour()
 {
     return wxGetApp().dark_mode() ? wxColour("#FFFFFF") : wxColour("#262626");
 }
+
+StateColor export_button_text_colour(bool selected)
+{
+    // Button applies the global dark-mode mapping when painting. In dark mode,
+    // use the mapped text base color instead of passing white, which is mapped
+    // to the window background color.
+    if (wxGetApp().dark_mode())
+        return StateColor(*wxBLACK);
+    return StateColor(selected ? *wxWHITE : wxColour("#262626"));
+}
 } // namespace
 
 int ExportCheckbox::s_proportion = 1;
@@ -6110,7 +6120,7 @@ void ExportConfigsDialog::exportPresets()
     onBtnProcessClicked();
     onBtnPrinterClicked();
     m_stPrinterPresets.bClicked = true;
-    m_stPrinterPresets.pBtnPresets->SetTextColor(wxColour("#FFFFFF"));
+    m_stPrinterPresets.pBtnPresets->SetTextColor(export_button_text_colour(true));
     m_stPrinterPresets.pBtnPresets->SetBackgroundColor(wxColour("#18CC5C"));
 
     this->Center();
@@ -6805,13 +6815,13 @@ wxBoxSizer* ExportConfigsDialog::create_left_navigation(wxWindow* parent)
         button->SetMinSize(wxSize(FromDIP(124), FromDIP(28)));
         button->SetCornerRadius(0);
         button->SetBorderWidth(0);
-        button->SetTextColor(export_text_colour());
+        button->SetTextColor(export_button_text_colour(false));
         button->SetBackgroundColor(export_panel_colour());
         button->Bind(wxEVT_BUTTON, [this, button, on_click](wxCommandEvent&) {
             for (STPresets* item : {&m_stPrinterPresets, &m_stFilamentPresets, &m_stProcessPresets}) {
                 item->bClicked = item->pBtnPresets == button;
                 item->pBtnPresets->SetBackgroundColor(item->bClicked ? wxColour("#18CC5C") : export_panel_colour());
-                item->pBtnPresets->SetTextColor(item->bClicked ? *wxWHITE : export_text_colour());
+                item->pBtnPresets->SetTextColor(export_button_text_colour(item->bClicked));
             }
             (this->*on_click)();
         });
@@ -7389,7 +7399,7 @@ void ExportConfigsDialog::data_init()
     }
     const std::deque<Preset> &filament_presets = preset_bundle.filaments.get_presets();
     for (const Preset &filament_preset : filament_presets) {
-        if (filament_preset.is_system || filament_preset.is_default) continue;
+        if (filament_preset.is_system || filament_preset.is_default || filament_preset.is_project_embedded) continue;
         Preset *new_filament_preset = new Preset(filament_preset);
         const Preset *base_filament_preset = preset_bundle.filaments.get_preset_base(*new_filament_preset);
         if (base_filament_preset == nullptr)

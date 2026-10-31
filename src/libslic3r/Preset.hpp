@@ -620,6 +620,8 @@ public:
 
     // Resolve an explicit system rename only when no preset owns the original name.
     std::string canonical_preset_name(const std::string &name) const;
+    // Migrate references and preserve old K3 overrides on matching nozzle rows.
+    void migrate_user_preset_config(DynamicPrintConfig &config) const;
     Preset* find_preset_by_id(const std::string& settings_id);
 
     size_t          first_visible_idx() const;

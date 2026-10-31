@@ -24,12 +24,14 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstring>
 #include <cmath>
 #include <limits>
 #include <map>
 #include <set>
 #include <sstream>
+#include <utility>
 
 #include <boost/log/trivial.hpp>
 
@@ -2460,6 +2462,8 @@ void TextureImportDialog::update_ui_for_state()
 
 void TextureImportDialog::start_computation(bool auto_color, bool initial)
 {
+    using TextureClock = std::chrono::steady_clock;
+
     cancel_computation();
 
     m_cancel_flag = false;
@@ -2487,10 +2491,10 @@ void TextureImportDialog::start_computation(bool auto_color, bool initial)
     settings.mesh_repair_callback = Slic3r::fix_mesh_by_win10_sdk;
 #endif
 
-    Slic3r::TexturedMesh mesh_copy = m_textured_mesh;
     wxEvtHandler* handler = this;
 
-    m_worker = std::make_unique<std::thread>([this, settings, mesh_copy, handler]() {
+    m_worker = std::make_unique<std::thread>([this, settings, handler]() {
+        const auto computation_started_at = TextureClock::now();
         Slic3r::PaintedMesh result;
 
         auto progress_cb = [handler](int percent, const char*) {
@@ -2507,11 +2511,13 @@ void TextureImportDialog::start_computation(bool auto_color, bool initial)
         bool mesh_repair_decision_required = false;
         worker_settings.mesh_repair_decision_required = &mesh_repair_decision_required;
         bool ok;
-        if (!mesh_copy.precomputed_face_colors.empty()) {
+        const Slic3r::TexturedMesh& mesh = m_textured_mesh;
+        if (!mesh.precomputed_face_colors.empty()) {
             ok = Slic3r::face_colors_to_painting(
-                mesh_copy, result, worker_settings, progress_cb, cancel_cb);
+                mesh, result, worker_settings, progress_cb, cancel_cb, &m_painting_cache);
         } else {
-            ok = Slic3r::texture_to_painting(mesh_copy, result, worker_settings, progress_cb, cancel_cb);
+            ok = Slic3r::texture_to_painting(
+                mesh, result, worker_settings, progress_cb, cancel_cb, &m_painting_cache);
         }
 
         if (m_cancel_flag.load()) {
@@ -2520,6 +2526,10 @@ void TextureImportDialog::start_computation(bool auto_color, bool initial)
         }
 
         if (!ok && mesh_repair_decision_required) {
+            const double elapsed_ms = std::chrono::duration<double, std::milli>(
+                TextureClock::now() - computation_started_at).count();
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] start_computation result=repair_decision_required"
+                                    << " elapsed_ms=" << elapsed_ms;
             wxQueueEvent(handler, new wxCommandEvent(EVT_TEXTURE_MESH_REPAIR_DECISION));
             return;
         }
@@ -2528,6 +2538,14 @@ void TextureImportDialog::start_computation(bool auto_color, bool initial)
             std::lock_guard<std::mutex> lock(m_result_mutex);
             m_pending_result = std::move(result);
         }
+
+        const double elapsed_ms = std::chrono::duration<double, std::milli>(
+            TextureClock::now() - computation_started_at).count();
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] start_computation result=" << (ok ? "success" : "error")
+                                << " elapsed_ms=" << elapsed_ms
+                                << " target_colors=" << settings.target_colors_num
+                                << " smooth_weight=" << settings.smooth_weight
+                                << " input_faces=" << m_textured_mesh.indices.size();
 
         if (ok) {
             wxQueueEvent(handler, new wxCommandEvent(EVT_TEXTURE_COMPUTE_DONE));
@@ -4356,9 +4374,9 @@ void TextureImportDialog::on_ok_clicked(wxCommandEvent&)
 
 // ---- Result accessors ----
 
-Slic3r::PaintedMesh TextureImportDialog::get_painted_mesh() const
+Slic3r::PaintedMesh TextureImportDialog::take_painted_mesh()
 {
-    return m_painted;
+    return std::move(m_painted);
 }
 
 std::vector<Slic3r::FilamentMatch> TextureImportDialog::get_matches() const

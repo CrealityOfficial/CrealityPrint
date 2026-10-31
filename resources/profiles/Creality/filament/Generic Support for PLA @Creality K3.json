@@ -25,10 +25,22 @@
     "during_print_exhaust_fan_speed": "60",
     "enable_overhang_bridge_fan": "1",
     "enable_pressure_advance": [
-        "0",
-        "0",
-        "0",
-        "0"
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1"
     ],
     "enable_special_area_additional_cooling_fan": "0",
     "eng_plate_temp": "50",
@@ -70,10 +82,10 @@
     "filament_loading_speed": "28",
     "filament_loading_speed_start": "3",
     "filament_long_retractions_when_cut": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
+        "",
+        "",
+        "",
+        ""
     ],
     "filament_max_volumetric_speed": [
         "6",
@@ -94,12 +106,6 @@
     ],
     "filament_ramming_parameters": "120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0| 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6",
     "filament_retract_before_wipe": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
-    ],
-    "filament_retract_length_toolchange": [
         "nil",
         "nil",
         "nil",
@@ -129,12 +135,6 @@
         "nil",
         "nil"
     ],
-    "filament_retract_restart_extra_toolchange": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
-    ],
     "filament_retract_when_changing_layer": [
         "nil",
         "nil",
@@ -142,10 +142,10 @@
         "nil"
     ],
     "filament_retraction_distances_when_cut": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
+        "",
+        "",
+        "",
+        ""
     ],
     "filament_retraction_length": [
         "1.2",
@@ -168,7 +168,7 @@
     "filament_shrink": "100%",
     "filament_soluble": "0",
     "filament_start_gcode": [
-        ";filament start gcode"
+        ";filament start gcode\n{if (position[2] > first_layer_height) }\nM104 S[nozzle_temperature]\n{else} \nM104 S[first_layer_temperature]\n{endif}"
     ],
     "filament_toolchange_delay": "0",
     "filament_type": [
@@ -226,6 +226,18 @@
     "overhang_fan_speed": "100",
     "overhang_fan_threshold": "50%",
     "pressure_advance": [
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
+        "0.08",
         "0.08",
         "0.08",
         "0.08",

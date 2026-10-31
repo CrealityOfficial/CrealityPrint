@@ -1538,9 +1538,10 @@ double Model::findMaxSpeed(const ModelObject* object) {
             supportSpeedObj = object->config.get().opt_float_nullable(objectKey, 0);
         if (objectKey == "outer_wall_speed")
             externalPerimeterSpeedObj = object->config.get().opt_float_nullable(objectKey, 0);
-        if (objectKey == "small_perimeter_speed")
-            smallPerimeterSpeedObj = object->config.opt_float(objectKey);
     }
+    // Resolve percentages after applying the object's outer wall speed override.
+    if (const auto *small_perimeter_speed = object->config.get().option<ConfigOptionFloatsOrPercentsNullable>("small_perimeter_speed"))
+        smallPerimeterSpeedObj = small_perimeter_speed->get_at(0).get_abs_value(externalPerimeterSpeedObj);
     objMaxSpeed = std::max(perimeterSpeedObj, std::max(externalPerimeterSpeedObj, std::max(infillSpeedObj, std::max(solidInfillSpeedObj, std::max(topSolidInfillSpeedObj, std::max(supportSpeedObj, std::max(smallPerimeterSpeedObj, objMaxSpeed)))))));
     if (objMaxSpeed <= 0) objMaxSpeed = 250.;
     return objMaxSpeed;

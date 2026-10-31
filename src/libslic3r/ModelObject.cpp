@@ -37,6 +37,7 @@ ModelObject& ModelObject::assign_copy(const ModelObject &rhs)
     assert(this->config.id().invalid() || this->config.id() == rhs.config.id());
     this->copy_id(rhs);
 
+    this->ai_recommendation           = rhs.ai_recommendation;
     this->name                        = rhs.name;
     //BBS: add module name
     this->module_name                 = rhs.module_name;
@@ -80,6 +81,7 @@ ModelObject& ModelObject::assign_copy(ModelObject &&rhs)
     assert(this->id().invalid());
     this->copy_id(rhs);
 
+    this->ai_recommendation           = std::move(rhs.ai_recommendation);
     this->name                        = std::move(rhs.name);
     //BBS: add module name
     this->module_name                 = std::move(rhs.module_name);
@@ -114,14 +116,23 @@ ModelObject& ModelObject::assign_copy(ModelObject &&rhs)
     return *this;
 }
 
+std::vector<size_t> ModelObject::ai_recommendation_volume_ids() const
+{
+    std::vector<size_t> ids;
+    for (const auto* volume : volumes) ids.push_back(volume->id().id);
+    return ids;
+}
+
 void ModelObject::assign_new_unique_ids_recursive()
 {
+    const bool known_topology = ai_recommendation.volume_ids == ai_recommendation_volume_ids();
     this->set_new_unique_id();
     for (ModelVolume *model_volume : this->volumes)
         model_volume->assign_new_unique_ids_recursive();
     for (ModelInstance *model_instance : this->instances)
         model_instance->assign_new_unique_ids_recursive();
     this->layer_height_profile.set_new_unique_id();
+    if (known_topology) ai_recommendation.volume_ids = ai_recommendation_volume_ids();
 }
 
 // Clone this ModelObject including its volumes and instances, keep the IDs of the copies equal to the original.
@@ -1123,6 +1134,7 @@ void ModelObject::split(ModelObjectPtrs* new_objects)
                 //new_object->config.assign_config(this->config);
             }
             new_object->config.assign_config(this->config);
+            new_object->ai_recommendation.inherit_unknown(this->ai_recommendation);
             new_object->config.apply(volume->config, true);
 
             assert(new_object->config.id().valid());

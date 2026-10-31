@@ -59,6 +59,19 @@ struct PaintedMesh {
     std::vector<std::array<std::size_t,3>>      cluster_colors;
 };
 
+// Reusable output of mesh validation/repair and color sampling. The dialog
+// owns this cache and reuses it when only clustering parameters change.
+struct TexturePaintingCache {
+    std::vector<std::array<float,3>>       vertices;
+    std::vector<std::array<int,3>>         indices;
+    std::vector<std::array<std::size_t,3>> unclustered_face_colors;
+
+    bool valid() const
+    {
+        return !indices.empty() && unclustered_face_colors.size() == indices.size();
+    }
+};
+
 using PaintProgressCallback = std::function<void(int percent, const char* message)>;
 using PaintCancelCallback   = std::function<bool()>;
 using PaintMeshRepairCallback = std::function<bool(const indexed_triangle_set& mesh,
@@ -94,7 +107,8 @@ bool texture_to_painting(
     PaintedMesh& painted,
     const TexturePaintingSettings& settings = {},
     PaintProgressCallback progress = nullptr,
-    PaintCancelCallback cancel = nullptr);
+    PaintCancelCallback cancel = nullptr,
+    TexturePaintingCache* cache = nullptr);
 
 // Turn pre-computed per-face colors into a painted mesh, skipping texture decode
 // and UV sampling. A low-poly mesh that also carries precomputed_vertex_colors is
@@ -104,7 +118,8 @@ bool face_colors_to_painting(
     PaintedMesh& painted,
     const TexturePaintingSettings& settings = {},
     PaintProgressCallback progress = nullptr,
-    PaintCancelCallback cancel = nullptr);
+    PaintCancelCallback cancel = nullptr,
+    TexturePaintingCache* cache = nullptr);
 
 std::vector<FilamentMatch> match_clusters_to_filaments(
     const std::vector<std::array<std::size_t,3>>& cluster_colors,

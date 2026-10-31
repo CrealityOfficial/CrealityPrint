@@ -253,6 +253,18 @@ void Field::initField()
 
 void Field::toggle(bool en) { en && !m_opt.readonly ? enable() : disable(); }
 
+bool Field::is_enabled()
+{
+    if (wxWindow* window = getWindow())
+        return window->IsEnabled();
+    if (wxSizer* sizer = getSizer()) {
+        for (wxSizerItem* item : sizer->GetChildren())
+            if (item->IsWindow())
+                return item->GetWindow()->IsEnabled();
+    }
+    return true;
+}
+
 wxString Field::get_tooltip_text(const wxString &default_string)
 {
 	wxString tooltip_text("");

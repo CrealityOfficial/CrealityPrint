@@ -25,10 +25,22 @@
     "during_print_exhaust_fan_speed": "0",
     "enable_overhang_bridge_fan": "1",
     "enable_pressure_advance": [
-        "0",
-        "0",
-        "0",
-        "0"
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1"
     ],
     "enable_special_area_additional_cooling_fan": "0",
     "eng_plate_temp": "50",
@@ -36,8 +48,8 @@
     "epoxy_resin_plate_temp": "40",
     "epoxy_resin_plate_temp_initial_layer": "40",
     "fan_cooling_layer_time": "100",
-    "fan_max_speed": "100",
-    "fan_min_speed": "50",
+    "fan_max_speed": "60",
+    "fan_min_speed": "60",
     "filament_cooling_final_speed": "3.4",
     "filament_cooling_initial_speed": "2.2",
     "filament_cooling_moves": "4",
@@ -70,10 +82,10 @@
     "filament_loading_speed": "28",
     "filament_loading_speed_start": "3",
     "filament_long_retractions_when_cut": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
+        "",
+        "",
+        "",
+        ""
     ],
     "filament_max_volumetric_speed": [
         "6",
@@ -99,12 +111,6 @@
         "100%",
         "100%"
     ],
-    "filament_retract_length_toolchange": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
-    ],
     "filament_retract_lift_above": [
         "nil",
         "nil",
@@ -129,12 +135,6 @@
         "nil",
         "nil"
     ],
-    "filament_retract_restart_extra_toolchange": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
-    ],
     "filament_retract_when_changing_layer": [
         "nil",
         "nil",
@@ -142,10 +142,10 @@
         "nil"
     ],
     "filament_retraction_distances_when_cut": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
+        "",
+        "",
+        "",
+        ""
     ],
     "filament_retraction_length": [
         "nil",
@@ -225,6 +225,18 @@
     "overhang_fan_speed": "100",
     "overhang_fan_threshold": "50%",
     "pressure_advance": [
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
+        "0.1",
         "0.1",
         "0.1",
         "0.1",

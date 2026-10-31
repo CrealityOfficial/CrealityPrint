@@ -3,12 +3,18 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
 #include <json_diff.hpp>
 
 namespace Slic3r {
 namespace GUI {
 
 namespace nsUpdateParams {
+// Read installation receipts afresh; catalog downloads are not installations.
+std::map<std::string, std::string> loadInstalledPrinterVersions();
+// Share the same definition of added printers between tips and automatic updates.
+std::set<std::string> getAddedPrinterNames();
+
 class CXCloud
 {
 public:
@@ -16,15 +22,6 @@ public:
     ~CXCloud() = default;
 
     int getNeedUpdatePrintes(std::vector<std::string>& vtNeedUpdatePrinter);
-    void clearLocalPrinter();
-
-private:
-    int loadLocalPrinter();
-
-private:
-    std::map<std::string, std::string> m_mapLocalPrinterVersion;
-    std::map<std::string, std::string> m_mapRemotePrinterVersion;
-    bool m_bHasRequestedCXCloud = false;
 };
 } // namespace nsUpdateParams
 
@@ -40,12 +37,8 @@ public:
 private:
     UpdateParams();
 
-    void getCurrentPrinter(std::vector<std::string>& vtCurPrinter);
-
 private:
-    std::vector<std::string> m_vtNeedUpdatePrinter;
     nsUpdateParams::CXCloud m_CXCloud;
-    bool m_bHasUpdateParams = false;
 };
 
 }

@@ -64,6 +64,13 @@ static bool role_been_filtered_in_lite_mode(ExtrusionRole role)
             role == ExtrusionRole::erInternalBridgeInfill);
 }
 
+// Lite mode changes rendering only; the shared processor result must stay intact.
+static EMoveType preview_move_type(const GCodeProcessorResult::MoveVertex& move, bool lite_mode)
+{
+    return lite_mode && move.type == EMoveType::Extrude && role_been_filtered_in_lite_mode(move.extrusion_role)
+        ? EMoveType::Extrude_Alter : move.type;
+}
+
 enum EViewType : unsigned char 
 {
     FeatureType = 0,
@@ -483,7 +490,7 @@ public:
     virtual bool can_export_toolpaths() const = 0;
     std::vector<int> get_plater_extruder();
     bool is_gcode_result_valid() const {
-        return m_gcode_result == nullptr ? false : true;
+        return m_bLoaded && m_gcode_result != nullptr;
     }
     bool is_toolpath_outside() const { return m_gcode_result ? m_gcode_result->toolpath_outside : false; }
     const float                get_max_print_height() const { return m_max_print_height; }

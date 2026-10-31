@@ -307,23 +307,35 @@ inline void refresh(const std::string& base_url, const std::map<std::string, std
 
         const Json cache = convert(materials);
         validate_cache(cache);
+        bool changed = true;
         {
             std::lock_guard<std::mutex> write_lock(cache_mutex());
             const auto target = cache_path();
-            const auto temporary = target.string() + ".tmp";
-            boost::filesystem::create_directories(target.parent_path());
             {
-                boost::nowide::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
-                stream << cache.dump(2);
-                stream.flush();
-                if (!stream) throw std::runtime_error("Cannot write color cache");
-                stream.close();
-                if (!stream) throw std::runtime_error("Cannot close color cache");
+                boost::nowide::ifstream input(target.string());
+                if (input)
+                    changed = Json::parse(input, nullptr, false) != cache;
             }
-            const auto error = Slic3r::rename_file(temporary, target.string());
-            if (error) throw std::runtime_error(error.message());
+            if (changed) {
+                const auto temporary = target.string() + ".tmp";
+                boost::filesystem::create_directories(target.parent_path());
+                {
+                    boost::nowide::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
+                    stream << cache.dump(2);
+                    stream.flush();
+                    if (!stream) throw std::runtime_error("Cannot write color cache");
+                    stream.close();
+                    if (!stream) throw std::runtime_error("Cannot close color cache");
+                }
+                const auto error = Slic3r::rename_file(temporary, target.string());
+                if (error) throw std::runtime_error(error.message());
+            }
         }
-        BOOST_LOG_TRIVIAL(info) << "Official material color cache updated: " << cache["data"].size();
+        if (changed)
+            BOOST_LOG_TRIVIAL(info) << "Official material color cache updated: " << cache["data"].size();
+        else
+            BOOST_LOG_TRIVIAL(info) << "Official material color cache unchanged; skipping cache write";
+        // Still repair a missing or outdated spectrum cache when colors are unchanged.
         BaseColorSpectraCache::update_from_material_cache(cache);
     } catch (const std::exception& e) {
         BOOST_LOG_TRIVIAL(warning) << "Keeping previous official color cache: " << e.what();

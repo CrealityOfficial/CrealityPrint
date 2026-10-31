@@ -1089,8 +1089,12 @@ bool PresetUpdater::priv::install_bundles_rsrc(std::vector<std::string> bundles,
         auto print_in_rsrc = this->rsrc_path / bundle;
 		auto print_in_vendors = this->vendor_path / bundle;
         fs::path print_folder(print_in_vendors);
-        if (fs::exists(print_folder))
-            fs::remove_all(print_folder);
+        boost::system::error_code remove_ec;
+        fs::remove_all(print_folder, remove_ec);
+        if (remove_ec)
+            BOOST_LOG_TRIVIAL(warning) << "Failed to remove preset directory " << print_folder
+                                       << ": " << remove_ec.message() << " (" << remove_ec.value()
+                                       << "); continuing with overwrite copy";
         fs::create_directories(print_folder);
 		updates.updates.emplace_back(std::move(print_in_rsrc), std::move(print_in_vendors), Version(), bundle, "", "",[](const std::string name){
         // return false if name is end with .stl, case insensitive
@@ -1129,9 +1133,8 @@ void PresetUpdater::priv::check_installed_vendor_profiles() const
                         Semver resource_ver = get_version_from_json(file_path);
                         Semver vendor_ver = get_version_from_json(path_in_vendor.string());
 
-                        bool version_match = ((resource_ver.maj() == vendor_ver.maj()) && (resource_ver.min() == vendor_ver.min()));
-
-                        if (!version_match || (vendor_ver < resource_ver)) {
+                        // Different application versions may share this directory. Never downgrade installed profiles.
+                        if (vendor_ver < resource_ver) {
                             BOOST_LOG_TRIVIAL(info) << "[CrealityPrint Updater]:found vendor "<<vendor_name<<" newer version "<<resource_ver.to_string() <<" from resource, old version "<<vendor_ver.to_string();
                             bundles.push_back(vendor_name);
                         }
@@ -1148,8 +1151,12 @@ void PresetUpdater::priv::check_installed_vendor_profiles() const
                     bundles.push_back(vendor_name);
                 }
             }
-            else if (is_core_vendor || (enabled_vendors.find(vendor_name) != enabled_vendors.end())) { //always update configs from resource to vendor for BBL
-                bundles.push_back(vendor_name);
+            else if (is_core_vendor || (enabled_vendors.find(vendor_name) != enabled_vendors.end())) {
+                // Disabling online updates must not replace an equal or newer installed bundle either.
+                if (!fs::exists(path_in_vendor) ||
+                    get_version_from_json(path_in_vendor.string()) < get_version_from_json(file_path)) {
+                    bundles.push_back(vendor_name);
+                }
             }
         }
     }
@@ -1421,6 +1428,8 @@ void PresetUpdater::sync(std::string http_url, std::string language, std::string
 		if (p->cancel)
 			return;
         if (!vendors.empty()) {
+            // Startup only prompts for updates to added printers. Missing
+            // printer packages are installed when the user opens the guide.
             Slic3r::GUI::UpdateParams::getInstance().checkParamsNeedUpdate();
 		    //this->p->sync_config();
 		    //if (p->cancel)
@@ -1443,11 +1452,6 @@ void PresetUpdater::sync(std::string http_url, std::string language, std::string
                 }
  
             }
-                #if CUSTOM_CXCLOUD
-                #if UPDATE_ONLINE_MACHINES
-                    GUI::wxGetApp().check_machine_list();
-                #endif
-                #endif
         }
 		if (p->cancel)
 			return;

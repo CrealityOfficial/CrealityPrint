@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Slic3rPE\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-20 21:25+0800\n"
+"POT-Creation-Date: 2026-10-30 16:28+0800\n"
 "PO-Revision-Date: 2025-12-01 10:21+0800\n"
 "Last-Translator: SoftFever <softfeverever@gmail.com>\n"
 "Language-Team: \n"
@@ -2378,6 +2378,52 @@ msgstr "已完成"
 
 msgid "No step selected"
 msgstr "未选择步骤"
+
+#, boost-format
+msgid "Set \"%1%\" to 0 (disabled)"
+msgstr "将“%1%”设为 0（关闭）"
+
+msgid "Extrusion rate smoothing"
+msgstr "平滑挤出率"
+
+#, boost-format
+msgid "Uncheck \"%1%\""
+msgstr "取消勾选“%1%”"
+
+msgid "Smooth speed discontinuity area (Beta)"
+msgstr "平滑速度不连续区域（实验）"
+
+msgid "Arc fitting"
+msgstr "圆弧拟合"
+
+#, boost-format
+msgid "Enabling \"%1%\" conflicts with the following active settings."
+msgstr "启用“%1%”与以下当前设置冲突。"
+
+msgid ""
+"To keep the feature you just enabled, Creality Print will make the following "
+"changes:"
+msgstr "为保留本次启用的功能，Creality Print 将进行以下调整："
+
+msgid "Apply these changes?"
+msgstr "是否应用这些更改？"
+
+msgid ""
+"The loaded configuration enables arc fitting together with incompatible "
+"smoothing settings.\n"
+"\n"
+"Choose Yes to keep arc fitting and turn off the settings listed below. "
+"Choose No to keep those settings and turn off arc fitting."
+msgstr ""
+"加载的配置同时启用了圆弧拟合和与其冲突的平滑设置。\n"
+"\n"
+"选择“是”将保留圆弧拟合，并关闭下列设置；选择“否”将保留下列设置，并关闭圆弧拟"
+"合。"
+
+msgid ""
+"Arc fitting and extrusion rate smoothing cannot be enabled at the same time. "
+"Arc fitting has been turned off."
+msgstr "圆弧拟合与平滑挤出率不能同时开启。已关闭圆弧拟合，保留平滑挤出率。"
 
 msgid ""
 "The recommended minimum temperature is less than 190 degree or the "
@@ -5420,6 +5466,11 @@ msgid ""
 "import it."
 msgstr "导入到Creality Print失败。请下载文件并手动导入。"
 
+msgid ""
+"The V-shape calibration pattern does not fit in the printable area. Please "
+"reduce the PA range or increase the PA step."
+msgstr "V 形校准图案超出可打印区域。请缩小 PA 范围或增大 PA 步长。"
+
 msgid "Import SLA archive"
 msgstr "导入 SLA 存档"
 
@@ -5607,11 +5658,12 @@ msgid "Mixed color sublayer"
 msgstr "混色子层"
 
 #, boost-format
+msgid "Disable \"%1%\""
+msgstr "关闭“%1%”"
+
+#, boost-format
 msgid "Disable \"%1%\" (%2%)"
 msgstr "关闭“%1%”（%2%）"
-
-msgid "Global"
-msgstr "全局"
 
 msgid "affected Plate setting(s)"
 msgstr "受影响的打印盘设置"
@@ -5619,6 +5671,11 @@ msgstr "受影响的打印盘设置"
 #, boost-format
 msgid "%1% object(s)"
 msgstr "%1% 个对象"
+
+msgid ""
+"The loaded configuration contains conflicting process settings. The "
+"following settings will be turned off:"
+msgstr "载入的配置存在工艺参数冲突，将关闭以下设置："
 
 msgid ""
 "This object has an active Scarf joint seam setting stored at Volume, "
@@ -5655,18 +5712,6 @@ msgid ""
 msgstr ""
 "未启用该功能，因为有一项启用的斜拼接缝设置保存在零件、材料或层范围作用域中。"
 "请先关闭该较低作用域设置，然后重试。"
-
-#, boost-format
-msgid "Enabling \"%1%\" conflicts with the following active settings."
-msgstr "启用“%1%”与以下当前设置冲突。"
-
-msgid ""
-"To keep the feature you just enabled, Creality Print will make the following "
-"changes:"
-msgstr "为保留本次启用的功能，Creality Print 将进行以下调整："
-
-msgid "Apply these changes?"
-msgstr "是否应用这些更改？"
 
 msgid ""
 "Print By Object: \n"
@@ -6003,6 +6048,9 @@ msgstr "终点"
 
 msgid "Customize"
 msgstr "自定义"
+
+msgid "Gray safe"
+msgstr "灰度安全"
 
 msgid "Other layer filament sequence"
 msgstr "其它层耗材打印顺序"
@@ -6346,6 +6394,9 @@ msgstr "选择 (PNG/SVG) 文件作为热床纹理："
 msgid "Choose an STL file to import bed model from:"
 msgstr "选择 STL 文件来导入床模型:"
 
+msgid "Click to edit ratio"
+msgstr "点击编辑比例"
+
 msgid "Edit Mixed Filament"
 msgstr "编辑混色耗材"
 
@@ -6655,6 +6706,9 @@ msgstr "跳转到网页"
 
 msgid "Keyboard Shortcuts"
 msgstr "快捷键"
+
+msgid "Global"
+msgstr "全局"
 
 msgid "Toolbar"
 msgstr "工具栏"
@@ -7851,6 +7905,12 @@ msgstr ""
 "PA步距：>= 0.001\n"
 "热床温度 >= 1）\n"
 "热床温度 <= 200）"
+
+#, c-format, boost-format
+msgid ""
+"The V-shape mode supports up to %d patterns. Please reduce the PA range or "
+"increase the PA step."
+msgstr "V 形模式最多支持 %d 组图案。请缩小 PA 范围或增大 PA 步长。"
 
 msgid "Temperature calibration"
 msgstr "温度校准"
@@ -9897,6 +9957,9 @@ msgstr "层高和首层层高须大于 0，且不超过喷嘴直径（%s mm）�
 msgid "Current preset first layer height: %s mm, layer height: %s mm"
 msgstr "当前预设首层层高：%s mm，层高：%s mm"
 
+msgid "No compatible Hyper PLA preset is available for the current printer."
+msgstr "当前打印机没有兼容的 Hyper PLA 预设。"
+
 msgid "Choose SLA archive:"
 msgstr "选择SLA存档："
 
@@ -10345,6 +10408,12 @@ msgstr "开始打印失败。"
 msgid "print started"
 msgstr "打印已开始"
 
+msgid "Difference explanations"
+msgstr "差异解读"
+
+msgid "AI support recommendations"
+msgstr "AI 推荐支撑方案"
+
 msgid "AI Chat Assistant"
 msgstr "AI助手(Beta)"
 
@@ -10659,22 +10728,9 @@ msgid "Click to reset all settings to the last saved preset."
 msgstr "点击以将所有设置还原到最后一次保存的版本。"
 
 msgid ""
-"Prime tower is required for smooth timeplase. There may be flaws on the "
-"model without prime tower. Are you sure you want to disable prime tower?"
-msgstr ""
-"平滑模式的延时摄影需要擦料塔，否则打印件上可能会有瑕疵。您确定要关闭擦料塔"
-"吗？"
-
-msgid ""
 "Smooth timelapse needs a prime tower on every layer, which is not compatible "
 "with \"No sparse layers\". \"No sparse layers\" has been turned off."
 msgstr "平滑延时摄影需要每层都有擦拭塔，与“无稀疏层”不兼容。已关闭“无稀疏层”。"
-
-msgid ""
-"Prime tower is required for smooth timelapse. There may be flaws on the "
-"model without prime tower. Do you want to enable prime tower?"
-msgstr ""
-"平滑模式的延时摄影需要擦料塔，否则打印件上可能会有瑕疵。您想打开擦料塔吗？"
 
 msgid ""
 "\"No sparse layers\" is not compatible with smooth timelapse, which needs a "
@@ -10877,6 +10933,9 @@ msgstr "空驶速度"
 
 msgid "Jerk(XY)"
 msgstr "抖动（XY轴）"
+
+msgid "Recommend supports"
+msgstr "推荐支撑方案"
 
 msgid "Raft"
 msgstr "筏层"
@@ -11358,11 +11417,11 @@ msgstr "%s 有一个警告"
 msgid "%s info"
 msgstr "%s 信息"
 
-msgid "Adjust Model"
-msgstr "调整对象"
+msgid "Cancel Export"
+msgstr "取消导出"
 
-msgid "Continue Export (Not Recommended)"
-msgstr "继续导出（不推荐）"
+msgid "Continue Export"
+msgstr "继续导出"
 
 #, c-format, boost-format
 msgid "%s information"
@@ -12250,6 +12309,18 @@ msgstr "所选打印机预设中的喷嘴变体数据不完整或不一致。"
 msgid "The nozzle variant parameters are invalid."
 msgstr "喷嘴变体参数无效。"
 
+msgid "You need to select at least one filament preset."
+msgstr "您需要至少选择一个材料预设。"
+
+msgid "You need to select at least one process preset."
+msgstr "您需要至少选择一个工艺预设。"
+
+msgid "Create filament presets failed. As follows:\n"
+msgstr "创建材料预设失败。如下：\n"
+
+msgid "Create process presets failed. As follows:\n"
+msgstr "创建工艺预设失败。如下：\n"
+
 msgid "Create Printer"
 msgstr "创建打印机"
 
@@ -12367,18 +12438,6 @@ msgstr ""
 "- 是：覆盖同名的打印机预设，具有相同预设名称的材料和工艺预设将被重新创建，没"
 "有相同预设名称的材料和工艺预设将被保留。\n"
 "- 取消：不创建预设，返回到创建界面。\""
-
-msgid "You need to select at least one filament preset."
-msgstr "您需要至少选择一个材料预设。"
-
-msgid "You need to select at least one process preset."
-msgstr "您需要至少选择一个工艺预设。"
-
-msgid "Create filament presets failed. As follows:\n"
-msgstr "创建材料预设失败。如下：\n"
-
-msgid "Create process presets failed. As follows:\n"
-msgstr "创建工艺预设失败。如下：\n"
 
 msgid "Based on"
 msgstr "基于"
@@ -13113,6 +13172,9 @@ msgstr "点击鼠标右键显示更多操作"
 # generated by robot
 msgid "Advance parameters"
 msgstr "点击开启高级参数"
+
+msgid "Explain parameter differences"
+msgstr "解读参数差异"
 
 msgid "View all object's settings"
 msgstr "查看所有对象的配置"
@@ -13973,6 +14035,12 @@ msgstr "ZAA 线性候选路径没有活动的实例绑定。"
 msgid "ZAA path ordinal changed between validation and registration"
 msgstr "ZAA 路径诊断编号在校验与登记之间发生变化。"
 
+msgid "Invalid wipe tower wall coordinates for filament change."
+msgstr "用于换料的擦拭塔壁坐标无效。"
+
+msgid "No valid wipe tower wall segment is available for filament change."
+msgstr "没有可用于换料的有效擦拭塔壁线段。"
+
 msgid "Restoring support painting"
 msgstr "正在恢复支撑绘制"
 
@@ -14135,6 +14203,13 @@ msgstr "离其它对象太近，可能会发生碰撞。\n"
 
 msgid " is too close to exclusion area, and collisions will be caused.\n"
 msgstr "离不可打印区域太近，会发生碰撞。\n"
+
+msgid ""
+"Arc fitting and smooth speed discontinuity area cannot be enabled at the "
+"same time. Disable one of them before slicing."
+msgstr ""
+"圆弧拟合与“平滑速度不连续区域（实验）”不能同时启用。请关闭其中一项后重新切"
+"片。"
 
 msgid ""
 "The following process modes cannot be enabled together for the same object: "
@@ -14832,7 +14907,7 @@ msgstr ""
 msgid "Cooling overhang threshold"
 msgstr "冷却悬空阈值"
 
-#, no-c-format
+#, fuzzy, c-format
 msgid ""
 "Force cooling fan to be specific speed when overhang degree of printed part "
 "exceeds this value. Expressed as percentage which indicides how much width "
@@ -15069,11 +15144,16 @@ msgstr ""
 "内部桥接的速度。如果该值以百分比表示，则将根据桥接速度进行计算。默认值为"
 "150%。"
 
-msgid "Smooth speed discontinuity area (Beta)"
-msgstr "平滑速度不连续区域（实验）"
-
-msgid "Add the speed transition between discontinuity area."
-msgstr "在速度不连续区域添加速度过渡区"
+msgid ""
+"Add the speed transition between discontinuity area.\n"
+"\n"
+"Note: this feature and arc fitting are mutually exclusive. Enabling either "
+"feature will ask for confirmation before turning off the other."
+msgstr ""
+"在速度不连续的区域添加速度过渡。\n"
+"\n"
+"注意：此功能与圆弧拟合互斥。启用其中任一功能时，都会先弹窗确认是否关闭另一"
+"项。"
 
 msgid "Smooth coefficient"
 msgstr "平滑系数"
@@ -16792,9 +16872,6 @@ msgstr ""
 "开启这个设置，对象在切片后将得到精准的Z高度。它将通过微调对象最后几层的层高来"
 "确保对象Z高度精准。注意这是一个实验性参数。"
 
-msgid "Arc fitting"
-msgstr "圆弧拟合"
-
 # generated by robot
 msgid ""
 "Enable this to get a G-code file which has G2 and G3 moves. The fitting "
@@ -17070,6 +17147,18 @@ msgstr ""
 "从曲面上移除一定深度后，模型轮廓的剩余部分称为骨架。此参数用于调整此截面的密"
 "度。当两个区域具有相同的稀疏填充设置但骨架密度不同时，它们的骨架区域将形成重"
 "叠的截面。默认值与填充密度相同。"
+
+msgid "Minimum skeleton infill density"
+msgstr "最小骨架填充密度"
+
+msgid ""
+"Minimum skeleton infill density when the prime tower is disabled. The slicer "
+"may increase the actual skeleton infill density to accommodate flushing "
+"volume. When automatic density planning is inactive, this value is used as "
+"the skeleton infill density."
+msgstr ""
+"关闭擦拭塔时的最小骨架填充密度。切片器可根据冲刷量需求提高实际骨架填充密度。"
+"未启用自动密度规划时，此值直接作为骨架填充密度。"
 
 msgid "Skin infill density"
 msgstr "表皮填充密度"
@@ -17350,14 +17439,41 @@ msgstr ""
 msgid "Minimum surface slope for wall lowering"
 msgstr "墙体下压最小坡度"
 
-msgid "Sets the minimum slope for additional wall lowering, applied only to paths that pass the Z-layer anti-aliasing filter. The eligible slope range varies with layer height. Values that are too high may have no effect. Set to 0 to disable this compensation.\n\nFor example, with a 0.20 mm layer height and a 0.42 mm outer-wall line width, values of 35° or higher generally produce no additional lowering. The 35° value is not a fixed upper limit."
-msgstr "设置墙体额外下压补偿的最小坡度，仅对通过 Z 层抗锯齿筛选的路径生效。可处理的坡度范围随层高变化，设值过大可能不生效；设为 0 时关闭补偿。\n\n例如，层高 0.20 mm、外墙线宽 0.42 mm 时，设为 35° 或更大通常不会产生额外下压。35° 并非固定上限。"
+msgid ""
+"Sets the minimum slope for additional wall lowering, applied only to paths "
+"that pass the Z-layer anti-aliasing filter. The eligible slope range varies "
+"with layer height. Values that are too high may have no effect. Set to 0 to "
+"disable this compensation.\n"
+"\n"
+"For example, with a 0.20 mm layer height and a 0.42 mm outer-wall line "
+"width, values of 35° or higher generally produce no additional lowering. The "
+"35° value is not a fixed upper limit."
+msgstr ""
+"设置墙体额外下压补偿的最小坡度，仅对通过 Z 层抗锯齿筛选的路径生效。可处理的坡"
+"度范围随层高变化，设值过大可能不生效；设为 0 时关闭补偿。\n"
+"\n"
+"例如，层高 0.20 mm、外墙线宽 0.42 mm 时，设为 35° 或更大通常不会产生额外下"
+"压。35° 并非固定上限。"
 
 msgid "ZAA slice-plane offset"
 msgstr "切片面 Z 偏移"
 
-msgid "Sets the Z offset of the slicing plane relative to the bottom of each layer, affecting the dynamic layer thickness. When set to 0, the system automatically selects a suitable offset based on the layer height, including adaptive layer heights. The first layer is always sliced at its midplane.\n\nA larger value allows less downward adjustment and more upward adjustment of paths, increasing the risk of interference with higher paths. Keeping the default value is recommended."
-msgstr "设置切片平面相对于每层底面的 Z 向偏移量，影响各层的动态层厚。设为 0 时，系统会根据层高自动选择合适的偏移量，支持自适应层高。首层始终使用层高中间平面进行切片。\n\n数值越大，路径向下调整的范围越小、向上调整的范围越大，与更高路径发生干涉的风险也越高。建议保留默认值。"
+msgid ""
+"Sets the Z offset of the slicing plane relative to the bottom of each layer, "
+"affecting the dynamic layer thickness. When set to 0, the system "
+"automatically selects a suitable offset based on the layer height, including "
+"adaptive layer heights. The first layer is always sliced at its midplane.\n"
+"\n"
+"A larger value allows less downward adjustment and more upward adjustment of "
+"paths, increasing the risk of interference with higher paths. Keeping the "
+"default value is recommended."
+msgstr ""
+"设置切片平面相对于每层底面的 Z 向偏移量，影响各层的动态层厚。设为 0 时，系统"
+"会根据层高自动选择合适的偏移量，支持自适应层高。首层始终使用层高中间平面进行"
+"切片。\n"
+"\n"
+"数值越大，路径向下调整的范围越小、向上调整的范围越大，与更高路径发生干涉的风"
+"险也越高。建议保留默认值。"
 
 msgid "Lock top-surface fill direction"
 msgstr "锁定顶面填充方向"
@@ -17590,9 +17706,6 @@ msgid ""
 "layer hight when enable adaptive layer height"
 msgstr "挤出头最大可打印的层高。用于限制开启自适应层高时的最大层高。"
 
-msgid "Extrusion rate smoothing"
-msgstr "平滑挤出率"
-
 msgid ""
 "This parameter smooths out sudden extrusion rate changes that happen when "
 "the printer transitions from printing a high flow (high speed/larger width) "
@@ -17619,7 +17732,8 @@ msgid ""
 "\n"
 "This feature is known as Pressure Equalizer in Prusa slicer.\n"
 "\n"
-"Note: this parameter disables arc fitting."
+"Note: this feature and arc fitting are mutually exclusive. Enabling either "
+"feature will ask for confirmation before turning off the other."
 msgstr ""
 "此参数是打印机从打印高流量挤出（高速/较大宽度）向低流量挤出（低速/较小宽度）"
 "时用于突然变化挤出速率的平滑，反之亦然。\n"
@@ -17638,7 +17752,7 @@ msgstr ""
 "\n"
 "这个功能在Prusa切片机中被称为压力均衡器。\n"
 "\n"
-"注意：此参数禁用圆弧拟合。"
+"注意：此功能与圆弧拟合互斥，启用其中一项时将提示确认，确认后关闭另一项。"
 
 msgid "mm³/s²"
 msgstr "mm³/s²"
@@ -17655,14 +17769,31 @@ msgid ""
 "Default value of 3 works well for most cases. If your printer is stuttering, "
 "increase this value to reduce the number of adjustments made\n"
 "\n"
-"Allowed values: 0.5-5"
+"Allowed values: 0.5-5\n"
+"\n"
+"Adjacent segments with the same output speed may be merged. Merged segments "
+"can exceed this length."
 msgstr ""
 "值越低，挤出速率过渡越平滑。然而，这会导致gcode文件大得多，打印机需要处理的指"
 "令也更多。\n"
 "\n"
 "默认值3在大多数情况下效果良好。如果您的打印机卡顿，请增加此值以减少调整次数\n"
 "\n"
-"允许值：0.5-5"
+"允许值：0.5-5\n"
+"\n"
+"输出速度相同的相邻子段可能合并，合并后的段长可能超过此值。"
+
+msgid "Apply only on external features"
+msgstr "仅应用于外墙和悬垂"
+
+msgid ""
+"Applies extrusion rate smoothing only on external perimeters and overhangs. "
+"This can help reduce artefacts due to sharp speed transitions on externally "
+"visible overhangs without impacting the print speed of features that will "
+"not be visible to the user."
+msgstr ""
+"仅对外墙和悬垂墙应用挤出率平滑。这有助于减少外部可见悬垂处因速度突变产生的瑕"
+"疵，同时不影响内墙、填充等不可见特征的打印速度。"
 
 msgid "Material shortage recovery after overhang(Beta)"
 msgstr "改善悬垂段后缺料（实验）"
@@ -17911,6 +18042,19 @@ msgid ""
 msgstr ""
 "当空驶完全在填充区域内时不触发回抽。这意味着即使漏料也是不可见的。对于复杂模"
 "型，该设置能够减少回抽次数以及打印时长，但是会造成G-code生成变慢"
+
+msgid "Wait for nozzle temperature after filament change"
+msgstr "换料后等待喷嘴温度"
+
+msgid ""
+"Enable automatic nozzle temperature waiting after filament changes during "
+"multi-nozzle printing. Requires ooze prevention to be enabled. Disabled by "
+"default. Disabling ooze prevention or this option omits this automatic wait. "
+"Temperature commands in start and custom G-code are unaffected."
+msgstr ""
+"多喷嘴打印时，启用换料后的自动喷嘴温度等待。需要先开启喷嘴预热，默认关闭。关"
+"闭喷嘴预热或本选项时，不生成这处自动等待指令。起始及自定义 G-code 中的温控指"
+"令不受影响。"
 
 # generated by robot
 msgid ""
@@ -18710,6 +18854,14 @@ msgstr ""
 "如果启用，将不会在没有换色的层打印擦拭塔。存在换色的层时，挤出机将降低高度打"
 "印擦拭塔。用户应该确保不会与打印内容发生冲突。"
 
+msgid "Extra interlayer wipe layers"
+msgstr "额外层间擦拭层数"
+
+msgid ""
+"Number of consecutive single-color layers that use a serpentine wipe path on "
+"the prime tower."
+msgstr "连续单色层使用蛇形路径在擦拭塔上进行擦拭的层数。"
+
 msgid "Prime all printing extruders"
 msgstr "所有挤出机画线"
 
@@ -19401,18 +19553,24 @@ msgstr "底部填充冲刷层数"
 
 msgid ""
 "When flushing into objects skeleton is enabled, force the bottom N object "
-"layers to purge on the prime tower before printing fill or skeleton, then "
-"skin and walls. This does not change bottom shell layers."
-msgstr "启用冲刷到对象骨架时，强制在对象底部 N 层打印填充或骨架前先在擦拭塔上冲刷，再打印表皮和墙体。此设置不会改变底部壳体层数。"
+"layers to purge on the prime tower before printing skeleton, then walls in "
+"the configured order, then skin and surface fill. This does not change "
+"bottom shell layers."
+msgstr ""
+"启用冲刷到对象骨架后，强制对象底部 N 层在打印骨架前先在擦拭塔上冲刷，然后按配"
+"置的顺序打印墙体，最后打印表皮和表面填充。此设置不会改变底部壳体层数。"
 
 msgid "Top fill flush layers"
 msgstr "顶部填充冲刷层数"
 
 msgid ""
 "When flushing into objects skeleton is enabled, force the top N object "
-"layers to purge on the prime tower before printing fill or skeleton, then "
-"skin and walls. This does not change top shell layers."
-msgstr "启用冲刷到对象骨架时，强制在对象顶部 N 层打印填充或骨架前先在擦拭塔上冲刷，再打印表皮和墙体。此设置不会改变顶部壳体层数。"
+"layers to purge on the prime tower before printing skeleton, then walls in "
+"the configured order, then skin and surface fill. This does not change top "
+"shell layers."
+msgstr ""
+"启用冲刷到对象骨架后，强制对象顶部 N 层在打印骨架前先在擦拭塔上冲刷，然后按配"
+"置的顺序打印墙体，最后打印表皮和表面填充。此设置不会改变顶部壳体层数。"
 
 msgid "Skeleton wipe speed"
 msgstr "骨架擦拭速度"
@@ -19421,7 +19579,20 @@ msgid ""
 "When flushing into objects skeleton is enabled, set the speed for slowed "
 "skeleton paths after a material change. Percent values are calculated from "
 "the speed each skeleton path would normally use."
-msgstr "启用冲刷到对象骨架时，设置换料后骨架路径的减速打印速度。百分比以各骨架路径正常使用的速度为基准计算。"
+msgstr ""
+"启用冲刷到对象骨架时，设置换料后骨架路径的减速打印速度。百分比以各骨架路径正"
+"常使用的速度为基准计算。"
+
+msgid "Extra length on restart without prime tower"
+msgstr "无塔换料时额外回填长度"
+
+msgid ""
+"When the prime tower is disabled, this additional length is added to the "
+"printer or filament extra length on restart after a material change. It has "
+"no effect when the prime tower is enabled."
+msgstr ""
+"未启用擦拭塔时，在打印机或耗材设置的换料额外回填长度基础上，进一步增加的回填"
+"长度。启用擦拭塔时，该参数不生效。"
 
 msgid "Print prime volume into solid skeleton"
 msgstr "将预挤出量打印到实心骨架中"
@@ -19431,7 +19602,8 @@ msgid ""
 "every filament's minimum purge on the tower is zero. The prime volume is "
 "printed into a volume-sized solid skeleton inside the model."
 msgstr ""
-"当预挤出量小于 10 mm³ 且所有耗材在擦拭塔上的最小冲刷量均为零时，取消独立擦拭塔。预挤出材料将打印到模型内部与其体积相匹配的实心骨架中。"
+"当预挤出量小于 10 mm³ 且所有耗材在擦拭塔上的最小冲刷量均为零时，取消独立擦拭"
+"塔。预挤出材料将打印到模型内部与其体积相匹配的实心骨架中。"
 
 msgid "Width of prime tower"
 msgstr "擦拭塔宽度，最大值为机器的最大XY尺寸。"
@@ -19600,6 +19772,9 @@ msgid ""
 "Moves the start of the prime tower purge path inward along the first purge "
 "line. This keeps startup blobs inside the tower."
 msgstr "沿首条排料线将擦拭塔排料起点向塔内移动，使起始堆料保留在塔内部。"
+
+msgid "In-tower filament change"
+msgstr "盘内换料"
 
 msgid "Bottom corner rib length"
 msgstr "底部角肋长度"
@@ -20661,6 +20836,45 @@ msgstr "未知的文件格式。输入文件的扩展名必须为.3mf或.zip .am
 
 msgid "Canceled"
 msgstr "已取消"
+
+#~ msgid ""
+#~ "Prime tower is required for smooth timelapse. There may be flaws on the "
+#~ "model without prime tower. Do you want to enable prime tower?"
+#~ msgstr ""
+#~ "平滑模式的延时摄影需要擦料塔，否则打印件上可能会有瑕疵。您想打开擦料塔吗？"
+
+#~ msgid ""
+#~ "Prime tower is required for smooth timeplase. There may be flaws on the "
+#~ "model without prime tower. Are you sure you want to disable prime tower?"
+#~ msgstr ""
+#~ "平滑模式的延时摄影需要擦料塔，否则打印件上可能会有瑕疵。您确定要关闭擦料塔"
+#~ "吗？"
+
+#~ msgid "Add the speed transition between discontinuity area."
+#~ msgstr "在速度不连续区域添加速度过渡区"
+
+#~ msgid ""
+#~ "When flushing into objects skeleton is enabled, force the bottom N object "
+#~ "layers to purge on the prime tower before printing fill or skeleton, then "
+#~ "skin and walls. This does not change bottom shell layers."
+#~ msgstr ""
+#~ "启用冲刷到对象骨架时，强制在对象底部 N 层打印填充或骨架前先在擦拭塔上冲"
+#~ "刷，再打印表皮和墙体。此设置不会改变底部壳体层数。"
+
+#~ msgid ""
+#~ "When flushing into objects skeleton is enabled, force the top N object "
+#~ "layers to purge on the prime tower before printing fill or skeleton, then "
+#~ "skin and walls. This does not change top shell layers."
+#~ msgstr ""
+#~ "启用冲刷到对象骨架时，强制在对象顶部 N 层打印填充或骨架前先在擦拭塔上冲"
+#~ "刷，再打印表皮和墙体。此设置不会改变顶部壳体层数。"
+
+#~ msgid ""
+#~ "Arc fitting and extrusion rate smoothing cannot be enabled at the same "
+#~ "time. Extrusion rate smoothing has been set to 0 (disabled)."
+#~ msgstr ""
+#~ "圆弧拟合与平滑挤出率不能同时开启。已将平滑挤出率设为 0（关闭），保留圆弧拟"
+#~ "合。"
 
 #, c-format, boost-format
 #~ msgid ""

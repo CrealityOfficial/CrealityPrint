@@ -648,7 +648,8 @@ namespace Slic3r
 					}
 				}
 	
-				if (empty_roles)
+                // Keep shells visible without accessing invalid or loading G-code data.
+                if (empty_roles || !is_gcode_result_valid())
                     return;
                 if (!m_p_layer_manager || m_p_layer_manager->empty()) {
                     return;
@@ -826,8 +827,10 @@ namespace Slic3r
                     return;
                 }
                 const auto t_seg_count = t_current_top_layer.get_visible_segment_list().size();
-                if (t_seg_count < 0) {
-                    return;
+                // An empty range forces the slider to zero without changing the user's
+                // intent. Preserve the last valid position when filaments are hidden.
+                if (m_moves_slider_position_valid && m_moves_slider->GetMaxValue() > m_moves_slider->GetMinValue()) {
+                    m_moves_slider_keep_min = m_moves_slider->GetActiveValue() == m_moves_slider->GetMinValue();
                 }
                 std::vector<double> values(t_seg_count + 1);
                 unsigned int        count = 0;
@@ -836,15 +839,15 @@ namespace Slic3r
                     ++count;
                 }
 
-				bool keep_min = m_moves_slider->GetActiveValue() == m_moves_slider->GetMinValue();
-
                 m_moves_slider->SetSliderValues(values);
                 m_moves_slider->SetMaxValue(t_seg_count);
-                m_moves_slider->SetSelectionSpan(0, keep_min ? 0 : m_moves_slider->GetMaxValue());
+                const int higher_value = m_moves_slider_keep_min ? m_moves_slider->GetMinValue() : m_moves_slider->GetMaxValue();
+                m_moves_slider->SetSelectionSpan(0, higher_value);
                 if (set_to_max)
-                    m_moves_slider->SetHigherValue(keep_min ? m_moves_slider->GetMinValue() : m_moves_slider->GetMaxValue());
+                    m_moves_slider->SetHigherValue(higher_value);
                 m_p_layer_manager->set_current_move_start(0);
-                m_p_layer_manager->set_current_move_end(t_seg_count);
+                m_p_layer_manager->set_current_move_end(higher_value);
+                m_moves_slider_position_valid = true;
             }
 
             bool AdvancedRenderer::show_sequential_view() const
@@ -1110,7 +1113,7 @@ namespace Slic3r
                 const auto t_layer_count = p_layer_manager->size();
                 for (size_t i = 0; i < t_layer_count; ++i) {
                     auto& t_layer = (*p_layer_manager)[i];
-                    t_layer.init_sgments(m_ssid_to_moveid_map, t_sid_to_seamMoveIds, gcode_result);
+                    t_layer.init_sgments(m_ssid_to_moveid_map, t_sid_to_seamMoveIds, gcode_result, m_is_lite_mode);
                     if (progress_dialog != nullptr) {
                         float progress_value = 100.0f * float(i + 1) / float(t_layer_count);
                         if (int(progress_value) != last_progress && int(progress_value) % 10 == 0) {
@@ -1840,7 +1843,7 @@ namespace Slic3r
                 return m_zs;
             }
 
-            void Layer::init_sgments(const std::vector<size_t>& sid_to_mid, const std::vector<std::vector<size_t>>& sid_to_seamMoveIds, const GCodeProcessorResult& gcode_result)
+            void Layer::init_sgments(const std::vector<size_t>& sid_to_mid, const std::vector<std::vector<size_t>>& sid_to_seamMoveIds, const GCodeProcessorResult& gcode_result, bool lite_mode)
             {
                 if (!is_valid()) {
                     return;
@@ -1922,7 +1925,7 @@ namespace Slic3r
                     Segment t_seg;
                     t_seg.m_first_mid = prev_move_index;
                     t_seg.m_second_mid = curr_move_index;
-                    t_seg.m_type = curr_move.type;
+                    t_seg.m_type = preview_move_type(curr_move, lite_mode);
                     t_seg.m_role = curr_move.extrusion_role;
                     t_seg.m_extruder_id = curr_move.extruder_id;
                     m_segments.emplace_back(std::move(t_seg));

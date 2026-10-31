@@ -39,6 +39,20 @@ struct TextureToColorSettings {
     bool* mesh_repair_decision_required = nullptr;
 
     MeshRepairCallback mesh_repair_callback;
+
+    // The input was produced by this pipeline's validation / repair stage.
+    // Cached recomputations may skip topology checks and repair safely.
+    bool mesh_prevalidated = false;
+};
+
+struct PreparedTextureColorData {
+    TriMesh                                 mesh;
+    std::vector<std::array<std::size_t, 3>> face_colors;
+
+    bool valid() const
+    {
+        return !mesh.indices.empty() && face_colors.size() == mesh.indices.size();
+    }
 };
 
 /**
@@ -59,7 +73,8 @@ struct TextureToColorSettings {
  */
 bool TextureToColor(const TriMesh& texture_mesh, const std::vector<std::vector<Vec2f>>& uv_coords, const cv::Mat& texture, TriMesh& color_mesh,
                     std::vector<std::array<std::size_t, 3>>& face_colors, const TextureToColorSettings& settings = TextureToColorSettings(),
-                    AlgoProgressCallback progress_callback = nullptr, AlgoCancelCallback cancel_callback = nullptr);
+                    AlgoProgressCallback progress_callback = nullptr, AlgoCancelCallback cancel_callback = nullptr,
+                    PreparedTextureColorData* prepared_output = nullptr);
 
 /**
  * @brief Turn pre-computed per-face colors into a clustered color mesh (no texture/UV).
@@ -97,7 +112,8 @@ bool ClusterAndSmooth(const TriMesh& mesh,
                       const TextureToColorSettings& settings = TextureToColorSettings(),
                       AlgoProgressCallback progress_callback = nullptr,
                       AlgoCancelCallback cancel_callback = nullptr,
-                      const std::vector<std::array<float, 4>>& vertex_colors = {});
+                      const std::vector<std::array<float, 4>>& vertex_colors = {},
+                      PreparedTextureColorData* prepared_output = nullptr);
 
 }  // namespace tex2color
 }  // namespace Slic3r

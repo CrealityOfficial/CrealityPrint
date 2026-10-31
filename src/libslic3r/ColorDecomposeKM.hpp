@@ -87,6 +87,53 @@ std::string km_blend_color_multi_with_spectra(
     const std::vector<ReflectanceSpectrum>& spectra,
     const std::vector<int>& weights);
 
+// ----- Base-color spectrum lookup (read side of base_color_spectra.json) -----
+//
+// The write side (bundled cache seeding and network refresh) lives in
+// src/slic3r/GUI/BaseColorSpectraCache.cpp; this module only loads
+// base_color_spectra.json, indexes it by official color, and answers "does
+// this filament color have a measured spectrum". Kept in ColorDecomposeKM
+// because it feeds the K-M engine below (same translation unit, no extra
+// build-system entry).
+namespace BaseColorSpectra {
+
+// Look up the measured reflectance spectrum whose official color matches
+// `color_hex` ("#RRGGBB"; a trailing alpha component is ignored). The eight
+// Hyper PLA base-color spectra ship in
+// resources/filament_mixing/base_color_spectra.json and are mirrored into
+// the data directory at startup (see GUI::BaseColorSpectraCache).
+//
+// Matching is by color only: the cache holds the official product-line
+// spectra and any filament whose color equals an official base color reuses
+// that measurement. (A material dimension was evaluated and dropped: preset
+// filament_type fields record the material family ("PLA") while the cache
+// records the product line ("Hyper PLA"), so type matching either never hit
+// or degenerated back to color matching. Revisit the hit rule here when the
+// spectrum cache grows beyond one product line.)
+//
+// Colors are matched exactly after normalization, then with a small
+// per-channel tolerance, so vendor-provided preset colors still match
+// spectra whose official_hex was recomputed from the measurement itself.
+//
+// The JSON index is loaded lazily on first use and cached in memory; call
+// invalidate() after rewriting the cache file.
+bool lookup_spectrum_by_color(const std::string& color_hex,
+                              ReflectanceSpectrum& out);
+
+// Drop the in-memory index so the next lookup reloads it from disk.
+void invalidate();
+
+// Blend N hex colors by integer weights, Kubelka-Munk first: when EVERY
+// color matches a measured base-color spectrum, blend via K-M so the
+// mixed-color preview agrees with the K-M-based color-decompose
+// recommendation; when any color has no matching measured spectrum, fall
+// back to the polynomial mixer (filament_mixer) so arbitrary colors keep
+// their existing behavior.
+std::string blend_color_multi_spectrum_first(const std::vector<std::string>& hex_colors,
+                                             const std::vector<int>&        weights);
+
+} // namespace BaseColorSpectra
+
 } // namespace Slic3r
 
 #endif // SLIC3R_COLOR_DECOMPOSE_KM_HPP

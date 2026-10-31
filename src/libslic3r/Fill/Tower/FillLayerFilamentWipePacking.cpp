@@ -1,6 +1,7 @@
 #include "FillLayerFilamentWipePacking.hpp"
 
 #include "../../ClipperUtils.hpp"
+#include "../../Color.hpp"
 #include "../Fill.hpp"
 #include "../../ExtrusionEntity.hpp"
 #include "../../ExtrusionEntityCollection.hpp"
@@ -14,10 +15,13 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <memory>
 #include <set>
 #include <utility>
 #include <vector>
+
+#include <boost/log/trivial.hpp>
 
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
@@ -28,7 +32,7 @@ namespace FillTower {
 
 namespace {
 
-constexpr float k_max_sparse_infill_density = 90.f;
+constexpr float k_max_packing_density = 100.f;
 constexpr int k_max_layer_planning_concurrency = 4;
 constexpr size_t k_exact_global_packing_item_limit = 20;
 constexpr size_t k_exact_global_assignment_state_limit = 200000;
@@ -36,6 +40,20 @@ constexpr size_t k_exact_global_assignment_state_limit = 200000;
 double area_mm2(const ExPolygon& expolygon)
 {
     return std::abs(unscale_(unscale_(area(ExPolygons{expolygon}))));
+}
+
+float filament_grayscale(const PrintConfig& print_config, unsigned int extruder)
+{
+    if (extruder >= print_config.filament_colour.values.size())
+        return 0.5f;
+
+    ColorRGB color;
+    if (!decode_color(print_config.filament_colour.values[extruder], color))
+        return 0.5f;
+
+    // Relative luminance keeps black/white separation strong while retaining
+    // a useful ordering for colored filaments.
+    return std::clamp(0.2126f * color.r() + 0.7152f * color.g() + 0.0722f * color.b(), 0.f, 1.f);
 }
 
 double surface_height_mm(const LayerRegion& layer_region, const Surface& surface)
@@ -105,7 +123,7 @@ struct PackingBin
 
     double extra_remaining_mm3() const
     {
-        return std::max(0., volume_100_mm3 * double(k_max_sparse_infill_density - target_density) * 0.01);
+        return std::max(0., volume_100_mm3 * double(k_max_packing_density - target_density) * 0.01);
     }
 
     double total_remaining_mm3() const
@@ -124,27 +142,43 @@ struct PackingBin
     }
 };
 
+unsigned int bin_host_extruder(const PackingBin& bin)
+{
+    if (bin.layer_region != nullptr) {
+        const int wall_filament = bin.layer_region->region().config().wall_filament.value;
+        if (wall_filament > 0)
+            return static_cast<unsigned int>(wall_filament - 1);
+    }
+    return bin.extruder;
+}
+
+float bin_grayscale(const PackingBin& bin)
+{
+    if (bin.object == nullptr || bin.object->print() == nullptr)
+        return 0.5f;
+
+    // The path extruder may already have been reassigned by cross-region
+    // packing.  Use the region's wall filament as the host color.
+    return filament_grayscale(bin.object->print()->config(), bin_host_extruder(bin));
+}
+
+bool has_fixed_protection_skin(const PackingBin& bin)
+{
+    // The UI/host-color rule is authoritative for every no-tower skin pattern,
+    // including zero: transition matrix depths must not recreate disabled skin.
+    return bin.object != nullptr && bin.layer_region != nullptr &&
+        no_wipe_tower_no_purge_mode_enabled(*bin.object->print());
+}
+
 float wipe_protection_skin_depth_mm(const PackingBin& bin)
 {
     if (bin.layer_region == nullptr)
         return 0.f;
 
-    const PrintRegionConfig& region_config = bin.layer_region->region().config();
-    const float configured_skin_depth = static_cast<float>(region_config.skin_infill_depth);
-    if (configured_skin_depth > EPSILON)
-        return configured_skin_depth;
-
-    const Layer* layer = bin.layer_region->layer();
-    if (layer == nullptr || layer->object() == nullptr || layer->object()->print() == nullptr)
-        return 0.f;
-
-    const PrintConfig& print_config = layer->object()->print()->config();
-    const size_t nozzle_count = print_config.nozzle_diameter.values.size();
-    if (nozzle_count == 0)
-        return 0.f;
-
-    const unsigned int nozzle_idx = std::min<unsigned int>(get_physical_nozzle_index(print_config, bin.extruder), unsigned(nozzle_count - 1));
-    return float(2. * print_config.nozzle_diameter.get_at(nozzle_idx));
+    if (has_fixed_protection_skin(bin))
+        return no_wipe_tower_skin_infill_depth(bin.object->print()->config(), bin.layer_region->region().config());
+    // A configured zero means no protective skin, not an automatic nozzle-based depth.
+    return std::max(0.f, static_cast<float>(bin.layer_region->region().config().skin_infill_depth));
 }
 
 float transition_skin_depth_from_matrix_mm(const PrintConfig& print_config, unsigned int old_extruder, unsigned int new_extruder)
@@ -224,8 +258,13 @@ float density_needed_for_plate_volume(const PackingPlate& plate, double volume_m
     if (volume_mm3 <= plate.base_capacity_mm3() + EPSILON)
         return 0.f;
 
+    // The binary search must never probe below the configured skeleton
+    // density floor of any bin on this plate.
     float low = 0.f;
-    float high = k_max_sparse_infill_density;
+    for (const PackingBin* bin : plate.bins)
+        if (bin != nullptr)
+            low = std::max(low, bin->base_density);
+    float high = k_max_packing_density;
     for (size_t iter = 0; iter < 18; ++iter) {
         const float mid = 0.5f * (low + high);
         if (plate.capacity_at_density(mid) + EPSILON >= volume_mm3)
@@ -612,7 +651,7 @@ PackingSolution solve_items_by_expanding_plates(const std::vector<const PackingI
     }
 
     for (size_t plate_idx = 0; plate_idx < plates.size(); ++plate_idx) {
-        plate_capacities[plate_idx] = plates[plate_idx].capacity_at_density(k_max_sparse_infill_density);
+        plate_capacities[plate_idx] = plates[plate_idx].capacity_at_density(k_max_packing_density);
         PackingSolution candidate = pack_items_into_plates(items, plates, plate_capacities);
         if (is_better_full_solution(candidate, best_all_solution, plates, has_best_all_solution)) {
             best_all_solution = candidate;
@@ -636,14 +675,51 @@ double consume_plate_capacity(std::vector<PackingBin*>& bins, const PackingItem&
                               bool use_actual_trajectory_capacity, LayerFilamentWipePackingPlan& plan)
 {
     double remaining = item.volume_mm3;
-    for (PackingBin* bin : bins) {
+
+    auto available_capacity = [&](const PackingBin& bin) {
+        const double capacity = use_actual_trajectory_capacity ?
+                                    bin.current_trajectory_capacity_mm3() :
+                                    bin.volume_100_mm3 * std::max(double(bin.base_density), double(target_density)) * 0.01;
+        return std::max(0., capacity - bin.assigned_total_mm3());
+    };
+
+    // Group the logical backpack by the host filament first. The physical
+    // paths remain separate bins, but same-color regions are accumulated before
+    // a transition is allowed to spill into another color.
+    std::map<unsigned int, std::vector<PackingBin*>> bins_by_host;
+    for (PackingBin* bin : bins)
+        if (bin != nullptr)
+            bins_by_host[bin_host_extruder(*bin)].push_back(bin);
+
+    std::vector<PackingBin*> ordered_bins;
+    unsigned int selected_host = (unsigned int)-1;
+    double selected_excess = std::numeric_limits<double>::max();
+    for (const auto& entry : bins_by_host) {
+        double group_capacity = 0.;
+        for (PackingBin* bin : entry.second) {
+            group_capacity += available_capacity(*bin);
+        }
+        if (group_capacity + EPSILON < remaining)
+            continue;
+        const double excess = group_capacity - remaining;
+        if (excess < selected_excess - EPSILON) {
+            selected_host = entry.first;
+            selected_excess = excess;
+        }
+    }
+    if (selected_host != (unsigned int)-1)
+        ordered_bins = bins_by_host[selected_host];
+    else
+        ordered_bins = bins;
+
+    // No grayscale preference: retain capacity and stable host order.
+    for (PackingBin* bin : ordered_bins) {
         if (remaining <= EPSILON)
             break;
+        if (bin == nullptr)
+            continue;
 
-        const double bin_capacity = use_actual_trajectory_capacity ?
-                                        bin->current_trajectory_capacity_mm3() :
-                                        bin->volume_100_mm3 * std::max(double(bin->base_density), double(target_density)) * 0.01;
-        const double take = std::min(remaining, std::max(0., bin_capacity - bin->assigned_total_mm3()));
+        const double take = std::min(remaining, available_capacity(*bin));
         if (take <= EPSILON)
             continue;
 
@@ -660,9 +736,10 @@ double consume_plate_capacity(std::vector<PackingBin*>& bins, const PackingItem&
                 bin->target_density = std::max(bin->target_density, target_density);
         }
         bin->used_for_wipe = true;
-        const float protection_depth_mm = item.skin_depth_mm > EPSILON ?
+        const float protection_depth_mm = !has_fixed_protection_skin(*bin) && item.skin_depth_mm > EPSILON ?
                                               item.skin_depth_mm : wipe_protection_skin_depth_mm(*bin);
-        bin->skin_depth_mm = std::max(bin->skin_depth_mm, protection_depth_mm);
+        bin->skin_depth_mm = has_fixed_protection_skin(*bin) ? protection_depth_mm :
+                             std::max(bin->skin_depth_mm, protection_depth_mm);
         record_transition_take(plan, item, *bin, take);
         remaining -= take;
     }
@@ -817,8 +894,21 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
 {
 
     LayerFilamentWipePackingPlan plan;
+    BOOST_LOG_TRIVIAL(warning) << "[NO_WIPE_TRACE] planner begin density_search=" << perform_density_search
+                               << " actual_capacity=" << use_actual_trajectory_capacity;
     if (tool_ordering.empty())
         return plan;
+
+    if (!perform_density_search && no_wipe_tower_no_purge_mode_enabled(print)) {
+        // Include regions without bins or transitions as explicit zeroes too.
+        // Only a positive final assignment below may restore protective skin.
+        for (const PrintObject* object : print.objects())
+            for (const Layer* layer : object->layers())
+                for (const LayerRegion* layer_region : layer->regions())
+                    for (const Surface& surface : layer_region->fill_surfaces.surfaces)
+                        if (surface.surface_type == stInternal)
+                            plan.skin_depths[&surface] = 0.f;
+    }
 
     std::vector<PackingBin> bins;
     std::map<coord_t, std::vector<size_t>> bins_by_layer;
@@ -828,14 +918,13 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
 
     auto surface_density = [&](const LayerRegion& layer_region, const Surface& surface) {
         const PrintRegionConfig& region_config = layer_region.region().config();
-        const float configured_density = std::min(k_max_sparse_infill_density,
-                                                  std::max(0.f, float(region_config.sparse_infill_density.value)));
+        const float configured_density = configured_skeleton_infill_density_percent(print.config(), region_config);
         if (const float* planned_density =
                 print.layer_filament_wipe_packing_sparse_infill_density(layer_region, surface)) {
-            // This is the density used for the current fill generation. It is
-            // replaced by each new plan, so it must not become a historical
-            // lower bound for later plans.
-            return std::min(k_max_sparse_infill_density, std::max(0.f, *planned_density));
+            // Planned values may increase the skeleton density, but never lower
+            // it below the user's skeleton setting.
+            return std::min(k_max_packing_density,
+                            std::max(configured_density, *planned_density));
         }
         return configured_density;
     };
@@ -860,11 +949,17 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
             for (size_t region_index = 0; region_index < layer->regions().size(); ++region_index) {
                 const LayerRegion* layer_region = layer->regions()[region_index];
                 const PrintRegionConfig& region_config = layer_region->region().config();
-                if (region_config.sparse_infill_filament.value == 0 ||
-                    region_config.sparse_infill_density.value <= 0)
+                const bool packing_mode =
+                    no_wipe_tower_no_purge_mode_enabled(print) ||
+                    flush_into_skeleton_packing_mode_enabled(print);
+                const float skeleton_density = configured_skeleton_infill_density_percent(print.config(), region_config);
+                if ((!packing_mode && region_config.sparse_infill_filament.value == 0) ||
+                    (packing_mode && skeleton_density <= 0.f) ||
+                    (!packing_mode && region_config.sparse_infill_density.value <= 0))
                     continue;
 
-                const unsigned int extruder = layer_tools.sparse_infill_filament(layer_region->region());
+                const unsigned int extruder = region_config.sparse_infill_filament.value == 0 ?
+                    0u : layer_tools.sparse_infill_filament(layer_region->region());
                 if (!layer_tools.has_extruder(extruder))
                     continue;
 
@@ -876,9 +971,7 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
 
                 if (use_actual_trajectory_capacity) {
                     const float current_density = layer_region_density(*layer_region);
-                    const float configured_density = std::min(
-                        k_max_sparse_infill_density,
-                        std::max(0.f, float(region_config.sparse_infill_density.value)));
+                    const float configured_density = configured_skeleton_infill_density_percent(print.config(), region_config);
 
                     std::map<unsigned int, double> actual_volume_by_extruder;
                     for (const ExtrusionEntity* entity : layer_region->fills.entities) {
@@ -940,8 +1033,7 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
                     if (v100 <= EPSILON)
                         continue;
 
-                    const float base_density = std::min(k_max_sparse_infill_density,
-                                                        std::max(0.f, float(region_config.sparse_infill_density.value)));
+                    const float base_density = configured_skeleton_infill_density_percent(print.config(), region_config);
 
                     bins_by_layer[layer_key].emplace_back(bins.size());
                     bins.push_back(PackingBin{
@@ -991,10 +1083,14 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
             const float required_volume = flush_volume_from_matrix(print.config(),
                                                                    old_extruder,
                                                                    new_extruder);
-            const float mandatory_tower_volume = std::max(
+            const bool no_wipe_mode = no_wipe_tower_no_purge_mode_enabled(print);
+            const float mandatory_tower_volume = no_wipe_mode ? 0.f : std::max(
                 float(print.config().prime_volume.value),
                 float(print.config().filament_minimal_purge_on_wipe_tower.get_at(new_extruder)));
-            const float volume = print.config().purge_in_prime_tower.value ?
+            // Preserve the printer preference; it only takes effect with an enabled tower.
+            const bool purge_in_tower = print.config().enable_prime_tower.value &&
+                                        print.config().purge_in_prime_tower.value;
+            const float volume = purge_in_tower ?
                                      0.f : std::max(required_volume - mandatory_tower_volume, 0.f);
             if (volume <= EPSILON)
                 return;
@@ -1024,6 +1120,175 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
         layer_work.emplace_back(std::move(work));
     }
 
+    if (use_actual_trajectory_capacity && perform_density_search && no_wipe_tower_no_purge_mode_enabled(print)) {
+        // Each region starts at its structural floor. Skin retains its fixed
+        // protection thickness and never contributes to purge capacity.
+        // Solid/bridge surfaces are never virtualized into spendable capacity.
+        for (const PackingBin& bin : bins) {
+            if (bin.layer_region == nullptr)
+                continue;
+            for (const Surface& surface : bin.layer_region->fill_surfaces.surfaces) {
+                if (surface.surface_type != stInternal)
+                    continue;
+                plan.sparse_infill_densities[&surface] = bin.base_density;
+                if (has_fixed_protection_skin(bin))
+                    plan.skin_depths[&surface] = wipe_protection_skin_depth_mm(bin);
+            }
+        }
+
+        auto optimize_layer = [&](LayerPackingWork& work) {
+            struct Candidate {
+                float density;
+                double volume;
+            };
+            struct Region {
+                const PackingBin* bin = nullptr;
+                size_t copies = 1;
+                Candidate maximum{0.f, 0.};
+                Candidate selected{0.f, 0.};
+            };
+            std::vector<Region> regions;
+            std::set<const LayerRegion*> seen;
+            std::map<const Layer*, std::unique_ptr<LockedZagSkeletonSimulation>> simulations;
+            for (size_t idx : work.bin_indices) {
+                const PackingBin& bin = bins[idx];
+                if (bin.layer_region == nullptr || !seen.insert(bin.layer_region).second)
+                    continue;
+                const auto& surfaces = bin.layer_region->fill_surfaces.surfaces;
+                if (std::none_of(surfaces.begin(), surfaces.end(), [](const Surface& surface) {
+                        return surface.surface_type == stInternal;
+                    }))
+                    continue;
+                const Layer* layer = bin.layer_region->layer();
+                if (simulations.find(layer) == simulations.end())
+                    simulations.emplace(layer, std::make_unique<LockedZagSkeletonSimulation>(*layer, false));
+                Region region;
+                region.bin = &bin;
+                region.copies = std::max<size_t>(1, bin.object->instances().size());
+                regions.emplace_back(std::move(region));
+            }
+            auto measure = [&](const Region& region, float density) {
+                if (print.canceled())
+                    throw CanceledException();
+                const LayerRegion* layer_region = region.bin->layer_region;
+                const auto metrics = simulations.at(layer_region->layer())->simulate(density, layer_region);
+                const auto found = metrics.find(layer_region);
+                if (found == metrics.end())
+                    return 0.;
+                return found->second.extrusion_volume_mm3 * double(region.copies);
+            };
+            double capacity = 0.;
+            for (Region& region : regions) {
+                const float base = region.bin->base_density;
+                region.selected = Candidate{base, measure(region, base)};
+
+                capacity += region.selected.volume;
+            }
+            double required = 0.;
+            for (const PackingItem& item : work.items)
+                required += item.volume_mm3;
+
+            if (capacity + EPSILON < required) {
+                // Find the required density with endpoint measurements and
+                // bisection. The former 0.5% scan plus 0.01% refinement could
+                // trigger roughly 300 geometry simulations per region.
+                constexpr int density_binary_iterations = 8;
+                double maximum_capacity = capacity;
+                for (Region& region : regions) {
+                    region.maximum = Candidate{k_max_packing_density,
+                                               measure(region, k_max_packing_density)};
+                    maximum_capacity += std::max(0., region.maximum.volume - region.selected.volume);
+                }
+
+                // If the requested transition volume exceeds the actual
+                // maximum, only the available portion can be assigned to the
+                // skeleton; the remainder will use the normal external path.
+                required = std::min(required, maximum_capacity);
+                while (capacity + EPSILON < required) {
+                    const double deficit = required - capacity;
+                    Region* chosen = nullptr;
+                    Candidate next{0.f, 0.};
+                    double best_gain = 0.;
+                    bool chosen_completes = false;
+
+                    for (Region& region : regions) {
+                        const double maximum_gain = region.maximum.volume - region.selected.volume;
+                        if (maximum_gain <= EPSILON)
+                            continue;
+
+                        Candidate candidate = region.maximum;
+                        const bool can_complete = maximum_gain + EPSILON >= deficit;
+                        if (can_complete) {
+                            // Find the smallest density increase that covers
+                            // the remaining deficit for this region.
+                            float low = region.selected.density;
+                            float high = region.maximum.density;
+                            for (int iteration = 0; iteration < density_binary_iterations; ++iteration) {
+                                const float mid = 0.5f * (low + high);
+                                const double volume = measure(region, mid);
+                                if (volume - region.selected.volume + EPSILON >= deficit) {
+                                    high = mid;
+                                    candidate = Candidate{mid, volume};
+                                } else {
+                                    low = mid;
+                                }
+                            }
+                        }
+
+                        const double gain = candidate.volume - region.selected.volume;
+                        if (gain <= EPSILON)
+                            continue;
+                        const bool completes = gain + EPSILON >= deficit;
+                        if (chosen == nullptr ||
+                            (completes && !chosen_completes) ||
+                            (completes == chosen_completes &&
+                             (completes ? gain < best_gain - EPSILON : gain > best_gain + EPSILON))) {
+                            chosen = &region;
+                            next = candidate;
+                            best_gain = gain;
+                            chosen_completes = completes;
+                        }
+                    }
+
+                    if (chosen == nullptr)
+                        break;
+                    capacity += next.volume - chosen->selected.volume;
+                    chosen->selected = next;
+                }
+            }
+            for (const Region& region : regions) {
+                const PackingBin& bin = *region.bin;
+                for (const Surface& surface : bin.layer_region->fill_surfaces.surfaces) {
+                    if (surface.surface_type != stInternal)
+                        continue;
+                    work.plan.sparse_infill_densities[&surface] = region.selected.density;
+                    work.plan.skin_depths[&surface] = wipe_protection_skin_depth_mm(bin);
+                }
+            }
+        };
+        const int concurrency = int(std::min(layer_work.size(), size_t(k_max_layer_planning_concurrency)));
+        if (concurrency > 1) {
+            tbb::task_arena arena(concurrency);
+            arena.execute([&] {
+                tbb::parallel_for(tbb::blocked_range<size_t>(0, layer_work.size(), 1),
+                    [&](const tbb::blocked_range<size_t>& range) {
+                        for (size_t idx = range.begin(); idx < range.end(); ++idx)
+                            optimize_layer(layer_work[idx]);
+                    });
+            });
+        } else {
+            for (LayerPackingWork& work : layer_work)
+                optimize_layer(work);
+        }
+        for (const LayerPackingWork& work : layer_work) {
+            for (const auto& entry : work.plan.sparse_infill_densities)
+                plan.sparse_infill_densities[entry.first] = entry.second;
+            for (const auto& entry : work.plan.skin_depths)
+                plan.skin_depths[entry.first] = entry.second;
+        }
+        return plan;
+    }
+
     std::map<const Layer*, std::shared_ptr<const LockedZagSkeletonSimulation>> simulation_contexts;
     if (use_actual_trajectory_capacity && perform_density_search) {
         for (const Layer* simulation_layer : simulation_layers) {
@@ -1035,131 +1300,37 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
         }
     }
 
-    float uniform_density = 0.f;
-    bool  has_uniform_density = false;
-    std::vector<std::vector<const PackingItem*>> density_targets_by_work(layer_work.size());
-    if (use_actual_trajectory_capacity && perform_density_search) {
-        std::map<std::pair<coord_t, float>, LockedZagSkeletonMetrics> planning_capacity_cache;
-        auto planning_layer_capacity = [&](coord_t layer_key, float density) -> const LockedZagSkeletonMetrics& {
-            const std::pair<coord_t, float> cache_key{layer_key, density};
-            auto cached = planning_capacity_cache.find(cache_key);
-            if (cached != planning_capacity_cache.end())
-                return cached->second;
+    std::map<std::pair<coord_t, float>, LockedZagSkeletonMetrics> planning_capacity_cache;
+    auto planning_layer_capacity = [&](coord_t layer_key, float density) -> const LockedZagSkeletonMetrics& {
+        const std::pair<coord_t, float> cache_key{layer_key, density};
+        auto cached = planning_capacity_cache.find(cache_key);
+        if (cached != planning_capacity_cache.end())
+            return cached->second;
 
-            LockedZagSkeletonMetrics total;
-            auto layers_it = simulation_layers_by_layer.find(layer_key);
-            if (layers_it != simulation_layers_by_layer.end()) {
-                for (const auto& layer_entry : layers_it->second) {
-                    const auto context_it = simulation_contexts.find(layer_entry.first);
-                    if (context_it == simulation_contexts.end() || !context_it->second)
+        LockedZagSkeletonMetrics total;
+        auto layers_it = simulation_layers_by_layer.find(layer_key);
+        if (layers_it != simulation_layers_by_layer.end()) {
+            for (const auto& layer_entry : layers_it->second) {
+                const auto context_it = simulation_contexts.find(layer_entry.first);
+                if (context_it == simulation_contexts.end() || !context_it->second)
+                    continue;
+                const LockedZagSkeletonMetricsByRegion metrics_by_region =
+                    context_it->second->simulate(density);
+                for (const auto& region_metrics : metrics_by_region) {
+                    if (simulation_regions.find(region_metrics.first) == simulation_regions.end())
                         continue;
-                    // Planning contains the real sparse area and solid surfaces
-                    // virtualized as sparse at the same candidate density.
-                    const LockedZagSkeletonMetricsByRegion metrics_by_region =
-                        context_it->second->simulate(density);
-                    for (const auto& region_metrics : metrics_by_region) {
-                        if (simulation_regions.find(region_metrics.first) == simulation_regions.end())
-                            continue;
-                        total.trajectory_length_mm +=
-                            region_metrics.second.trajectory_length_mm * double(layer_entry.second);
-                        total.extrusion_volume_mm3 +=
-                            region_metrics.second.extrusion_volume_mm3 * double(layer_entry.second);
-                    }
-                }
-            }
-            return planning_capacity_cache.emplace(cache_key, total).first->second;
-        };
-
-        auto evaluate_work_density = [&](const LayerPackingWork& work,
-                                         const std::vector<const PackingItem*>& items,
-                                         float density) {
-            PackingPlate shared_plate;
-            for (size_t bin_idx : work.bin_indices)
-                shared_plate.bins.emplace_back(&bins[bin_idx]);
-            sort_bins(shared_plate.bins);
-            std::vector<PackingPlate> plates{std::move(shared_plate)};
-            const double capacity = planning_layer_capacity(work.layer_key, density).extrusion_volume_mm3;
-            return pack_items_into_plates(items, plates, std::vector<double>{capacity});
-        };
-
-        // Freeze complete transitions before searching. Virtual solid capacity
-        // influences only this density decision and never receives an assignment.
-        bool has_density_target = false;
-        for (size_t work_idx = 0; work_idx < layer_work.size(); ++work_idx) {
-            const LayerPackingWork& work = layer_work[work_idx];
-            if (work.items.empty() || work.bin_indices.empty())
-                continue;
-
-            std::vector<const PackingItem*> all_items;
-            all_items.reserve(work.items.size());
-            for (const PackingItem& item : work.items)
-                all_items.emplace_back(&item);
-
-            const PackingSolution limit_solution =
-                evaluate_work_density(work, all_items, k_max_sparse_infill_density);
-            std::vector<const PackingItem*>& targets = density_targets_by_work[work_idx];
-            if (limit_solution.all_placed()) {
-                targets = std::move(all_items);
-            } else {
-                for (const std::vector<const PackingItem*>& plate_items : limit_solution.items_by_plate)
-                    targets.insert(targets.end(), plate_items.begin(), plate_items.end());
-                std::stable_sort(targets.begin(), targets.end(), [](const PackingItem* lhs, const PackingItem* rhs) {
-                    return lhs->order < rhs->order;
-                });
-            }
-            has_density_target = has_density_target || !targets.empty();
-        }
-
-        auto all_density_targets_fit = [&](float density) {
-            for (size_t work_idx = 0; work_idx < layer_work.size(); ++work_idx) {
-                const std::vector<const PackingItem*>& targets = density_targets_by_work[work_idx];
-                if (!targets.empty() && !evaluate_work_density(layer_work[work_idx], targets, density).all_placed())
-                    return false;
-            }
-            return true;
-        };
-
-        if (has_density_target) {
-            float density_floor = 0.f;
-            for (size_t work_idx = 0; work_idx < layer_work.size(); ++work_idx) {
-                if (density_targets_by_work[work_idx].empty())
-                    continue;
-                for (size_t bin_idx : layer_work[work_idx].bin_indices)
-                    density_floor = std::max(density_floor, bins[bin_idx].base_density);
-            }
-
-            uniform_density = density_floor;
-            if (!all_density_targets_fit(density_floor) &&
-                density_floor < k_max_sparse_infill_density - EPSILON) {
-                float low = density_floor;
-                float high = k_max_sparse_infill_density;
-                for (size_t iteration = 0; iteration < 18; ++iteration) {
-                    const float mid = 0.5f * (low + high);
-                    if (all_density_targets_fit(mid))
-                        high = mid;
-                    else
-                        low = mid;
-                }
-                uniform_density = high;
-            }
-            has_uniform_density = true;
-
-            // Zero-transition layers follow the density without constraining it
-            // and remain ordinary sparse infill rather than wiping skeletons.
-            for (PackingBin& bin : bins)
-                bin.target_density = std::max(bin.base_density, uniform_density);
-
-            for (size_t work_idx = 0; work_idx < layer_work.size(); ++work_idx) {
-                if (density_targets_by_work[work_idx].empty())
-                    continue;
-                for (size_t bin_idx : layer_work[work_idx].bin_indices) {
-                    PackingBin& bin = bins[bin_idx];
-                    bin.keep_for_retry = true;
-                    bin.skin_depth_mm = std::max(bin.skin_depth_mm, wipe_protection_skin_depth_mm(bin));
+                    total.trajectory_length_mm +=
+                        region_metrics.second.trajectory_length_mm *
+                        double(layer_entry.second);
+                    total.extrusion_volume_mm3 +=
+                        region_metrics.second.extrusion_volume_mm3 *
+                        double(layer_entry.second);
                 }
             }
         }
-    }
+        return planning_capacity_cache.emplace(cache_key, total).first->second;
+    };
+
     bool layer_work_is_independent = true;
     std::set<coord_t> claimed_layer_keys;
     std::set<size_t> claimed_bin_indices;
@@ -1214,9 +1385,49 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
         }
 
         if (perform_density_search) {
-            // The virtual planning pass selected one density globally. Rebuild
-            // only real sparse surfaces; confirmation uses actual trajectories
-            // and sends any complete transition that does not fit outside.
+            // Select density independently for this layer work item. A dense
+            // layer must not raise the skeleton density of other layers.
+            float density_floor = k_max_packing_density;
+            for (const PackingBin* bin : layer_bins) {
+                if (bin != nullptr)
+                    density_floor = std::min(density_floor, bin->base_density);
+            }
+
+            auto evaluate_density = [&](float density) {
+                const LockedZagSkeletonMetrics& metrics =
+                    planning_layer_capacity(work.layer_key, density);
+                std::vector<double> capacities(plates.size(), 0.);
+                capacities.front() = metrics.extrusion_volume_mm3;
+                return pack_items_into_plates(items, plates, capacities);
+            };
+
+            float selected_density = density_floor;
+            const PackingSolution default_solution = evaluate_density(density_floor);
+            if (!default_solution.all_placed() &&
+                density_floor < k_max_packing_density - EPSILON) {
+                const PackingSolution max_solution = evaluate_density(k_max_packing_density);
+                const size_t target_packed_count = max_solution.packed_count;
+                if (target_packed_count > default_solution.packed_count) {
+                    float low = density_floor;
+                    float high = k_max_packing_density;
+                    for (size_t iteration = 0; iteration < 18; ++iteration) {
+                        const float mid = 0.5f * (low + high);
+                        if (evaluate_density(mid).packed_count >= target_packed_count)
+                            high = mid;
+                        else
+                            low = mid;
+                    }
+                    selected_density = high;
+                }
+            }
+
+            for (PackingBin* bin : layer_bins) {
+                if (bin == nullptr)
+                    continue;
+                bin->keep_for_retry = true;
+                bin->target_density = std::max(bin->base_density, selected_density);
+                bin->skin_depth_mm = std::max(bin->skin_depth_mm, wipe_protection_skin_depth_mm(*bin));
+            }
             return;
         }
         // Use the UI-density trajectories as a fixed shared pool. Assign
@@ -1278,10 +1489,18 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
     }
 
 
+    auto final_skin_depth = [&](const PackingBin& bin) {
+        if (!has_fixed_protection_skin(bin))
+            return bin.skin_depth_mm;
+        // Base-density paths can receive purge too. Density growth and retry
+        // flags are not evidence that a region actually received an assignment.
+        return bin.assigned_total_mm3() > EPSILON ? wipe_protection_skin_depth_mm(bin) : 0.f;
+    };
+
     auto set_bin_surfaces_density = [&](const PackingBin& bin) {
         if (bin.surface != nullptr) {
             plan.sparse_infill_densities[bin.surface] = bin.target_density;
-            plan.skin_depths[bin.surface] = bin.skin_depth_mm;
+            plan.skin_depths[bin.surface] = final_skin_depth(bin);
             return;
         }
 
@@ -1292,7 +1511,7 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
             if (surface.surface_type != stInternal)
                 continue;
             plan.sparse_infill_densities[&surface] = bin.target_density;
-            plan.skin_depths[&surface] = bin.skin_depth_mm;
+            plan.skin_depths[&surface] = final_skin_depth(bin);
         }
     };
 
@@ -1317,8 +1536,6 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
         } else if (bin.used_for_wipe || bin.keep_for_retry) {
             set_bin_surfaces_density(bin);
         } else {
-            if (has_uniform_density)
-                set_bin_surfaces_density(bin);
             force_bin_surfaces_plain(bin);
         }
     }
@@ -1335,8 +1552,6 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
         });
 
         if (!keep_skeleton) {
-            if (has_uniform_density)
-                set_bin_surfaces_density(*region_bins.front());
             force_bin_surfaces_plain(*region_bins.front());
             continue;
         }
@@ -1347,7 +1562,7 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
             if (bin == nullptr)
                 continue;
             target_density = std::max(target_density, bin->target_density);
-            skin_depth_mm = std::max(skin_depth_mm, bin->skin_depth_mm);
+            skin_depth_mm = std::max(skin_depth_mm, final_skin_depth(*bin));
         }
         for (const Surface& surface : layer_region->fill_surfaces.surfaces) {
             if (surface.surface_type != stInternal)
@@ -1357,6 +1572,12 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
         }
     }
 
+    BOOST_LOG_TRIVIAL(warning) << "[NO_WIPE_TRACE] planner end bins=" << bins.size()
+                               << " works=" << layer_work.size()
+                               << " infill_transitions=" << plan.infill_transitions.size()
+                               << " external_transitions=" << plan.external_flush_transitions.size()
+                               << " region_volumes=" << plan.transition_region_volumes.size()
+                               << " densities=" << plan.sparse_infill_densities.size();
     return plan;
 }
 

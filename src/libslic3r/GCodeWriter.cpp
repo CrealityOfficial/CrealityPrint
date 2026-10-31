@@ -936,7 +936,6 @@ std::string GCodeWriter::extrude_arc_to_xy(const Vec2d& point, const Vec2d& cent
     m_pos(1) = point(1);
     if (!force_no_extrusion)
         m_extruder->extrude(dE);
-
     Vec2d point_on_plate = { point(0) - m_x_offset, point(1) - m_y_offset };
 
     GCodeG2G3Formatter w(is_ccw);
@@ -994,7 +993,6 @@ std::string GCodeWriter::_extrude_to_xyz(
     m_lifted = 0.0;
     if (!force_no_extrusion)
         m_extruder->extrude(dE);
-
     GCodeG1Formatter w;
     w.emit_xyz(this->_output_xyz_exact(destination));
     if (!force_no_extrusion)

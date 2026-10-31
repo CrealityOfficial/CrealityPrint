@@ -28,6 +28,18 @@
         "1",
         "1",
         "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
         "1"
     ],
     "enable_special_area_additional_cooling_fan": "0",
@@ -70,8 +82,8 @@
     "filament_loading_speed": "28",
     "filament_loading_speed_start": "3",
     "filament_long_retractions_when_cut": [
-        "nil",
-        "nil",
+        "",
+        "",
         "nil",
         "nil"
     ],
@@ -96,14 +108,8 @@
     "filament_retract_before_wipe": [
         "nil",
         "nil",
-        "nil",
-        "nil"
-    ],
-    "filament_retract_length_toolchange": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
+        "100",
+        "100"
     ],
     "filament_retract_lift_above": [
         "nil",
@@ -129,12 +135,6 @@
         "nil",
         "nil"
     ],
-    "filament_retract_restart_extra_toolchange": [
-        "nil",
-        "nil",
-        "nil",
-        "nil"
-    ],
     "filament_retract_when_changing_layer": [
         "nil",
         "nil",
@@ -142,16 +142,16 @@
         "nil"
     ],
     "filament_retraction_distances_when_cut": [
-        "nil",
-        "nil",
+        "",
+        "",
         "nil",
         "nil"
     ],
     "filament_retraction_length": [
         "0.4",
         "0.4",
-        "0.4",
-        "0.4"
+        "2",
+        "0.8"
     ],
     "filament_retraction_minimum_travel": [
         "nil",
@@ -201,8 +201,8 @@
     "filament_z_hop_types": [
         "Slope Lift",
         "Slope Lift",
-        "Slope Lift",
-        "Slope Lift"
+        "nil",
+        "nil"
     ],
     "full_fan_speed_layer": "0",
     "hot_plate_temp": "40",
@@ -227,8 +227,20 @@
     "pressure_advance": [
         "0.4",
         "0.4",
+        "0.03",
+        "0.03",
         "0.4",
-        "0.4"
+        "0.4",
+        "0.03",
+        "0.03",
+        "0.4",
+        "0.4",
+        "0.03",
+        "0.03",
+        "0.4",
+        "0.4",
+        "0.03",
+        "0.03"
     ],
     "reduce_fan_stop_start_freq": "1",
     "required_nozzle_HRC": "0",

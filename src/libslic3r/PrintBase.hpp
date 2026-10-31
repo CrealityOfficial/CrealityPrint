@@ -715,6 +715,8 @@ protected:
         { return m_state.invalidate_multiple(il.begin(), il.end(), PrintObjectBase::cancel_callback(m_print)); }
     bool            invalidate_all_steps()
         { return m_state.invalidate_all(PrintObjectBase::cancel_callback(m_print)); }
+    bool            invalidate_steps_without_cancel(std::initializer_list<PrintObjectStepEnum> steps)
+        { return m_state.invalidate_multiple(steps.begin(), steps.end(), [](){}); }
     bool            invalidate_all_steps_without_cancel()
         { return m_state.invalidate_all([](){}); }
 

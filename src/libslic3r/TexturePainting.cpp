@@ -1,6 +1,7 @@
 #include "TexturePainting.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <map>
 #include <set>
@@ -272,41 +273,105 @@ static bool build_multi_texture_atlas(
     return true;
 }
 
+static bool build_mesh_from_cache(const TexturePaintingCache& cache, tex2color::TriMesh& mesh)
+{
+    if (!cache.valid())
+        return false;
+
+    mesh.vertices.resize(cache.vertices.size());
+    for (size_t i = 0; i < cache.vertices.size(); ++i)
+        mesh.vertices[i] = Vec3f(cache.vertices[i][0], cache.vertices[i][1], cache.vertices[i][2]);
+
+    mesh.indices.resize(cache.indices.size());
+    for (size_t i = 0; i < cache.indices.size(); ++i)
+        mesh.indices[i] = Vec3i32(cache.indices[i][0], cache.indices[i][1], cache.indices[i][2]);
+    return true;
+}
+
+static void update_texture_painting_cache(
+    const tex2color::PreparedTextureColorData& prepared,
+    TexturePaintingCache& cache)
+{
+    if (!prepared.valid())
+        return;
+
+    cache.vertices.resize(prepared.mesh.vertices.size());
+    for (size_t i = 0; i < prepared.mesh.vertices.size(); ++i) {
+        const Vec3f& vertex = prepared.mesh.vertices[i];
+        cache.vertices[i] = {vertex.x(), vertex.y(), vertex.z()};
+    }
+
+    cache.indices.resize(prepared.mesh.indices.size());
+    for (size_t i = 0; i < prepared.mesh.indices.size(); ++i) {
+        const Vec3i32& face = prepared.mesh.indices[i];
+        cache.indices[i] = {face.x(), face.y(), face.z()};
+    }
+    cache.unclustered_face_colors = prepared.face_colors;
+}
 bool texture_to_painting(
     const TexturedMesh& textured,
     PaintedMesh& painted,
     const TexturePaintingSettings& settings,
     PaintProgressCallback progress,
-    PaintCancelCallback cancel)
+    PaintCancelCallback cancel,
+    TexturePaintingCache* cache)
 {
+    using Clock = std::chrono::steady_clock;
+    const auto total_started_at = Clock::now();
+    auto stage_started_at = total_started_at;
+    auto log_stage = [&](const char* stage) {
+        const auto now = Clock::now();
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] texture_to_painting stage=" << stage
+                                << " elapsed_ms="
+                                << std::chrono::duration<double, std::milli>(now - stage_started_at).count();
+        stage_started_at = now;
+    };
+
     if (textured.vertices.empty() || textured.indices.empty() || textured.textures.empty())
         return false;
 
     cv::Mat texture;
     tex2color::TriMesh input_mesh;
     std::vector<std::vector<Vec2f>> uv_coords;
+    const auto cache_restore_started_at = Clock::now();
+    const bool cache_hit = cache != nullptr && build_mesh_from_cache(*cache, input_mesh);
+    if (cache_hit) {
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] texture_to_painting stage=cache_restore"
+                                   << " elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - cache_restore_started_at).count()
+                                   << " vertices=" << cache->vertices.size()
+                                   << " faces=" << cache->indices.size()
+                                   << " approx_bytes=" << (cache->vertices.size() * sizeof(std::array<float, 3>)
+                                                           + cache->indices.size() * sizeof(std::array<int, 3>)
+                                                           + cache->unclustered_face_colors.size() * sizeof(std::array<std::size_t, 3>));
+    }
 
-    const bool multi_tex = textured.textures.size() > 1 && !textured.material_texture_map.empty();
-
-    if (multi_tex) {
-        if (!build_multi_texture_atlas(textured, texture, uv_coords))
-            return false;
-        // Build mesh geometry (atlas UVs already computed above)
-        const size_t nv = textured.vertices.size();
-        const size_t nf = textured.indices.size();
-        input_mesh.vertices.resize(nv);
-        for (size_t i = 0; i < nv; ++i)
-            input_mesh.vertices[i] = Vec3f(
-                textured.vertices[i][0], textured.vertices[i][1], textured.vertices[i][2]);
-        input_mesh.indices.resize(nf);
-        for (size_t i = 0; i < nf; ++i)
-            input_mesh.indices[i] = Vec3i32(
-                textured.indices[i][0], textured.indices[i][1], textured.indices[i][2]);
-    } else {
-        texture = decode_texture_image(textured.textures[0]);
-        if (texture.empty())
-            return false;
-        build_tex2color_mesh(textured, input_mesh, uv_coords);
+    if (!cache_hit) {
+        const bool multi_tex = textured.textures.size() > 1 && !textured.material_texture_map.empty();
+        if (multi_tex) {
+            if (!build_multi_texture_atlas(textured, texture, uv_coords))
+                return false;
+            log_stage("decode_texture_and_build_atlas");
+            // Build mesh geometry (atlas UVs already computed above)
+            const size_t nv = textured.vertices.size();
+            const size_t nf = textured.indices.size();
+            input_mesh.vertices.resize(nv);
+            for (size_t i = 0; i < nv; ++i)
+                input_mesh.vertices[i] = Vec3f(
+                    textured.vertices[i][0], textured.vertices[i][1], textured.vertices[i][2]);
+            input_mesh.indices.resize(nf);
+            for (size_t i = 0; i < nf; ++i)
+                input_mesh.indices[i] = Vec3i32(
+                    textured.indices[i][0], textured.indices[i][1], textured.indices[i][2]);
+            log_stage("build_mesh_and_uv");
+        } else {
+            texture = decode_texture_image(textured.textures[0]);
+            if (texture.empty())
+                return false;
+            log_stage("decode_texture");
+            build_tex2color_mesh(textured, input_mesh, uv_coords);
+            log_stage("build_mesh_and_uv");
+        }
     }
 
     tex2color::TextureToColorSettings algo_settings;
@@ -343,15 +408,45 @@ bool texture_to_painting(
     algo_settings.mesh_repair_decision_required = settings.mesh_repair_decision_required;
     algo_settings.mesh_repair_callback = settings.mesh_repair_callback;
 
-    bool ok = tex2color::TextureToColor(
-        input_mesh, uv_coords, texture,
-        color_mesh, face_colors,
-        algo_settings, algo_progress, algo_cancel);
+    tex2color::PreparedTextureColorData prepared;
+    bool ok = false;
+    if (cache_hit) {
+        algo_settings.mesh_prevalidated = true;
+        ok = tex2color::ClusterAndSmooth(
+            input_mesh, cache->unclustered_face_colors, color_mesh, face_colors,
+            algo_settings, algo_progress, algo_cancel);
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] texture_to_painting cache_hit=true"
+                                   << " cached_faces=" << cache->indices.size();
+    } else {
+        ok = tex2color::TextureToColor(
+            input_mesh, uv_coords, texture,
+            color_mesh, face_colors,
+            algo_settings, algo_progress, algo_cancel,
+            cache != nullptr ? &prepared : nullptr);
+        if (cache != nullptr && prepared.valid()) {
+            const auto cache_store_started_at = std::chrono::steady_clock::now();
+            update_texture_painting_cache(prepared, *cache);
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] texture_to_painting cache_store=true"
+                                       << " elapsed_ms="
+                                       << std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - cache_store_started_at).count()
+                                       << " vertices=" << cache->vertices.size()
+                                       << " faces=" << cache->indices.size()
+                                       << " approx_bytes=" << (cache->vertices.size() * sizeof(std::array<float, 3>)
+                                                               + cache->indices.size() * sizeof(std::array<int, 3>)
+                                                               + cache->unclustered_face_colors.size() * sizeof(std::array<std::size_t, 3>));
+        }
+    }
+    log_stage("core_algorithm");
 
     if (!ok)
         return false;
 
     extract_painted_mesh(color_mesh, face_colors, painted);
+    log_stage("extract_result");
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] texture_to_painting stage=total elapsed_ms="
+                            << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                            << " input_faces=" << textured.indices.size()
+                            << " output_faces=" << painted.indices.size();
     return true;
 }
 
@@ -360,19 +455,33 @@ bool face_colors_to_painting(
     PaintedMesh& painted,
     const TexturePaintingSettings& settings,
     PaintProgressCallback progress,
-    PaintCancelCallback cancel)
+    PaintCancelCallback cancel,
+    TexturePaintingCache* cache)
 {
     if (mesh.vertices.empty() || mesh.indices.empty() || mesh.precomputed_face_colors.empty())
         return false;
 
-    // Build tex2color::TriMesh from input geometry
     tex2color::TriMesh input_mesh;
-    input_mesh.vertices.resize(mesh.vertices.size());
-    for (size_t i = 0; i < mesh.vertices.size(); ++i)
-        input_mesh.vertices[i] = Vec3f(mesh.vertices[i][0], mesh.vertices[i][1], mesh.vertices[i][2]);
-    input_mesh.indices.resize(mesh.indices.size());
-    for (size_t i = 0; i < mesh.indices.size(); ++i)
-        input_mesh.indices[i] = Vec3i32(mesh.indices[i][0], mesh.indices[i][1], mesh.indices[i][2]);
+    const auto cache_restore_started_at = std::chrono::steady_clock::now();
+    const bool cache_hit = cache != nullptr && build_mesh_from_cache(*cache, input_mesh);
+    if (cache_hit) {
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] face_colors_to_painting stage=cache_restore"
+                                   << " elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - cache_restore_started_at).count()
+                                   << " vertices=" << cache->vertices.size()
+                                   << " faces=" << cache->indices.size();
+    }
+    if (!cache_hit) {
+        input_mesh.vertices.resize(mesh.vertices.size());
+        for (size_t i = 0; i < mesh.vertices.size(); ++i)
+            input_mesh.vertices[i] = Vec3f(mesh.vertices[i][0], mesh.vertices[i][1], mesh.vertices[i][2]);
+        input_mesh.indices.resize(mesh.indices.size());
+        for (size_t i = 0; i < mesh.indices.size(); ++i)
+            input_mesh.indices[i] = Vec3i32(mesh.indices[i][0], mesh.indices[i][1], mesh.indices[i][2]);
+    }
+
+    const std::vector<std::array<float,4>> empty_vertex_colors;
+    const auto& vertex_colors = cache_hit ? empty_vertex_colors : mesh.precomputed_vertex_colors;
 
     // Forward settings to tex2color
     tex2color::TextureToColorSettings algo_settings;
@@ -406,10 +515,26 @@ bool face_colors_to_painting(
 
     tex2color::TriMesh out_mesh;
     std::vector<std::array<std::size_t,3>> out_face_colors;
+    tex2color::PreparedTextureColorData prepared;
+    if (cache_hit)
+        algo_settings.mesh_prevalidated = true;
+    const auto& input_face_colors = cache_hit ? cache->unclustered_face_colors : mesh.precomputed_face_colors;
     bool ok = tex2color::ClusterAndSmooth(
-        input_mesh, mesh.precomputed_face_colors, out_mesh, out_face_colors,
+        input_mesh, input_face_colors, out_mesh, out_face_colors,
         algo_settings, algo_progress, algo_cancel,
-        mesh.precomputed_vertex_colors);
+        vertex_colors, !cache_hit && cache != nullptr ? &prepared : nullptr);
+    if (!cache_hit && cache != nullptr && prepared.valid()) {
+        const auto cache_store_started_at = std::chrono::steady_clock::now();
+        update_texture_painting_cache(prepared, *cache);
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] face_colors_to_painting cache_store=true"
+                                   << " elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - cache_store_started_at).count()
+                                   << " vertices=" << cache->vertices.size()
+                                   << " faces=" << cache->indices.size();
+    } else if (cache_hit) {
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] face_colors_to_painting cache_hit=true"
+                                   << " cached_faces=" << cache->indices.size();
+    }
 
     if (!ok)
         return false;
@@ -460,6 +585,19 @@ bool apply_painted_mesh_to_volume(
     const std::vector<FilamentMatch>& matches,
     ModelVolume& volume)
 {
+    using Clock = std::chrono::steady_clock;
+    const auto total_started_at = Clock::now();
+    auto stage_started_at = total_started_at;
+    auto log_apply_stage = [&](const char* stage) {
+        const auto now = Clock::now();
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] apply_painted_mesh_to_volume stage=" << stage
+                                   << " elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(now - stage_started_at).count()
+                                   << " vertices=" << painted.vertices.size()
+                                   << " faces=" << painted.indices.size();
+        stage_started_at = now;
+    };
+
     if (painted.face_colors.empty() || matches.empty())
         return false;
 
@@ -469,6 +607,7 @@ bool apply_painted_mesh_to_volume(
         if (m.cluster_index >= 0 && m.cluster_index < (int)cluster_colors.size() && m.filament_index >= 0)
             color_to_filament[cluster_colors[m.cluster_index]] = m.filament_index;
     }
+    log_apply_stage("build_color_map");
 
     indexed_triangle_set its;
     its.vertices.resize(painted.vertices.size());
@@ -487,6 +626,7 @@ bool apply_painted_mesh_to_volume(
     }
 
     TriangleMesh new_mesh(std::move(its));
+    log_apply_stage("build_triangle_mesh");
 
     // The volume already went through ModelObject::add_volume ->
     // center_geometry_after_creation, which translated its mesh by
@@ -544,9 +684,11 @@ bool apply_painted_mesh_to_volume(
                 << drift << " (bbox diag=" << diag
                 << ", unit_scale=" << unit_scale << ")";
     }
+    log_apply_stage("align_and_bbox_check");
 
     volume.set_mesh(std::move(new_mesh));
     volume.calculate_convex_hull();
+    log_apply_stage("replace_mesh_and_convex_hull");
 
     // Re-center the replaced mesh so its bbox center sits at the origin,
     // matching what center_geometry_after_creation did for the original mesh.
@@ -568,6 +710,7 @@ bool apply_painted_mesh_to_volume(
 
     if (ModelObject* obj = volume.get_object())
         obj->invalidate_bounding_box();
+    log_apply_stage("recenter_and_invalidate");
 
     TriangleSelector selector(volume.mesh());
     for (size_t fi = 0; fi < painted.face_colors.size() && fi < (size_t)volume.mesh().its.indices.size(); ++fi) {
@@ -581,7 +724,13 @@ bool apply_painted_mesh_to_volume(
         }
     }
 
+    log_apply_stage("assign_facet_states");
     volume.mmu_segmentation_facets.set(selector);
+    log_apply_stage("serialize_segmentation");
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] apply_painted_mesh_to_volume stage=total elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                               << " vertices=" << painted.vertices.size()
+                               << " faces=" << painted.indices.size();
     return true;
 }
 

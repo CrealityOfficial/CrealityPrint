@@ -3,6 +3,9 @@
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/Polygon_mesh_processing/repair.h>
+#include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <chrono>
 #include <cstdio>
 #include <map>
@@ -50,92 +53,104 @@ inline TriMesh cgal_to_trimesh(const CGALMesh& cm) {
 }
 
 inline bool is_mesh_halfedge_compatible(const TriMesh& mesh) {
-    std::vector<std::unordered_set<std::size_t>> vtx_to_adj_faces(mesh.vertices.size());
-    std::size_t edge_id = 0;
-    std::vector<std::unordered_set<std::size_t>> edge_to_faces;
-    std::vector<std::unordered_set<std::size_t>> vtx_to_prev_vtxs(mesh.vertices.size());
-    std::vector<std::unordered_set<std::size_t>> vtx_to_next_vtxs(mesh.vertices.size());
-    std::vector<std::unordered_map<std::size_t, std::size_t>> vtx_vtx_to_edge(mesh.vertices.size());
+    using Index = std::uint32_t;
+    constexpr Index invalid = std::numeric_limits<Index>::max();
 
+    if (mesh.vertices.size() >= invalid || mesh.indices.size() > invalid / 3)
+        return false;
+    const std::size_t corner_count = mesh.indices.size() * 3;
+
+    struct EdgeRecord {
+        Index low;
+        Index high;
+        Index low_corner;
+        Index high_corner;
+        bool  low_to_high;
+    };
+
+    std::vector<EdgeRecord> edges;
+    edges.reserve(corner_count);
     for (std::size_t fid = 0; fid < mesh.indices.size(); ++fid) {
         const TriFace& face = mesh.indices[fid];
-        if (face[0] == face[1] || face[1] == face[2] || face[2] == face[0]) {
+        if (face[0] < 0 || face[1] < 0 || face[2] < 0 ||
+            static_cast<std::size_t>(face[0]) >= mesh.vertices.size() ||
+            static_cast<std::size_t>(face[1]) >= mesh.vertices.size() ||
+            static_cast<std::size_t>(face[2]) >= mesh.vertices.size() ||
+            face[0] == face[1] || face[1] == face[2] || face[2] == face[0])
             return false;
-        }
-        for (std::size_t i = 0; i < 3; ++i) {
-            if (static_cast<std::size_t>(face[i]) >= mesh.vertices.size()) {
-                return false;
-            }
-            vtx_to_adj_faces[face[i]].insert(fid);
 
-            std::size_t prev_vtx = face[(i + 2) % 3];
-            std::size_t next_vtx = face[(i + 1) % 3];
-
-            if (vtx_to_prev_vtxs[face[i]].count(prev_vtx)) {
-                return false;
-            }
-            vtx_to_prev_vtxs[face[i]].insert(prev_vtx);
-
-            if (vtx_to_next_vtxs[face[i]].count(next_vtx)) {
-                return false;
-            }
-            vtx_to_next_vtxs[face[i]].insert(next_vtx);
-        }
-
-        for (std::size_t i = 0; i < 3; ++i) {
-            std::size_t va = face[i];
-            std::size_t vb = face[(i + 1) % 3];
-            if (!vtx_vtx_to_edge[va].count(vb)) {
-                vtx_vtx_to_edge[va][vb] = edge_id;
-                vtx_vtx_to_edge[vb][va] = edge_id;
-                ++edge_id;
-                edge_to_faces.emplace_back(std::unordered_set<std::size_t>());
-            }
-            edge_to_faces[vtx_vtx_to_edge[va][vb]].insert(fid);
+        const Index base = static_cast<Index>(fid * 3);
+        for (Index i = 0; i < 3; ++i) {
+            const Index j    = (i + 1) % 3;
+            const Index from = static_cast<Index>(face[i]);
+            const Index to   = static_cast<Index>(face[j]);
+            if (from < to)
+                edges.push_back({from, to, base + i, base + j, true});
+            else
+                edges.push_back({to, from, base + j, base + i, false});
         }
     }
 
-    for (std::size_t vid = 0; vid < mesh.vertices.size(); ++vid) {
-        if (vtx_to_adj_faces[vid].empty()) {
-            continue;
-        }
-        std::unordered_set<std::size_t> visited_faces;
-        std::queue<std::size_t> face_queue;
-        face_queue.push(*(vtx_to_adj_faces[vid].begin()));
-        visited_faces.insert(*(vtx_to_adj_faces[vid].begin()));
-        while (!face_queue.empty()) {
-            std::size_t fid = face_queue.front();
-            face_queue.pop();
-            const TriFace& face = mesh.indices[fid];
-            for (std::size_t i = 0; i < 3; ++i) {
-                if (static_cast<std::size_t>(face[i]) != vid) {
-                    continue;
-                }
-                std::size_t v_next = face[(i + 1) % 3];
-                std::size_t v_prev = face[(i + 2) % 3];
-                for (std::size_t nbr : {v_next, v_prev}) {
-                    std::size_t eid = vtx_vtx_to_edge[vid][nbr];
-                    for (std::size_t adj_fid : edge_to_faces[eid]) {
-                        if (!visited_faces.count(adj_fid) && vtx_to_adj_faces[vid].count(adj_fid)) {
-                            visited_faces.insert(adj_fid);
-                            face_queue.push(adj_fid);
-                        }
-                    }
-                }
-                break;
-            }
-        }
+    std::sort(edges.begin(), edges.end(), [](const EdgeRecord& lhs, const EdgeRecord& rhs) {
+        return lhs.low < rhs.low || (lhs.low == rhs.low && lhs.high < rhs.high);
+    });
 
-        for (std::size_t fid : vtx_to_adj_faces[vid]) {
-            if (!visited_faces.count(fid)) {
-                return false;
-            }
+    std::vector<Index> parent(corner_count);
+    std::vector<std::uint8_t> rank(corner_count, 0);
+    for (Index i = 0; i < static_cast<Index>(corner_count); ++i)
+        parent[i] = i;
+
+    auto find_root = [&parent](Index value) {
+        Index root = value;
+        while (parent[root] != root)
+            root = parent[root];
+        while (parent[value] != value) {
+            const Index next = parent[value];
+            parent[value] = root;
+            value = next;
         }
+        return root;
+    };
+    auto unite = [&parent, &rank, &find_root](Index lhs, Index rhs) {
+        lhs = find_root(lhs);
+        rhs = find_root(rhs);
+        if (lhs == rhs)
+            return;
+        if (rank[lhs] < rank[rhs])
+            std::swap(lhs, rhs);
+        parent[rhs] = lhs;
+        if (rank[lhs] == rank[rhs])
+            ++rank[lhs];
+    };
+
+    for (std::size_t begin = 0; begin < edges.size();) {
+        std::size_t end = begin + 1;
+        while (end < edges.size() && edges[end].low == edges[begin].low && edges[end].high == edges[begin].high)
+            ++end;
+        if (end - begin > 2 ||
+            (end - begin == 2 && edges[begin].low_to_high == edges[begin + 1].low_to_high))
+            return false;
+        if (end - begin == 2) {
+            unite(edges[begin].low_corner, edges[begin + 1].low_corner);
+            unite(edges[begin].high_corner, edges[begin + 1].high_corner);
+        }
+        begin = end;
     }
 
+    std::vector<Index> first_corner(mesh.vertices.size(), invalid);
+    for (std::size_t fid = 0; fid < mesh.indices.size(); ++fid) {
+        const TriFace& face = mesh.indices[fid];
+        for (Index i = 0; i < 3; ++i) {
+            const Index vertex = static_cast<Index>(face[i]);
+            const Index corner = static_cast<Index>(fid * 3) + i;
+            if (first_corner[vertex] == invalid)
+                first_corner[vertex] = corner;
+            else if (find_root(first_corner[vertex]) != find_root(corner))
+                return false;
+        }
+    }
     return true;
 }
-
 inline bool convert_trimesh_to_cgal(const TriMesh& mesh, CGALMesh& cgal_mesh) {
     cgal_mesh = trimesh_to_cgal(mesh);
     return cgal_mesh.number_of_faces() > 0 || mesh.indices.empty();

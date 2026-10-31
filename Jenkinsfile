@@ -14,8 +14,8 @@ pipeline {
         booleanParam(name: 'BUILD_MAC_ARM', defaultValue: false, description: 'Build macOS arm64 package')
         booleanParam(name: 'CLEAN_WORKSPACE', defaultValue: false, description: 'Delete Jenkins workspace before checkout')
         booleanParam(name: 'REBUILD_DEPS', defaultValue: false, description: 'Rebuild dependency libraries instead of reusing the current deps directory')
-        text(name: 'BRANCH', defaultValue: 'release-260930', description: 'C3DSlicer branch to build')
-        text(name: 'TAG_NAME', defaultValue: '7.3.0', description: 'Base version tag')
+        text(name: 'BRANCH', defaultValue: 'release-261030', description: 'C3DSlicer branch to build')
+        text(name: 'TAG_NAME', defaultValue: '7.3.1', description: 'Base version tag')
         choice(name: 'RTYPE', choices: ['Beta', 'Alpha', 'Beta1', 'Beta2', 'Dev', 'Release'], description: 'Release type')
         string(name: 'APP_NAME', defaultValue: 'CrealityPrint', description: 'App name')
         booleanParam(name: 'WEB_SYNC', defaultValue: true, description: 'Sync Community resources by WEB_BRANCH')
@@ -25,7 +25,7 @@ pipeline {
         text(name: 'NOTIFY', defaultValue: '1', description: '1 to enable Feishu notification')
         text(name: 'SLICER_HEADER', defaultValue: '1', description: 'libslicer3r cache flag used by mac packaging')
         text(name: 'SYNCPRESET', defaultValue: '1', description: '1 to generate presets')
-        string(name: 'WEB_BRANCH', defaultValue: 'release-260930', description: 'CrealityCommunity branch')
+        string(name: 'WEB_BRANCH', defaultValue: 'release-261030', description: 'CrealityCommunity branch')
         text(name: 'PACKAGE_TYPE', defaultValue: '0', description: 'Windows only. 0: nsis, 1: zip')
     }
 

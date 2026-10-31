@@ -1,4 +1,6 @@
 #include "PrintConfig.hpp"
+#include "FDM/MachineVender.hpp"
+#include "FDM/NoWipeTowerMaterialChange.hpp"
 #include "ClipperUtils.hpp"
 #include "Config.hpp"
 #include "I18N.hpp"
@@ -853,6 +855,7 @@ CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(BedTemperatureMode)
 // BBS
 static const t_config_enum_values s_keys_map_LayerSeq = {
     { "Auto",              flsAuto },
+    { "GraySafe",          flsGraySafe },
     { "Customize",         flsCutomize },
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(LayerSeq)
@@ -1334,8 +1337,10 @@ void PrintConfigDef::init_fff_params()
     def->label = L("First layer filament sequence");
     def->enum_keys_map = &ConfigOptionEnum<LayerSeq>::get_enum_values();
     def->enum_values.push_back("Auto");
+    def->enum_values.push_back("GraySafe");
     def->enum_values.push_back("Customize");
     def->enum_labels.push_back(L("Auto"));
+    def->enum_labels.push_back(L("Gray safe"));
     def->enum_labels.push_back(L("Customize"));
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionEnum<LayerSeq>(flsAuto));
@@ -1345,8 +1350,10 @@ void PrintConfigDef::init_fff_params()
     def->label = L("Other layers filament sequence");
     def->enum_keys_map = &ConfigOptionEnum<LayerSeq>::get_enum_values();
     def->enum_values.push_back("Auto");
+    def->enum_values.push_back("GraySafe");
     def->enum_values.push_back("Customize");
     def->enum_labels.push_back(L("Auto"));
+    def->enum_labels.push_back(L("Gray safe"));
     def->enum_labels.push_back(L("Customize"));
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionEnum<LayerSeq>(flsAuto));
@@ -1699,7 +1706,8 @@ void PrintConfigDef::init_fff_params()
     def           = this->add("smooth_speed_discontinuity_area", coBool);
     def->label    = L("Smooth speed discontinuity area (Beta)");
     def->category = L("Speed");
-    def->tooltip  = L("Add the speed transition between discontinuity area.");
+    def->tooltip  = L("Add the speed transition between discontinuity area.\n\n"
+                      "Note: this feature and arc fitting are mutually exclusive. Enabling either feature will ask for confirmation before turning off the other.");
     def->mode     = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
@@ -3995,6 +4003,16 @@ void PrintConfigDef::init_fff_params()
     def->mode     = comAdvanced;
     def->set_default_value(new ConfigOptionPercent(25));
 
+    def           = this->add("minimum_skeleton_infill_density", coPercent);
+    def->label    = L("Minimum skeleton infill density");
+    def->category = L("Strength");
+    def->tooltip  = L("Minimum skeleton infill density when the prime tower is disabled. The slicer may increase the actual skeleton infill density to accommodate flushing volume. When automatic density planning is inactive, this value is used as the skeleton infill density.");
+    def->sidetext = "%";
+    def->min      = 0;
+    def->max      = 100;
+    def->mode     = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(15));
+
     def           = this->add("skin_infill_density", coPercent);
     def->label    = L("Skin infill density");
     def->category = L("Strength");
@@ -4048,6 +4066,16 @@ void PrintConfigDef::init_fff_params()
     def->mode     = comAdvanced;
     def->nullable = true;
     def->set_default_value(new ConfigOptionFloatsOrPercentsNullable{FloatOrPercent(100., true)});
+
+    def           = this->add("skeleton_wipe_line_width", coFloatOrPercent);
+    def->label    = L("Skeleton wipe width");
+    def->category = L("Strength");
+    def->tooltip  = L("Adjust the skeleton line width used for slowed wiping after a material change in no-prime-tower mode.");
+    def->sidetext = L("mm");
+    def->ratio_over = "nozzle_diameter";
+    def->min      = 0;
+    def->mode     = comAdvanced;
+    def->set_default_value(new ConfigOptionFloatOrPercent(100, true));
 
     def           = this->add("skeleton_wipe_line_width", coFloatOrPercent);
     def->label    = L("Skeleton wipe width");
@@ -4607,7 +4635,7 @@ void PrintConfigDef::init_fff_params()
     				 "For slower printers without pressure advance, the value should be set much lower. A value of 10-15mm3/s2 is a "
     				 "good starting point for direct drive extruders and 5-10mm3/s2 for Bowden style. \n\n"
     				 "This feature is known as Pressure Equalizer in Prusa slicer.\n\n"
-    				 "Note: this parameter disables arc fitting.");
+                     "Note: this feature and arc fitting are mutually exclusive. Enabling either feature will ask for confirmation before turning off the other.");
     def->sidetext = L("mm³/s²");
     def->min = 0;
     def->mode = comAdvanced;
@@ -4618,12 +4646,19 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("A lower value results in smoother extrusion rate transitions. However, this results in a significantly larger gcode file "
     				 "and more instructions for the printer to process. \n\n"
     				 "Default value of 3 works well for most cases. If your printer is stuttering, increase this value to reduce the number of adjustments made\n\n"
-    				 "Allowed values: 0.5-5");
+                    "Allowed values: 0.5-5\n\n"
+                    "Adjacent segments with the same output speed may be merged. Merged segments can exceed this length.");
     def->min = 0.5;
     def->max = 5;
     def->sidetext = L("mm");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(3.0));
+
+    def = this->add("extrusion_rate_smoothing_external_perimeter_only", coBool);
+    def->label = L("Apply only on external features");
+    def->tooltip = L("Applies extrusion rate smoothing only on external perimeters and overhangs. This can help reduce artefacts due to sharp speed transitions on externally visible overhangs without impacting the print speed of features that will not be visible to the user.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
 
     def = this->add("msao_recovery_enable", coBool);
     def->label   = L("Material shortage recovery after overhang(Beta)");
@@ -5021,6 +5056,12 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Don't retract when the travel is in infill area absolutely. That means the oozing can't been seen. "
                      "This can reduce times of retraction for complex model and save printing time, but make slicing and "
                      "G-code generating slower");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("wait_for_temperature_after_toolchange", coBool);
+    def->label = L("Wait for nozzle temperature after filament change");
+    def->tooltip = L("Enable automatic nozzle temperature waiting after filament changes during multi-nozzle printing. Requires ooze prevention to be enabled. Disabled by default. Disabling ooze prevention or this option omits this automatic wait. Temperature commands in start and custom G-code are unaffected.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
@@ -5881,6 +5922,13 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
+    def = this->add("wipe_tower_extra_interlayer_wipe_layers", coInt);
+    def->label = L("Extra interlayer wipe layers");
+    def->tooltip = L("Number of consecutive single-color layers that use a serpentine wipe path on the prime tower.");
+    def->sidetext = L("layers");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(5));
     def = this->add("single_extruder_multi_material_priming", coBool);
     def->label = L("Prime all printing extruders");
     def->tooltip = L("If enabled, all printing extruders will be primed at the front edge of the print bed at the start of the print.");
@@ -6167,7 +6215,7 @@ void PrintConfigDef::init_fff_params()
     def->enum_labels.push_back("0.64");
     def->enum_labels.push_back("1");
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionFloat(0.25));
+    def->set_default_value(new ConfigOptionFloat(1));
 
     //BBS
     def = this->add("support_bottom_interface_spacing", coFloat);
@@ -6819,7 +6867,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("bottom_fill_flush_layers", coInt);
     def->label = L("Bottom fill flush layers");
-    def->tooltip = L("When flushing into objects skeleton is enabled, force the bottom N object layers to purge on the prime tower before printing fill or skeleton, then skin and walls. This does not change bottom shell layers.");
+    def->tooltip = L("When flushing into objects skeleton is enabled, force the bottom N object layers to purge on the prime tower before printing skeleton, then walls in the configured order, then skin and surface fill. This does not change bottom shell layers.");
     def->sidetext = L("layers");
     def->min = 0;
     def->mode = comSimple;
@@ -6827,7 +6875,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("top_fill_flush_layers", coInt);
     def->label = L("Top fill flush layers");
-    def->tooltip = L("When flushing into objects skeleton is enabled, force the top N object layers to purge on the prime tower before printing fill or skeleton, then skin and walls. This does not change top shell layers.");
+    def->tooltip = L("When flushing into objects skeleton is enabled, force the top N object layers to purge on the prime tower before printing skeleton, then walls in the configured order, then skin and surface fill. This does not change top shell layers.");
     def->sidetext = L("layers");
     def->min = 0;
     def->mode = comSimple;
@@ -6840,6 +6888,14 @@ void PrintConfigDef::init_fff_params()
     def->min = 1;
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionFloatOrPercent(90, true));
+
+    def = this->add("no_prime_tower_retract_restart_extra", coFloat);
+    def->label = L("Extra length on restart without prime tower");
+    def->tooltip = L("When the prime tower is disabled, this additional length is added to the printer or filament extra length on restart after a material change. It has no effect when the prime tower is enabled.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionFloat(0.));
 
     def = this->add("flush_into_solid_skeleton", coBool);
     def->category = L("Flush options");
@@ -7031,6 +7087,11 @@ void PrintConfigDef::init_fff_params()
     def->min = 0.;
     def->max = 5.;
     def->set_default_value(new ConfigOptionFloat(2.));
+
+    def = this->add("prime_tower_toolchange_at_start", coBool);
+    def->label = L("In-tower filament change");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
 
     def = this->add("prime_tower_corner_rib_length", coFloat);
     def->label = L("Bottom corner rib length");
@@ -8260,6 +8321,8 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
 
     // Ignore the following obsolete configuration keys:
     static std::set<std::string> ignore = {
+        // The old K3-only switch is superseded by the renamed wait option.
+        "wait_for_temperature_before_model",
         "acceleration", "scale", "rotate", "duplicate", "duplicate_grid",
         "bed_size",
         "print_center", "g0", "wipe_tower_per_color_wipe", 
@@ -8291,6 +8354,17 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
 // Don't convert single options here, implement such conversion in PrintConfigDef::handle_legacy() instead.
 void PrintConfigDef::handle_legacy_composite(DynamicPrintConfig &config)
 {
+    // Migrate before inheritance/defaults. Partial region configs may not contain
+    // the global tower switch, so preserve the old setting for both modes.
+    if (!config.has("minimum_skeleton_infill_density"))
+        if (const auto* density = config.option<ConfigOptionPercent>("skeleton_infill_density"))
+            config.set_key_value("minimum_skeleton_infill_density", density->clone());
+
+    // Old K3 machine presets and standalone projects may lack the wait option.
+    if (!config.has("wait_for_temperature_after_toolchange") && config.has("printer_model") &&
+        creality::is_creality_k3_printer_from_string(config.opt_string("printer_model")))
+        config.set_key_value("wait_for_temperature_after_toolchange", new ConfigOptionBool(false));
+
     if (config.has("thumbnails")) {
         std::string extention;
         if (config.has("thumbnails_format")) {
@@ -8356,6 +8430,13 @@ DynamicPrintConfig* DynamicPrintConfig::new_from_defaults_keys(const std::vector
     auto *out = new DynamicPrintConfig();
     out->apply_only(FullPrintConfig::defaults(), keys);
     return out;
+}
+
+float configured_skeleton_infill_density_percent(const PrintConfig& print_config, const PrintRegionConfig& region_config)
+{
+    const double density = print_config.enable_prime_tower.value ?
+        region_config.skeleton_infill_density.value : region_config.minimum_skeleton_infill_density.value;
+    return std::clamp(float(density), 0.f, 100.f);
 }
 
 double min_object_distance(const ConfigBase &cfg)

@@ -125,6 +125,7 @@ const std::vector<BridgeToolRouteSpec>& BridgeToolRouteSpecsStorage()
         {ActionID::GET_PRESETS, ActionID::GET_PRESETS, true, true, "collecting", "Collecting presets", "Presets collected", "GET_PRESETS_FAILED", "Failed to collect presets.", false, false},
         {"list_presets", ActionID::GET_PRESETS, false, true, "collecting", "Collecting presets", "Presets collected", "LIST_PRESETS_FAILED", "Failed to collect presets.", false, false},
         {ActionID::GET_EDITED_CONFIG, ActionID::GET_EDITED_CONFIG, true, true, "collecting", "Collecting current config", "Current config collected", "GET_EDITED_CONFIG_FAILED", "Failed to collect current config.", false, false},
+        {ActionID::GET_PROJECT_3MF_CONTEXT, ActionID::GET_PROJECT_3MF_CONTEXT, true, true, "collecting", "Collecting Creality 3MF project context", "Creality 3MF project context collected", "GET_PROJECT_3MF_CONTEXT_FAILED", "Failed to collect Creality 3MF project context.", false, false},
         {ActionID::CAPTURE_MODEL_VIEWS, ActionID::CAPTURE_MODEL_VIEWS, true, true, "capturing", "Capturing model views", "Model views captured", "CAPTURE_MODEL_VIEWS_FAILED", "Failed to capture model views.", false, false},
         {"get_current_slice_params", ActionID::GET_EDITED_CONFIG, false, true, "collecting", "Collecting current slice parameters", "Current slice parameters collected", "CURRENT_SLICE_PARAMS_FAILED", "Failed to collect current slice parameters.", false, false},
         {ActionID::GET_CONFIG_OPTIONS, ActionID::GET_CONFIG_OPTIONS, true, true, "collecting", "Collecting config options", "Config options collected", "GET_CONFIG_OPTIONS_FAILED", "Failed to collect config options.", false, false},
@@ -183,6 +184,7 @@ const std::vector<BridgeToolRouteSpec>& BridgeToolRouteSpecsStorage()
         {ActionID::LIST_PRINTERS, ActionID::LIST_PRINTERS, false, true, "listing", "Listing printers", "Printers listed", "LIST_PRINTERS_FAILED", "Failed to list printers.", false, false},
         {ActionID::SELECT_PRINTER, ActionID::SELECT_PRINTER, false, true, "selecting", "Selecting printer", "Printer selected", "SELECT_PRINTER_FAILED", "Failed to select printer.", false, true},
         {ActionID::IMPORT_MODEL, ActionID::IMPORT_MODEL, false, true, "importing", "Importing model", "Model imported", "IMPORT_MODEL_FAILED", "Failed to import model.", false, false, NativeExecutionMode::CustomDeferred},
+        {ActionID::IMPORT_GENERATED_MODEL, ActionID::IMPORT_GENERATED_MODEL, false, true, "importing", "Importing generated Creality project", "Generated Creality project imported", "IMPORT_GENERATED_MODEL_FAILED", "Failed to import generated Creality project.", false, false, NativeExecutionMode::CustomDeferred},
         {ActionID::RECOMMEND_MODEL, ActionID::RECOMMEND_MODEL, false, true, "searching", "Searching for models", "Model search complete", "RECOMMEND_MODEL_FAILED", "Failed to search for models.", false, false, NativeExecutionMode::CustomDeferred},
         {ActionID::SMART_MODEL_SEARCH, ActionID::SMART_MODEL_SEARCH, false, true, "searching", "Searching for models", "Model search complete", "SMART_MODEL_SEARCH_FAILED", "Failed to search for models.", false, false, NativeExecutionMode::CustomDeferred},
         {ActionID::IMPORT_MODEL_FROM_SEARCH, ActionID::IMPORT_MODEL_FROM_SEARCH, false, true, "importing", "Importing model from search", "Model imported", "IMPORT_MODEL_FROM_SEARCH_FAILED", "Failed to import model from search.", false, false, NativeExecutionMode::CustomDeferred}
@@ -469,6 +471,10 @@ json NormalizeApplyParamPatchArgs(const json& args)
             continue;
 
         normalized[key] = item["to"];
+    }
+    if (!normalized.empty()) {
+        for (const auto* key : {"recommend_id", "scope", "object_name"})
+            if (args.contains(key) && args[key].is_string()) normalized[key] = args[key];
     }
 
     return normalized;

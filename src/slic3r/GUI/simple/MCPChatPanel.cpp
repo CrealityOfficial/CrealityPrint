@@ -338,8 +338,9 @@ namespace {
 MCPChatPanel* get_floating_chat_panel();
 }
 
-MCPChatPanel::MCPChatPanel(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size)
+MCPChatPanel::MCPChatPanel(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, bool parameter_diff_only)
     : wxPanel(parent, id, pos, size)
+    , m_parameter_diff_only(parameter_diff_only)
     , m_scene_update_timer(this)
     , m_scheduled_refresh_timer(this)
 {
@@ -361,7 +362,7 @@ MCPChatPanel::MCPChatPanel(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
         std::string region = cfg ? cfg->get("region") : std::string();
         m_cxagent_api_base = region == "China" ? "https://cxagent.crealitycloud.cn" : "https://cxagent.crealitycloud.com";
     }
-    // #define _DEBUG1
+     //#define _DEBUG1
     #ifdef _DEBUG1
         // DEV MODE: Load from Vite dev server for hot reload
         m_cxagent_api_base = "http://localhost:5175/";
@@ -579,6 +580,10 @@ void MCPChatPanel::LoadChatPage()
     m_chat_page_origin.Clear();
 
     wxString url = build_chat_page_url(m_cxagent_api_base);
+    if (m_parameter_diff_only) {
+        url += (url.Find('?') == wxNOT_FOUND ? wxString("?") : wxString("&"));
+        url += "mode=parameter-diff";
+    }
     BOOST_LOG_TRIVIAL(info) << "[MCPChatPanel] Loading chat page: "
                             << url.ToUTF8().data();
     CallAfter([this, url]() {
@@ -672,6 +677,16 @@ void MCPChatPanel::OnNavigationComplete(wxWebViewEvent& evt)
     SendCommandToJS("action_list", list);
 	SendCommandToJS("available_tools", bridge.GetAvailableToolsJSON());
     NotifyCxAgentStatus();
+
+    // The dedicated parameter-diff window can be opened before its WebView
+    // finishes loading. Deliver the first payload after the page is ready so
+    // the user does not need to click the CP button twice.
+    if (m_has_pending_parameter_diff && !m_parameter_diff_only) {
+        const json data = m_pending_parameter_diff;
+        m_has_pending_parameter_diff = false;
+        m_pending_parameter_diff = json::object();
+        SendCommandToJS("open_parameter_diff", data);
+    }
     
 }
 void MCPChatPanel::OnError(wxWebViewEvent& evt)
@@ -2305,6 +2320,38 @@ void MCPChatPanel::RunScriptInBrowser(const wxString& javascript)
 
     WebView::RunScript(browser, javascript);
 }
+void MCPChatPanel::OpenParameterDiffPanel(const json& data)
+{
+    std::string api_base;
+    if (auto* chat_panel = GetActiveAIChatPanel())
+        api_base = chat_panel->m_cxagent_api_base;
+    else if (auto* cfg = wxGetApp().app_config;
+             cfg && !boost::iequals(std::string(PROJECT_VERSION_EXTRA), "Release"))
+        api_base = cfg->get("cxagent_api_base");
+    if (!api_base.empty() && api_base != m_cxagent_api_base) {
+        m_cxagent_api_base = api_base;
+        LoadChatPage();
+    }
+
+    m_pending_parameter_diff = data;
+    m_has_pending_parameter_diff = true;
+    if (m_parameter_diff_only ? m_js_ready : m_page_loaded) {
+        m_has_pending_parameter_diff = false;
+        NotifyGatewayUser();
+        SendCommandToJS("open_parameter_diff", data);
+        // Retain context for page reload, but never replay the entry metric.
+        m_pending_parameter_diff.erase("entry_click");
+    }
+}
+
+void MCPChatPanel::NotifyParameterDiffClosed()
+{
+    m_has_pending_parameter_diff = false;
+    m_pending_parameter_diff = json::object();
+    if (m_js_ready)
+        SendCommandToJS("parameter_diff_closed", json::object());
+}
+
 void MCPChatPanel::SendCommandToJS(const std::string& command, const json& data)
 {
     json msg;
@@ -2683,6 +2730,11 @@ MCPChatPanel* GetActiveAIChatPanel()
 }
 
 
+bool OpenActiveAIParameterDiffPanel(wxWindow* anchor, const json& data)
+{
+    // Anchor the dedicated overlay to the native process panel.
+    return MCPParameterDiffWindow::Show(anchor ? anchor : wxGetApp().plater(), data);
+}
 bool OpenActiveAISendWorkflowCardFromScene()
 {
     if (auto* panel = GetActiveAIChatPanel())
@@ -2749,8 +2801,10 @@ void NotifyAIChatLoginStatusChanged(bool send_empty_user)
 
 void NotifyAIChatThemeChanged()
 {
-    if (auto* panel = GetActiveAIChatPanel())
+    for_each_chat_panel([](MCPChatPanel* panel) {
         panel->NotifyThemeChanged();
+    });
+    MCPParameterDiffWindow::NotifyThemeChanged();
 }
 
 void NotifyAIChatEditionChanged()
@@ -2782,6 +2836,96 @@ void NotifyAIChatProjectWorkflowResetRequested(const json& data)
     if (auto* panel = GetActiveAIChatPanel())
         panel->NotifyProjectWorkflowResetRequested(data);
 }
+
+// ===========================================================================
+// MCPParameterDiffWindow - dedicated 3MF parameter-diff overlay
+// ===========================================================================
+
+MCPParameterDiffWindow* MCPParameterDiffWindow::s_instance = nullptr;
+
+MCPParameterDiffWindow::MCPParameterDiffWindow(wxWindow* anchor)
+    : DPIFrame(anchor, wxID_ANY, _L("Difference explanations"), wxDefaultPosition, wxDefaultSize,
+               wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX | wxFRAME_FLOAT_ON_PARENT | wxFRAME_NO_TASKBAR)
+{
+    SetSize(wxSize(FromDIP(430), FromDIP(760)));
+    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+    m_panel = new MCPChatPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, true);
+    sizer->Add(m_panel, 1, wxEXPAND);
+    SetSizer(sizer);
+    PositionToAnchor(anchor);
+    Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& evt) {
+        MCPParameterDiffWindow::Hide();
+        if (evt.CanVeto()) evt.Veto();
+        else evt.Skip();
+    });
+}
+
+void MCPParameterDiffWindow::PositionToAnchor(wxWindow* anchor)
+{
+    if (!anchor) { CentreOnScreen(); return; }
+    wxRect r = anchor->GetScreenRect();
+    wxSize s = GetSize();
+    SetPosition(wxPoint(std::max(0, r.x - s.x - FromDIP(8)), std::max(0, r.y)));
+}
+
+bool MCPParameterDiffWindow::Show(wxWindow* anchor, const json& data)
+{
+    if (!s_instance)
+        s_instance = new MCPParameterDiffWindow(anchor);
+
+    // The support recommendation is a compact, actionable dialog. Keep it
+    // visually separate from the taller read-only 3MF diff window.
+    const bool support_recommendation = data.value("source", std::string()) == "support_recommendation";
+    s_instance->SetTitle(support_recommendation ? _L("AI support recommendations") : _L("Difference explanations"));
+    s_instance->SetSize(wxSize(s_instance->FromDIP(430), s_instance->FromDIP(support_recommendation ? 430 : 760)));
+    s_instance->PositionToAnchor(anchor);
+    NotifyThemeChanged();
+    s_instance->wxFrame::Show(true);
+    s_instance->Raise();
+    if (s_instance->m_panel) {
+        // No raw-pointer callback outlives the window. OpenParameterDiffPanel
+        // queues the payload itself until the standalone Vue listener is ready.
+        s_instance->m_panel->OpenParameterDiffPanel(data);
+    }
+    return true;
+}
+
+void MCPParameterDiffWindow::Hide()
+{
+    if (s_instance) {
+        if (s_instance->m_panel)
+            s_instance->m_panel->NotifyParameterDiffClosed();
+        s_instance->wxFrame::Hide();
+    }
+}
+
+void MCPParameterDiffWindow::DestroyForGUIRecreate()
+{
+    MCPParameterDiffWindow* win = s_instance;
+    if (win == nullptr)
+        return;
+
+    // Destroy() is deferred; reopening must create a WebView with the new locale.
+    s_instance = nullptr;
+    win->wxFrame::Hide();
+    if (win->m_panel)
+        win->m_panel->NotifyParameterDiffClosed();
+    win->Destroy();
+}
+
+void MCPParameterDiffWindow::NotifyThemeChanged()
+{
+    if (!s_instance) return;
+    wxGetApp().UpdateFrameDarkUI(s_instance);
+    if (s_instance->m_panel)
+        s_instance->m_panel->NotifyThemeChanged();
+}
+
+void MCPParameterDiffWindow::on_dpi_changed(const wxRect& suggested_rect)
+{
+    SetSize(suggested_rect);
+}
+
 
 // ===========================================================================
 // MCPChatWindow - Floating window wrapper
@@ -3021,11 +3165,15 @@ void MCPChatWindow::Show(wxWindow* parent)
         }
         s_instance = new MCPChatWindow(parent);
     }
+    const bool was_visible = s_instance->IsShown();
     s_instance->AttachChatPanel();
     s_instance->m_user_wants_visible = true;
     if (s_instance->IsIconized())
         s_instance->Iconize(false);
     s_instance->wxFrame::Show();
+    // Reopening counts once. Raising an already visible window does not.
+    if (!was_visible)
+        wxGetApp().track_event("ai_assistant_page_view", "{}");
     if (auto* panel = s_instance->GetChatPanel()) {
         remember_active_panel(panel);
         panel->NotifyGatewayUser();
@@ -3104,6 +3252,7 @@ MCPChatWindow* MCPChatWindow::Get()
 
 void DestroyAIChatPanelsForGUIRecreate()
 {
+    MCPParameterDiffWindow::DestroyForGUIRecreate();
     MCPChatWindow::DestroyForGUIRecreate();
 
     MCPChatPanel* embedded = s_embedded_instance;
@@ -3252,4 +3401,3 @@ void MCPChatPanel::HandleLoadTrendingModels(int page, int page_size)
 
 } // namespace GUI
 } // namespace Slic3r
-

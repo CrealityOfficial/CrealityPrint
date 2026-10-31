@@ -303,6 +303,8 @@ void BackgroundSlicingProcess::process_fff()
 		auto _perf_export_start = std::chrono::steady_clock::now();
 		m_fff_print->export_gcode(m_temp_output_path, m_gcode_result, [this](const ThumbnailsParams& params) {
 			return this->render_thumbnails(params);
+		}, [this](const PlateObjectBitmapParams& params) {
+			return this->render_plate_object_bitmaps(params);
 		});
 		{
 			auto _ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - _perf_export_start).count();
@@ -673,6 +675,15 @@ bool BackgroundSlicingProcess::start()
 		return false;
 	if (! this->idle())
 		throw Slic3r::RuntimeError("Cannot start a background task, the worker thread is not idle.");
+    if (m_current_plate && m_print->technology() == ptFFF) {
+        auto metrics = m_ai_prepared_metrics;
+        // Reprocessing an imported or externally replaced file is not a new slice.
+        if (m_print->finished() && !m_current_plate->ai_recommendation_file_matches(m_current_plate->get_tmp_gcode_path())) {
+            metrics = {};
+            metrics.unknown = true;
+        }
+        m_current_plate->begin_ai_recommendation_slice(metrics);
+    }
 	m_state = STATE_STARTED;
 	m_print->set_cancel_callback([this](){ this->stop_internal(); });
 	lck.unlock();
@@ -1004,6 +1015,13 @@ Print::ApplyStatus BackgroundSlicingProcess::apply(const Model &model, const Dyn
 			new ConfigOptionString(wxGetApp().preset_bundle->get_selected_printer_profile_version()));
 
 	Print::ApplyStatus invalidated = m_print->apply(model, new_config);
+    if (m_print->technology() == ptFFF) {
+        m_ai_prepared_metrics = m_current_plate->capture_ai_recommendation_metrics(model);
+        // Same-value applications may reuse G-code only after Print::apply confirms it remains finished.
+        if (!running() && m_print->finished() && m_current_plate->is_slice_result_valid() &&
+            m_current_plate->ai_recommendation_file_matches(m_current_plate->get_tmp_gcode_path()))
+            m_current_plate->bind_ai_recommendation_file(m_ai_prepared_metrics, m_current_plate->get_tmp_gcode_path());
+    }
 
 	if ((invalidated & PrintBase::APPLY_STATUS_INVALIDATED) != 0 && m_print->technology() == ptFFF &&
 		!m_fff_print->is_step_done(psGCodeExport)) {
@@ -1276,4 +1294,12 @@ ThumbnailsList BackgroundSlicingProcess::render_thumbnails(const ThumbnailsParam
 	return thumbnails;
 }
 
+
+PlateObjectBitmapData BackgroundSlicingProcess::render_plate_object_bitmaps(const PlateObjectBitmapParams &params)
+{
+    PlateObjectBitmapData bitmaps;
+    if (m_plate_object_bitmap_cb)
+        this->execute_ui_task([this, &params, &bitmaps](){ bitmaps = m_plate_object_bitmap_cb(params); });
+    return bitmaps;
+}
 }; // namespace Slic3r

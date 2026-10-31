@@ -2542,6 +2542,10 @@ void GCodeProcessor::start_pathological_protection_analysis(bool protection_requ
 
 void GCodeProcessor::reset()
 {
+    m_exclude_object_end_infos.clear();
+    m_exclude_object_id_to_index.clear();
+    m_exclude_object_name_to_index.clear();
+    m_exclude_object_current_index = InvalidExcludeObjectIndex;
     m_pathological_probe_config = KlipperSim::SimConfig{};
     m_pathological_protection_enabled = false;
     m_pathological_protection_active = false;
@@ -3604,8 +3608,14 @@ void GCodeProcessor::process_gcode_line(const GCodeReader::GCodeLine& line,
                         v = v * 10 + int(*begin - '0');
                         ++begin;
                     }
-                    if (has_digit)
+                    if (has_digit) {
                         m_object_id = v;
+                        // Creality: cache the current object's index for END_POS collection (low-frequency lookup, only on OBJECT_ID).
+                        if (!m_exclude_object_id_to_index.empty()) {
+                            auto it = m_exclude_object_id_to_index.find(v);
+                            m_exclude_object_current_index = (it != m_exclude_object_id_to_index.end()) ? it->second : InvalidExcludeObjectIndex;
+                        }
+                    }
                 }
             }
         }
@@ -5579,7 +5589,7 @@ void GCodeProcessor::process_G1(const GCodeReader::GCodeLine& line)
             // the threshold value = 0.0625f == 0.25 * 0.25 is arbitrary, we may find some smarter condition later
 
             if ((new_pos - *first_vertex).squaredNorm() < 0.0625f) {
-                set_end_position(0.5f * (new_pos + *first_vertex) + m_z_offset * Vec3f::UnitZ());
+                set_end_position(0.5f * (new_pos + *first_vertex));
                 store_move_vertex(EMoveType::Seam);
                 set_end_position(curr_pos);
             }
@@ -6249,7 +6259,7 @@ void GCodeProcessor::process_G1_klipper(const GCodeReader::GCodeLine& line)
             // the threshold value = 0.0625f == 0.25 * 0.25 is arbitrary, we may find some smarter condition later
 
             if ((new_pos - *first_vertex).squaredNorm() < 0.0625f) {
-                set_end_position(0.5f * (new_pos + *first_vertex) + m_z_offset * Vec3f::UnitZ());
+                set_end_position(0.5f * (new_pos + *first_vertex));
                 store_move_vertex(EMoveType::Seam);
                 set_end_position(curr_pos);
             }
@@ -8953,6 +8963,39 @@ static uint64_t tell_gcode_file(FILE* file)
     return static_cast<uint64_t>(offset);
 }
 
+bool GCodeProcessor::process_exclude_object_output_line(std::string_view line, std::uint64_t end_offset)
+{
+    if (m_exclude_object_end_infos.empty())
+        return false;
+
+    static constexpr std::string_view end_tag = "EXCLUDE_OBJECT_END NAME=";
+    if (line.size() > end_tag.size() && line.compare(0, end_tag.size(), end_tag) == 0) {
+        const auto it = m_exclude_object_name_to_index.find(std::string(line.substr(end_tag.size())));
+        if (it != m_exclude_object_name_to_index.end()) {
+            // Last occurrence wins, using the byte position in the final output.
+            m_exclude_object_end_infos[it->second].end_offset = end_offset;
+            m_exclude_object_end_infos[it->second].has_end_offset = true;
+        }
+    }
+    return line == "; EXECUTABLE_BLOCK_END";
+}
+
+std::string GCodeProcessor::build_exclude_object_id_block() const
+{
+    // Keep the legacy eligibility checks and block format.
+    std::string entries;
+    for (const ExcludeObjectEndInfo& info : m_exclude_object_end_infos) {
+        if (!info.has_end_pos || !info.has_end_offset)
+            continue;
+        char pos_buf[128];
+        std::snprintf(pos_buf, sizeof(pos_buf), "END_POS=(%.3f,%.3f,%.3f)", info.end_pos.x(), info.end_pos.y(), info.end_pos.z());
+        entries += "; EXCLUDE_OBJECT_ID ID=" + std::to_string(info.id) + " NAME=" + info.name +
+                   " END_OFFSET=" + std::to_string(info.end_offset) + " " + pos_buf + "\n";
+    }
+    return entries.empty() ? std::string() :
+        "\n; EXCLUDE_OBJECT_ID_BLOCK_START\n" + entries + "; EXCLUDE_OBJECT_ID_BLOCK_END\n";
+}
+
 void GCodeProcessor::run_post_process_full_optimized()
 {
     // TimeProcessor has already emitted M73 and replaced placeholders. This final pass
@@ -9558,6 +9601,65 @@ void GCodeProcessor::run_post_process_full_optimized()
     size_t original_line_num = 0;
     std::vector<char> copy_buf(256 * 1024);
 
+    // Protection rewrites the file later; collect its offsets in that final writer.
+    const bool collect_exclude_objects = !m_pathological_protection_active && !m_exclude_object_end_infos.empty();
+    bool exclude_object_id_block_written = false;
+    std::string pending_exclude_line;
+    auto process_output_line = [&](std::string_view fragment, bool complete, uint64_t end_offset) {
+        if (!collect_exclude_objects || exclude_object_id_block_written)
+            return false;
+        if (!pending_exclude_line.empty()) {
+            pending_exclude_line.append(fragment.data(), fragment.size());
+            if (!complete)
+                return false;
+            const bool marker = process_exclude_object_output_line(pending_exclude_line, end_offset);
+            pending_exclude_line.clear();
+            return marker;
+        }
+        if (!complete) {
+            pending_exclude_line.assign(fragment.data(), fragment.size());
+            return false;
+        }
+        return process_exclude_object_output_line(fragment, end_offset);
+    };
+
+    // Reuse the existing LF scan for line offsets and exclude-object records.
+    // A line may span copy chunks or a replacement/insert boundary.
+    auto write_output = [&](std::string_view content, bool copied) {
+        const uint64_t start_pos = out_pos;
+        uint64_t inserted_bytes = 0;
+        size_t write_pos = 0;
+        size_t line_begin = 0;
+        for (size_t i = 0; i < content.size(); ++i) {
+            if (content[i] != '\n')
+                continue;
+            const uint64_t lf_offset = start_pos + i + inserted_bytes;
+            m_result.lines_ends.push_back(lf_offset + 1);
+            if (copied)
+                ++original_line_num;
+            const bool marker = process_output_line(content.substr(line_begin, i - line_begin), true, lf_offset);
+            line_begin = i + 1;
+            if (marker) {
+                exclude_object_id_block_written = true;
+                const std::string block = build_exclude_object_id_block();
+                if (!block.empty()) {
+                    fwrite(content.data() + write_pos, 1, i + 1 - write_pos, out.f);
+                    fwrite(block.data(), 1, block.size(), out.f);
+                    write_pos = i + 1;
+                    for (size_t j = 0; j < block.size(); ++j)
+                        if (block[j] == '\n')
+                            m_result.lines_ends.push_back(lf_offset + 1 + j + 1);
+                    inserted_bytes += block.size();
+                }
+            }
+        }
+        if (line_begin < content.size())
+            process_output_line(content.substr(line_begin), false, 0);
+        if (write_pos < content.size())
+            fwrite(content.data() + write_pos, 1, content.size() - write_pos, out.f);
+        out_pos = start_pos + content.size() + inserted_bytes;
+    };
+
     auto copy_segment = [&](uint64_t from, uint64_t to) {
         if (to <= from) return;
         seek_gcode_file(in.f, from, SEEK_SET);
@@ -9566,25 +9668,13 @@ void GCodeProcessor::run_post_process_full_optimized()
             size_t chunk = static_cast<size_t>(std::min<uint64_t>(remaining, copy_buf.size()));
             size_t nread = fread(copy_buf.data(), 1, chunk, in.f);
             if (nread == 0) break;
-            fwrite(copy_buf.data(), 1, nread, out.f);
-            for (size_t i = 0; i < nread; ++i) {
-                if (copy_buf[i] == '\n') {
-                    m_result.lines_ends.push_back(out_pos + i + 1);
-                    ++original_line_num;
-                }
-            }
-            out_pos += nread;
+            write_output(std::string_view(copy_buf.data(), nread), true);
             remaining -= nread;
         }
     };
 
     auto write_content = [&](const std::string& content) {
-        fwrite(content.data(), 1, content.size(), out.f);
-        for (size_t i = 0; i < content.size(); ++i) {
-            if (content[i] == '\n')
-                m_result.lines_ends.push_back(out_pos + i + 1);
-        }
-        out_pos += content.size();
+        write_output(content, false);
     };
 
     std::vector<std::pair<unsigned int, unsigned int>> gcode_id_offsets;
@@ -9633,6 +9723,15 @@ void GCodeProcessor::run_post_process_full_optimized()
     // Copy remaining file content
     if (current_pos < file_size) {
         copy_segment(current_pos, file_size);
+    }
+
+    if (collect_exclude_objects && !exclude_object_id_block_written) {
+        const bool marker = !pending_exclude_line.empty() &&
+            process_exclude_object_output_line(pending_exclude_line, out_pos);
+        if (!marker)
+            BOOST_LOG_TRIVIAL(warning) << "GCodeProcessor::run_post_process_full_optimized: EXECUTABLE_BLOCK_END tag not found, append the block at file end";
+        exclude_object_id_block_written = true;
+        write_content(build_exclude_object_id_block());
     }
 
     out.close();
@@ -9927,18 +10026,27 @@ void GCodeProcessor::run_post_process()
         size_t m_g1_line_id_deltas_id{ 0 };
         size_t m_toolchange_times_cache_id{ 0 };
         size_t m_out_file_pos{ 0 };
+        std::vector<ExcludeObjectEndInfo>& m_exclude_object_end_infos;
+        GCodeProcessor& m_processor;
+        bool m_exclude_object_id_block_written{ false };
 
 
     public:
         ExportLines(EWriteType type,
             const std::array<TimeMachine, static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count)>& machines,
             const std::vector<unsigned int>& g1_line_id_deltas,
-            const std::vector<ToolChangeTimeCacheItem>& toolchange_times_cache)
+            const std::vector<ToolChangeTimeCacheItem>& toolchange_times_cache,
+            std::vector<ExcludeObjectEndInfo>& exclude_object_end_infos,
+            GCodeProcessor& processor)
 #ifndef NDEBUG
-        : m_statistics(*this), m_write_type(type), m_machines(machines), m_g1_line_id_deltas(g1_line_id_deltas), m_toolchange_times_cache(toolchange_times_cache) {}
+        : m_statistics(*this), m_write_type(type), m_machines(machines), m_g1_line_id_deltas(g1_line_id_deltas),
+          m_toolchange_times_cache(toolchange_times_cache), m_exclude_object_end_infos(exclude_object_end_infos), m_processor(processor)
 #else
-        : m_write_type(type), m_machines(machines), m_g1_line_id_deltas(g1_line_id_deltas), m_toolchange_times_cache(toolchange_times_cache) {}
+        : m_write_type(type), m_machines(machines), m_g1_line_id_deltas(g1_line_id_deltas),
+          m_toolchange_times_cache(toolchange_times_cache), m_exclude_object_end_infos(exclude_object_end_infos), m_processor(processor)
 #endif // NDEBUG
+        {
+        }
 
         // return: number of G1 line ids consumed by the time estimator
         unsigned int update(ECommandType command_type, size_t lines_counter, size_t g1_lines_counter) {
@@ -10223,7 +10331,7 @@ void GCodeProcessor::run_post_process()
             }
 
             {
-                write_to_file(out, out_string, result, out_path);
+                write_to_file(out, out_string, result, out_path, false);
                 update_lines_ends_and_out_file_pos(out_string, result.lines_ends, &m_out_file_pos);
             }
         }
@@ -10242,7 +10350,7 @@ void GCodeProcessor::run_post_process()
 #endif // NDEBUG
 
             {
-                write_to_file(out, out_string, result, out_path);
+                write_to_file(out, out_string, result, out_path, true);
                 update_lines_ends_and_out_file_pos(out_string, result.lines_ends, &m_out_file_pos);
             }
         }
@@ -10270,7 +10378,45 @@ void GCodeProcessor::run_post_process()
         size_t get_size() const { return m_size; }
 
     private:
-        void write_to_file(FilePtr& out, const std::string& out_string, GCodeProcessorResult& result, const std::string& out_path) {
+        void prepare_exclude_object_output(std::string& out_string, bool final_chunk)
+        {
+            if (m_exclude_object_end_infos.empty() || m_exclude_object_id_block_written)
+                return;
+
+            size_t insert_pos = std::string::npos;
+
+            size_t line_begin = 0;
+            while (line_begin < out_string.size()) {
+                const size_t nl        = out_string.find('\n', line_begin);
+                const size_t line_stop = (nl == std::string::npos) ? out_string.size() : nl;
+                const size_t line_len  = line_stop - line_begin;
+                if (m_processor.process_exclude_object_output_line(
+                        std::string_view(out_string).substr(line_begin, line_len),
+                        static_cast<std::uint64_t>(m_out_file_pos + line_stop)) &&
+                    insert_pos == std::string::npos) {
+                    insert_pos = (nl == std::string::npos) ? out_string.size() : nl + 1;
+                }
+                if (nl == std::string::npos)
+                    break;
+                line_begin = nl + 1;
+            }
+
+            if (insert_pos == std::string::npos && !final_chunk)
+                return;
+            if (insert_pos == std::string::npos) {
+                BOOST_LOG_TRIVIAL(warning) << "GCodeProcessor::run_post_process: EXECUTABLE_BLOCK_END tag not found, append the block at file end";
+                insert_pos = out_string.size();
+            }
+
+            const std::string block = m_processor.build_exclude_object_id_block();
+            if (!block.empty()) {
+                out_string.insert(insert_pos, block);
+            }
+            m_exclude_object_id_block_written = true;
+        }
+
+        void write_to_file(FilePtr& out, std::string& out_string, GCodeProcessorResult& result, const std::string& out_path, bool final_chunk) {
+            prepare_exclude_object_output(out_string, final_chunk);
             if (!out_string.empty()) {
                 if (true) {
                     fwrite((const void*)out_string.c_str(), 1, out_string.length(), out.f);
@@ -10285,7 +10431,7 @@ void GCodeProcessor::run_post_process()
     };
 
     ExportLines export_lines(m_result.backtrace_enabled ? ExportLines::EWriteType::ByTime : ExportLines::EWriteType::BySize,
-        m_time_processor.machines, m_g1_line_id_deltas, m_toolchange_times_cache);
+        m_time_processor.machines, m_g1_line_id_deltas, m_toolchange_times_cache, m_exclude_object_end_infos, *this);
 
     // replace placeholder lines with the proper final value
     // gcode_line is in/out parameter, to reduce expensive memory allocation
@@ -10663,6 +10809,7 @@ void GCodeProcessor::store_move_vertex(EMoveType type, EMovePathType path_type)
         m_line_id + 1 :
         ((type == EMoveType::Seam) ? m_last_line_id : m_line_id);
 
+    // Keep instruction Z coordinates in the preview, including the synthetic start layer.
     //BBS: apply plate's and extruder's offset to arc interpolation points
     if (path_type == EMovePathType::Arc_move_cw ||
         path_type == EMovePathType::Arc_move_ccw) {
@@ -10670,7 +10817,7 @@ void GCodeProcessor::store_move_vertex(EMoveType type, EMovePathType path_type)
             m_interpolation_points[i] =
                 Vec3f(m_interpolation_points[i].x() + m_x_offset,
                       m_interpolation_points[i].y() + m_y_offset,
-                      m_processing_start_custom_gcode ? m_first_layer_height : m_interpolation_points[i].z()- m_z_offset) +
+                      m_processing_start_custom_gcode ? m_first_layer_height + m_z_offset : m_interpolation_points[i].z()) +
                 m_extruder_offsets[m_extruder_id];
     }
 
@@ -10690,7 +10837,7 @@ void GCodeProcessor::store_move_vertex(EMoveType type, EMovePathType path_type)
         preview_extruder_id,
         preview_cp_color,
         //BBS: add plate's offset to the rendering vertices
-        Vec3f(m_end_position[X] + m_x_offset, m_end_position[Y] + m_y_offset, m_processing_start_custom_gcode ? m_first_layer_height : m_end_position[Z] - m_z_offset) +
+        Vec3f(m_end_position[X] + m_x_offset, m_end_position[Y] + m_y_offset, m_processing_start_custom_gcode ? m_first_layer_height + m_z_offset : m_end_position[Z]) +
             m_extruder_offsets[m_extruder_id],
         static_cast<float>(m_end_position[E] - m_start_position[E]),
         m_feedrate,
@@ -10709,6 +10856,18 @@ void GCodeProcessor::store_move_vertex(EMoveType type, EMovePathType path_type)
         m_interpolation_points,
     });
     m_result.object_id_by_move_id.push_back(m_object_id);
+
+    // Creality: track the current object's last valid forward-extrusion endpoint for the EXCLUDE_OBJECT_ID_BLOCK END_POS field.
+    // Uses the parser's machine-coordinate end position; excludes travel/retract/unretract (by move type),
+    // the wipe tower (by role) and non-extruding moves (by positive E delta). Overwriting keeps the object's last extrusion.
+    if ((type == EMoveType::Extrude || type == EMoveType::Extrude_Alter) &&
+        m_exclude_object_current_index != InvalidExcludeObjectIndex &&
+        m_extrusion_role != erWipeTower &&
+        (m_end_position[E] - m_start_position[E]) > 0.0f) {
+        ExcludeObjectEndInfo& info = m_exclude_object_end_infos[m_exclude_object_current_index];
+        info.end_pos     = Vec3d(m_end_position[X], m_end_position[Y], m_end_position[Z]);
+        info.has_end_pos = true;
+    }
 
     if (type == EMoveType::Seam) {
         m_seams_count++;

@@ -116,6 +116,17 @@ std::string ThumbnailToDataUrl(const ThumbnailData& thumbnail)
     return "data:image/png;base64," + encoded;
 }
 
+bool HasRenderedModelPixels(const ThumbnailData& thumbnail)
+{
+    if (!thumbnail.is_valid())
+        return false;
+    // Capture backgrounds are transparent; an allocated buffer can still be empty.
+    for (size_t i = 3; i < thumbnail.pixels.size(); i += 4)
+        if (thumbnail.pixels[i] != 0)
+            return true;
+    return false;
+}
+
 json BuildCurrentPlateSliceResultState(PartPlateList& plate_list, PartPlate* current_plate)
 {
     json slice_result_state = json::object();
@@ -433,6 +444,8 @@ void AppendCurrentPlateValidationIssues(json& warnings, json& precheck_issues, c
 
 json SlicerBridge::DoCaptureModelViews(const json& params)
 {
+    if (params.value("scope", std::string()) == "global")
+        return DoCaptureGlobalRecommendationInput(params);
     auto* plater = wxGetApp().plater();
     if (!plater)
         return {{"success", false}, {"message", "Plater not available"}};
@@ -474,11 +487,20 @@ json SlicerBridge::DoCaptureModelViews(const json& params)
     if (object_idx < 0 || object_idx >= (int)model.objects.size() || model.objects[object_idx] == nullptr)
         return {{"success", false}, {"message", "Invalid or missing target model object"}};
 
+    const ModelObject* object = model.objects[object_idx];
+    int instance_idx = canvas->get_selection().get_object_idx() == object_idx
+        ? canvas->get_selection().get_instance_idx() : 0;
+    if (instance_idx < 0)
+        instance_idx = 0;
+    if (instance_idx >= (int)object->instances.size())
+        return {{"success", false}, {"message", "Target model has no renderable instance"}};
+
     const auto views = ParseCaptureViews(params);
     const unsigned int width = static_cast<unsigned int>(std::max(128, std::min(2048, params.value("width", 512))));
     const unsigned int height = static_cast<unsigned int>(std::max(128, std::min(2048, params.value("height", 512))));
-    const int plate_idx = plater->get_partplate_list().get_curr_plate_index();
-    const ThumbnailsParams thumbnail_params = { {}, true, true, true, true, plate_idx };
+    // Printable flags select the target instance. Frame its bounds independently
+    // of the active plate, which may differ from the selected object's plate.
+    const ThumbnailsParams thumbnail_params = { {}, true, true, false, true, -1 };
 
     auto& volumes = const_cast<GLVolumeCollection&>(canvas->get_volumes());
     std::vector<bool> original_printable;
@@ -487,7 +509,8 @@ json SlicerBridge::DoCaptureModelViews(const json& params)
     bool has_target_volume = false;
     for (GLVolume* volume : volumes.volumes) {
         original_printable.push_back(volume->printable);
-        if (volume->object_idx() == object_idx)
+        if (volume->object_idx() == object_idx && volume->instance_idx() == instance_idx
+            && volume->printable && !volume->is_modifier && !volume->is_wipe_tower)
             has_target_volume = true;
     }
     if (!has_target_volume)
@@ -504,7 +527,7 @@ json SlicerBridge::DoCaptureModelViews(const json& params)
 
     for (size_t idx = 0; idx < volumes.volumes.size(); ++idx) {
         GLVolume* volume = volumes.volumes[idx];
-        const bool keep = volume->object_idx() == object_idx;
+        const bool keep = volume->object_idx() == object_idx && volume->instance_idx() == instance_idx;
         volume->printable = keep ? original_printable[idx] : false;
     }
 
@@ -514,6 +537,8 @@ json SlicerBridge::DoCaptureModelViews(const json& params)
         canvas->render_thumbnail(thumbnail, width, height, thumbnail_params, Camera::EType::Ortho, false, false, false, view);
         if (!thumbnail.is_valid())
             return {{"success", false}, {"message", "Failed to render thumbnail for view: " + view}};
+        if (!HasRenderedModelPixels(thumbnail))
+            return {{"success", false}, {"message", "No model pixels captured for view: " + view}};
 
         json item;
         item["view"] = view;
@@ -527,15 +552,15 @@ json SlicerBridge::DoCaptureModelViews(const json& params)
     const bool include_summary = params.value("include_summary", true);
     json summary;
     if (include_summary) {
-        const ModelObject* object = model.objects[object_idx];
-        const BoundingBoxf3 bbox = object->instance_bounding_box(0);
+        const BoundingBoxf3 bbox = object->instance_bounding_box(instance_idx);
         double volume_mm3 = 0.0;
         int face_count = 0;
         int vertex_count = 0;
         bool is_watertight = false;
         try {
             const TriangleMesh& mesh = object->raw_mesh();
-            volume_mm3 = std::round(const_cast<TriangleMesh&>(mesh).volume() * 100.0) / 100.0;
+            const double scale = std::abs(object->instances[instance_idx]->get_matrix().linear().determinant());
+            volume_mm3 = std::round(std::abs(const_cast<TriangleMesh&>(mesh).volume()) * scale * 100.0) / 100.0;
             face_count = static_cast<int>(mesh.its.indices.size());
             vertex_count = static_cast<int>(mesh.its.vertices.size());
             is_watertight = mesh.stats().manifold();
@@ -563,12 +588,146 @@ json SlicerBridge::DoCaptureModelViews(const json& params)
         {"success", true},
         {"message", "Captured model views"},
         {"object_index", object_idx},
+        {"instance_index", instance_idx},
         {"object_name", model.objects[object_idx]->name},
         {"views", std::move(captured_views)}
     };
     if (include_summary)
         result["summary"] = std::move(summary);
     return result;
+}
+
+
+json SlicerBridge::DoCaptureGlobalRecommendationInput(const json& params)
+{
+    auto* plater = wxGetApp().plater();
+    auto* canvas = plater ? plater->get_view3D_canvas3D() : nullptr;
+    if (!canvas || !canvas->make_current_for_postinit())
+        return {{"success", false}, {"message", "3D canvas is unavailable"}};
+    auto& model = plater->model();
+    auto& plate_list = plater->get_partplate_list();
+    std::map<int, json> objects_by_plate;
+    std::map<std::pair<int, int>, int> instance_plates;
+    bool all_volumes_reliable = true;
+    json smallest, largest;
+    size_t object_count = 0;
+    for (size_t oi = 0; oi < model.objects.size(); ++oi) {
+        const ModelObject* object = model.objects[oi];
+        if (!object || object->instances.empty()) continue;
+        TriangleMesh mesh = object->raw_mesh();
+        if (mesh.its.indices.empty()) continue;
+        const bool watertight = mesh.stats().manifold();
+        const double mesh_volume = watertight ? std::abs(mesh.volume()) : 0.0;
+        for (size_t ii = 0; ii < object->instances.size(); ++ii) {
+            const ModelInstance* instance = object->instances[ii];
+            const int pi = plate_list.find_instance(static_cast<int>(oi), static_cast<int>(ii));
+            if (pi < 0)
+                return {{"success", false}, {"message", "Place every model instance on a plate before global recommendation"}};
+            const BoundingBoxf3 bbox = object->instance_bounding_box(ii);
+            const Vec3d size = bbox.size();
+            if (!size.allFinite() || size.minCoeff() <= 0)
+                return {{"success", false}, {"message", "A model instance has invalid dimensions"}};
+            const std::string plate_id = "plate-" + std::to_string(pi + 1);
+            json info = {
+                {"object_id", "object-" + std::to_string(object->id().id) + "-instance-" + std::to_string(instance->id().id)},
+                {"dimensions", {size.x(), size.y(), size.z()}},
+                {"bbox_min_mm", {bbox.min.x(), bbox.min.y(), bbox.min.z()}},
+                {"bbox_coordinate_frame", "project"}, {"face_count", mesh.its.indices.size()},
+                {"vertex_count", mesh.its.vertices.size()}, {"is_watertight", watertight}
+            };
+            const double volume = mesh_volume * std::abs(instance->get_matrix().linear().determinant());
+            const bool reliable = watertight && std::isfinite(volume) && volume > 0;
+            all_volumes_reliable &= reliable;
+            if (reliable) {
+                info["volume"] = volume;
+                info["volume_method"] = "Closed model-part mesh volume multiplied by absolute instance transform determinant";
+                json extreme = info;
+                extreme["plate_id"] = plate_id;
+                if (smallest.is_null() || volume < smallest["volume"].get<double>()) smallest = extreme;
+                if (largest.is_null() || volume > largest["volume"].get<double>()) largest = extreme;
+            }
+            if (!objects_by_plate.count(pi)) objects_by_plate[pi] = json::array();
+            objects_by_plate[pi].push_back(std::move(info));
+            instance_plates[{static_cast<int>(oi), static_cast<int>(ii)}] = pi;
+            ++object_count;
+        }
+    }
+    const size_t plate_count = objects_by_plate.size();
+    if (plate_count == 0 || plate_count > 16)
+        return {{"success", false}, {"message", "Global recommendation requires 1 to 16 non-empty plates"}};
+    const std::string mode = plate_count <= 2 && object_count <= 4 ? "standard"
+                           : plate_count <= 4 && object_count <= 10 ? "lite" : "overview";
+    if (mode != "standard" && !all_volumes_reliable)
+        return {{"success", false}, {"message", "Reliable closed-mesh volumes are required for all instances in lite/overview mode"}};
+
+    auto& volumes = const_cast<GLVolumeCollection&>(canvas->get_volumes());
+    std::vector<bool> original_printable;
+    for (const auto* volume : volumes.volumes) original_printable.push_back(volume->printable);
+    struct RestoreCaptureState {
+        GLVolumeCollection& volumes;
+        const std::vector<bool>& original;
+        ~RestoreCaptureState() {
+            for (size_t i = 0; i < original.size() && i < volumes.volumes.size(); ++i)
+                volumes.volumes[i]->printable = original[i];
+        }
+    } restore{volumes, original_printable};
+
+    const std::vector<std::pair<std::string, std::string>> views = {
+        {"01_front", "front"}, {"02_back", "rear"}, {"03_left", "left"}, {"04_right", "right"},
+        {"05_top", "top"}, {"06_bottom", "bottom"},
+        {"08_iso_front_right", "iso_front_right"}, {"09_iso_back_left", "iso_rear_left"}
+    };
+    auto capture = [&](int plate_index) {
+        std::set<std::pair<int, int>> rendered_instances;
+        for (GLVolume* volume : volumes.volumes) {
+            const auto id = std::make_pair(volume->object_idx(), volume->instance_idx());
+            auto it = instance_plates.find(id);
+            const bool keep = it != instance_plates.end() && (plate_index < 0 || it->second == plate_index);
+            volume->printable = keep;
+            if (keep && !volume->is_modifier) rendered_instances.insert(id);
+        }
+        const size_t expected = plate_index < 0 ? object_count : objects_by_plate.at(plate_index).size();
+        if (rendered_instances.size() != expected)
+            throw std::runtime_error("Some model instances are not available for rendering");
+        json images = json::object();
+        const size_t max_encoded = (mode == "lite" ? 120000 : mode == "overview" ? 200000 : 500000) * 4 / 3;
+        for (const auto& view : views) {
+            unsigned int width = mode == "overview" ? 768 : mode == "lite" ? 384 : 512;
+            for (;;) {
+                ThumbnailData thumbnail;
+                // Printable flags already select the plate; frame every included instance
+                // without clipping models that extend beyond the build volume.
+                const ThumbnailsParams options = {{}, true, true, false, true, -1};
+                canvas->render_thumbnail(thumbnail, width, width, options, Camera::EType::Ortho, false, false, false, view.second);
+                if (!thumbnail.is_valid()) throw std::runtime_error("Failed to render complete project views");
+                std::string image = ThumbnailToDataUrl(thumbnail);
+                if (image.size() <= max_encoded + std::string("data:image/png;base64,").size()) {
+                    images[view.first] = std::move(image);
+                    break;
+                }
+                if (width <= 128) throw std::runtime_error("Cannot fit project images within the recommendation budget");
+                width = std::max(128u, width * 3 / 4);
+            }
+        }
+        return images;
+    };
+
+    try {
+        json scene = {{"analysis_mode", mode}, {"plates", json::array()}};
+        for (const auto& entry : objects_by_plate) {
+            if (entry.second.size() > 10000) throw std::runtime_error("Too many instances on a plate");
+            json plate = {{"plate_id", "plate-" + std::to_string(entry.first + 1)}, {"object_count", entry.second.size()},
+                          {"multicolor", nullptr}, {"print_sequence", "unknown"}};
+            if (mode == "standard") plate["objects"] = entry.second;
+            if (mode != "overview") plate["images"] = capture(entry.first);
+            scene["plates"].push_back(std::move(plate));
+        }
+        if (mode != "standard") scene["volume_extremes"] = {{"smallest", smallest}, {"largest", largest}};
+        if (mode == "overview") scene["global_images"] = capture(-1);
+        return {{"success", true}, {"scope", "global"}, {"global_recommendation_input", std::move(scene)}};
+    } catch (const std::exception& error) {
+        return {{"success", false}, {"message", error.what()}};
+    }
 }
 
 // ===========================================================================

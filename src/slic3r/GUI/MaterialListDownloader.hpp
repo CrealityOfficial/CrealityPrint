@@ -10,6 +10,7 @@ namespace GUI {
 class MaterialListDownloader
 {
 public:
+    // Returns true only when the downloaded list changes the local cache.
     static bool download_official_material_list(const std::string& base_url,
                                                 std::map<std::string, std::string> extra_headers,
                                                 long connect_timeout = 2,

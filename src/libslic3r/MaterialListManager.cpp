@@ -164,6 +164,18 @@ bool MaterialListManager::save_official_material_list(const nlohmann::json& mate
         out["materials"] = materials;
 
         const boost::filesystem::path path = material_list_path();
+        {
+            boost::nowide::ifstream input(path.string());
+            if (input) {
+                const auto cached = nlohmann::json::parse(input, nullptr, false);
+                const auto& cached_materials = cached.is_object() && cached.contains("materials") ?
+                    cached["materials"] : cached;
+                if (cached_materials == materials) {
+                    BOOST_LOG_TRIVIAL(info) << "Official material list unchanged; skipping cache write and preset UI refresh";
+                    return false;
+                }
+            }
+        }
         boost::filesystem::create_directories(path.parent_path());
 
         boost::nowide::ofstream stream;
@@ -171,6 +183,9 @@ bool MaterialListManager::save_official_material_list(const nlohmann::json& mate
         if (!stream.is_open())
             return false;
         stream << std::setw(4) << out << std::endl;
+        stream.close();
+        if (stream.fail())
+            return false;
         {
             std::lock_guard<std::mutex> lock(m_alias_cache_mutex);
             m_alias_cache_last_write_time = 0;

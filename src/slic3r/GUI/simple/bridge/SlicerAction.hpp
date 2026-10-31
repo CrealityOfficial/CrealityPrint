@@ -56,10 +56,13 @@ namespace ActionID {
     constexpr const char* APPLY_CONFIG      = "apply_config";
     constexpr const char* SET_OBJECT_COLOR  = "set_object_color";
     constexpr const char* GET_EDITED_CONFIG = "get_edited_config";
+    constexpr const char* GET_PROJECT_3MF_CONTEXT = "get_project_3mf_context";
+    constexpr const char* GET_PARAMETER_DIFFERENCES = "get_parameter_differences";
     constexpr const char* GET_SLICER_STATE  = "get_slicer_state";
     constexpr const char* GET_SCENE_DIAGNOSTICS = "get_scene_diagnostics";
     constexpr const char* CAPTURE_MODEL_VIEWS = "capture_model_views";
     constexpr const char* IMPORT_MODEL      = "import_model";
+    constexpr const char* IMPORT_GENERATED_MODEL = "import_generated_model";
     constexpr const char* IMPORT_MODEL_FROM_SEARCH = "import_model_from_search";
     constexpr const char* OPEN_MODEL_LIBRARY = "open_model_library";
     constexpr const char* RECOMMEND_MODEL = "recommend_model";

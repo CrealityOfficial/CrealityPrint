@@ -193,7 +193,8 @@ void OneBoxFilamentColorItem::update_ui_item_info_by_material_box_info(const DM:
     int material_id = 0;
     if (0 == material_box_info.box_type) {  // normal multi-color box
 
-        m_cfs_index_info        = wxString::Format("CFS%d", m_box_id); // CFS1, CFS2, CFS3, CFS4
+        m_cfs_index_info = cfsName == "RACK030" ? _L("EXT")
+                                                  : wxString::Format("CFS%d", m_box_id); // CFS1, CFS2, CFS3, CFS4
         wxStaticText* cfs_label = new wxStaticText(this, wxID_ANY, m_cfs_index_info);
         m_cfs_label             = cfs_label;
         cfs_label->SetFont(Label::Body_12);
@@ -474,7 +475,10 @@ void PrinterBoxFilamentPanel::update_box_filament_items()
         wxWindowUpdateLocker freeze_guard(this);
         for (const auto& materialBox : m_device_data.materialBoxes) {
             // K3 and CFS Nano do not display the external rack entry.
-            if (materialBox.box_type == 1 && ((m_device_data.valid && m_device_data.model == "F039") || m_device_data.cfsName == "MF049"))
+            if (materialBox.box_type == 1 &&
+                (m_device_data.model == "F030" ||
+                 (m_device_data.valid && m_device_data.model == "F039") ||
+                 m_device_data.cfsName == "MF049"))
                 continue;
 
             OneBoxFilamentColorItem* one_box_item = new OneBoxFilamentColorItem(this, wxDefaultSize);
@@ -535,7 +539,7 @@ void PrinterBoxFilamentPanel::OnTimer(wxTimerEvent& event)
 
 
             // 比较 device_data 的 materialBoxes 与 m_device_data 的 materialBoxes
-            bool materialBoxesEqual = true;
+            bool materialBoxesEqual = device_data.cfsName == m_device_data.cfsName;
             try {
                 if (device_data.materialBoxes.size() == m_device_data.materialBoxes.size()) {
                     for (const auto& box : device_data.materialBoxes) {

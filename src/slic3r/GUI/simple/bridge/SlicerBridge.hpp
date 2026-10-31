@@ -70,6 +70,10 @@ public:
 
     void ClearPendingModelSearchCache();
 
+    /// GUI-thread-only local query; uses the same filters as the explanation
+    /// request and stops at the first explainable difference. No network I/O.
+    bool HasParameterDifferences(bool object_scope);
+
     // ---- Dev tools ----
 
     /// Build the user-facing slicer parameter schema array (same content the
@@ -119,10 +123,14 @@ private:
     nlohmann::json DoApplyConfig(const nlohmann::json& params);
     nlohmann::json DoSetObjectColor(const nlohmann::json& params);
     nlohmann::json DoGetEditedConfig(const nlohmann::json& params);
+    nlohmann::json DoGetProject3mfContext(const nlohmann::json& params);
+    nlohmann::json DoGetParameterDifferences(const nlohmann::json& params, bool presence_only = false);
     nlohmann::json DoGetSlicerState(const nlohmann::json& params);
     nlohmann::json DoGetSceneDiagnostics(const nlohmann::json& params);
     nlohmann::json DoCaptureModelViews(const nlohmann::json& params);
+    nlohmann::json DoCaptureGlobalRecommendationInput(const nlohmann::json& params);
     nlohmann::json DoImportModel(const nlohmann::json& params);
+    nlohmann::json DoImportGeneratedModel(const nlohmann::json& params);
     nlohmann::json DoImportModelFromSearch(const nlohmann::json& params);
     nlohmann::json DoOpenModelLibrary(const nlohmann::json& params);
     nlohmann::json DoRecommendModel(const nlohmann::json& params);

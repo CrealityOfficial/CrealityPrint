@@ -233,6 +233,21 @@ constexpr int FILAMENT_LIST_ANCHOR_HEIGHT_DIP = 35;
 // half. Fed to DropDown::setDrapDownGap().
 constexpr int FILAMENT_LIST_GAP_DIP = 5;
 
+bool is_f030_device(const DM::Device& device)
+{
+    return device.model == "F030";
+}
+
+bool is_f030_rack_mode(const DM::Device& device)
+{
+    return is_f030_device(device) && device.cfsName == "RACK030";
+}
+
+wxString default_filament_sync_label(const DM::Device& device)
+{
+    return is_f030_rack_mode(device) ? wxString("EXT") : wxString("CFS");
+}
+
 std::string preset_display_name_for_filament(const Slic3r::Preset& preset)
 {
     auto* bundle = Slic3r::GUI::wxGetApp().preset_bundle;
@@ -1256,23 +1271,19 @@ void FilamentButton::render(wxDC& dc)
 
 void FilamentButton::update_sync_box_state(bool sync, const wxString& box_filament_name)
 {
-	m_sync_box_filament = sync;
-	if(box_filament_name.IsEmpty()) {
-		m_sync_filament_label = "CFS";
-	}
-	else {
-		m_sync_filament_label = box_filament_name;  // "1A" or "1B" or "1C" or "1D"
-	}
+    const DM::Device device = DM::DataCenter::Ins().get_current_device_data();
+    m_sync_box_filament = sync;
+    // Auto-mapping shows the controls before its asynchronous result arrives.
+    // Use the current source label throughout that pending state.
+    m_sync_filament_label = box_filament_name.IsEmpty()
+        ? default_filament_sync_label(device)
+        : box_filament_name;
 
 	if(!m_sync_box_filament) {
 		m_child_button->SetBackgroundColour(*wxWHITE);
 	}
 
-    const DM::Device device = DM::DataCenter::Ins().get_current_device_data();
-    const bool is_k3 = (device.valid && device.model == "F039") ||
-        creality::is_creality_k3_printer_from_string(
-            Slic3r::GUI::wxGetApp().preset_bundle->printers.get_edited_preset().config.opt_string("printer_model"));
-    m_child_button->Show(m_sync_box_filament && !is_k3);
+    m_child_button->Show(m_sync_box_filament);
     Refresh();
 }
 
@@ -1284,7 +1295,7 @@ void FilamentButton::update_child_button_color(const wxColour& color)
 void FilamentButton::resetCFS(bool bCFS)
 {
     if (bCFS)
-        m_sync_filament_label = "CFS";
+        m_sync_filament_label = default_filament_sync_label(DM::DataCenter::Ins().get_current_device_data());
     m_child_button->Refresh();
 }
 
@@ -1402,11 +1413,7 @@ void FilamentButton::doRender(wxDC& dc)
     draw_menu_area(dc);
     draw_top_hover_area(dc);
 
-    const DM::Device device = DM::DataCenter::Ins().get_current_device_data();
-    const bool is_k3 = (device.valid && device.model == "F039") ||
-        creality::is_creality_k3_printer_from_string(
-            Slic3r::GUI::wxGetApp().preset_bundle->printers.get_edited_preset().config.opt_string("printer_model"));
-    m_child_button->Show(m_sync_box_filament && !is_k3);
+    m_child_button->Show(m_sync_box_filament);
 }
 
 /*
@@ -1904,26 +1911,45 @@ std::string FilamentItem::set_filament_selection(const wxString& filament_name, 
         return {};
 
     const std::string raw_name = filament_name.ToUTF8().data();
-    bool selected = m_popPanel->m_filamentCombox->SetStringSelection(filament_name);
-    if (!selected) {
+    const std::string clean_name = Slic3r::Preset::remove_suffix_modified(raw_name);
+    auto* combo = m_popPanel->m_filamentCombox;
+    const Slic3r::Preset* preset = m_preset_bundle->filaments.find_preset(clean_name, false);
+    if (preset == nullptr) {
         const std::string preset_name = m_preset_bundle->get_preset_name_by_alias(
-            Slic3r::Preset::TYPE_FILAMENT, Slic3r::Preset::remove_suffix_modified(raw_name));
-        if (const Slic3r::Preset* preset = m_preset_bundle->filaments.find_preset(preset_name)) {
-            selected = m_popPanel->m_filamentCombox->SetStringSelection(from_u8(preset->label(false))) ||
-                       (!preset->alias.empty() && m_popPanel->m_filamentCombox->SetStringSelection(from_u8(preset->alias))) ||
-                       m_popPanel->m_filamentCombox->SetStringSelection(from_u8(preset->name));
-        }
+            Slic3r::Preset::TYPE_FILAMENT, clean_name);
+        preset = m_preset_bundle->filaments.find_preset(preset_name, false);
     }
-    if (!selected)
-        return {};
 
-	const int evt_selection = m_popPanel->m_filamentCombox->GetSelection();
+    bool selected = false;
+    if (preset != nullptr) {
+        // Display aliases are independent of Preset::alias and need not be unique.
+        // Select the item bound to the resolved preset, never its display text.
+        for (unsigned int i = 0; i < combo->GetCount(); ++i) {
+            if (combo->preset_name_for_item(static_cast<int>(i)) == preset->name) {
+                combo->SetSelection(static_cast<int>(i));
+                selected = true;
+                break;
+            }
+        }
+    } else {
+        // Keep support for display labels that are not recognized by alias lookup.
+        selected = combo->SetStringSelection(filament_name);
+    }
+    if (!selected) {
+        BOOST_LOG_TRIVIAL(warning) << "[FilamentSync] selection failed: index=" << m_data.index
+                                   << ", requested='" << raw_name << "', resolved='"
+                                   << (preset != nullptr ? preset->name : std::string()) << "', retained_label='"
+                                   << into_u8(combo->GetStringSelection()) << "'";
+        return {};
+    }
+
+    const int evt_selection = combo->GetSelection();
     if (evt_selection < 0)
         return {};
 
     const std::string selected_label = Slic3r::Preset::remove_suffix_modified(
-        into_u8(m_popPanel->m_filamentCombox->GetString(evt_selection)));
-    std::string selected_preset_name = m_popPanel->m_filamentCombox->preset_name_for_item(evt_selection);
+        into_u8(combo->GetString(evt_selection)));
+    std::string selected_preset_name = combo->preset_name_for_item(evt_selection);
     for (const Slic3r::Preset& preset : m_preset_bundle->filaments.get_presets()) {
         if (!selected_preset_name.empty())
             break;
@@ -1938,11 +1964,14 @@ std::string FilamentItem::set_filament_selection(const wxString& filament_name, 
     if (selected_preset_name.empty())
         selected_preset_name = m_preset_bundle->get_preset_name_by_alias(Slic3r::Preset::TYPE_FILAMENT, selected_label);
 
+    BOOST_LOG_TRIVIAL(info) << "[FilamentSync] selection resolved: index=" << m_data.index
+                            << ", requested='" << raw_name << "', combo_index=" << evt_selection
+                            << ", selected_label='" << selected_label << "', preset='" << selected_preset_name << "'";
     if (notify) {
-            wxCommandEvent* evt = new wxCommandEvent(wxEVT_COMBOBOX, m_popPanel->m_filamentCombox->GetId());
-            evt->SetEventObject(m_popPanel->m_filamentCombox);
-			evt->SetInt(evt_selection);
-            wxQueueEvent(&(Slic3r::GUI::wxGetApp().plater()->sidebar()), evt);
+        wxCommandEvent* evt = new wxCommandEvent(wxEVT_COMBOBOX, combo->GetId());
+        evt->SetEventObject(combo);
+        evt->SetInt(evt_selection);
+        wxQueueEvent(&(Slic3r::GUI::wxGetApp().plater()->sidebar()), evt);
     }
 
     return selected_preset_name;
@@ -2397,6 +2426,24 @@ std::vector<size_t> FilamentPanel::used_filament_ids_for_grouping(bool slice_all
         filament_ids.reserve(usage.physical_filament_ids.size());
         for (const unsigned int filament_id : usage.physical_filament_ids)
             filament_ids.emplace_back(size_t(filament_id - 1));
+
+        // Grouping runs before slicing, so collect the configured tower filament
+        // here rather than relying on a previous Print or G-code result. It may
+        // not be referenced by any model, but still needs a nozzle assignment.
+        const auto& print_config = bundle->prints.get_edited_preset().config;
+        const auto& printer_config = bundle->printers.get_edited_preset().config;
+        const auto* tower_enabled = print_config.option<Slic3r::ConfigOptionBool>("enable_prime_tower");
+        const auto* tower_filament = print_config.option<Slic3r::ConfigOptionInt>("wipe_tower_filament");
+        const auto* printer_model = printer_config.option<Slic3r::ConfigOptionString>("printer_model");
+        if (!filament_ids.empty() && tower_enabled != nullptr && tower_enabled->value &&
+            tower_filament != nullptr && tower_filament->value > 0 &&
+            size_t(tower_filament->value) <= m_vt_filament.size() &&
+            !bundle->is_bbl_vendor() && printer_model != nullptr &&
+            creality::is_firmwaresoft_mm_printer_from_string(printer_model->value)) {
+            filament_ids.emplace_back(size_t(tower_filament->value - 1));
+            std::sort(filament_ids.begin(), filament_ids.end());
+            filament_ids.erase(std::unique(filament_ids.begin(), filament_ids.end()), filament_ids.end());
+        }
     }
     return filament_ids;
 }
@@ -3212,7 +3259,9 @@ bool FilamentPanel::add_filament()
 
     std::string res = wxGetApp().app_config->get("is_currentMachine_Colors");
     bool isColors = res == "1";
-    update_box_filament_sync_state(isColors);
+    // Adding a slot must preserve the existing slots' device mappings and colors.
+    const bool use_f030_rack = is_f030_rack_mode(DM::DataCenter::Ins().get_current_device_data());
+    filament->update_box_sync_state(isColors, use_f030_rack ? wxString("EXT") : wxString());
 	refresh_filament_grouping_visibility();
 	return true;
 }
@@ -3300,22 +3349,25 @@ void FilamentPanel::update_box_filament_sync_state(bool sync)
 
 void FilamentPanel::reset_filament_sync_state()
 {
+    const bool use_f030_rack = is_f030_rack_mode(DM::DataCenter::Ins().get_current_device_data());
 	for (auto& f : this->m_vt_filament)
 	{
+        f->update_box_sync_state(true, use_f030_rack ? wxString("EXT") : wxString());
 		f->update_box_sync_color("#ffffff");
-        f->resetCFS(true);
+        f->resetCFS(!use_f030_rack);
 	}
 }
 
 void FilamentPanel::reset_device_filament_mapping_to_cfs()
 {
+    const bool use_f030_rack = is_f030_rack_mode(DM::DataCenter::Ins().get_current_device_data());
     for (auto& item : this->m_vt_filament) {
         if (!item)
             continue;
 
-        item->update_box_sync_state(true);
+        item->update_box_sync_state(true, use_f030_rack ? wxString("EXT") : wxString());
         item->update_box_sync_color("#ffffff");
-        item->resetCFS(true);
+        item->resetCFS(!use_f030_rack);
         item->Refresh();
     }
 
@@ -3330,12 +3382,6 @@ std::string FilamentPanel::get_filament_map_string()
     }
     return mapstr.ToStdString();
 }
-void FilamentPanel::resetFilamentToCFS() {
-    for (auto& item : this->m_vt_filament) {
-        item->resetCFS(true);
-    }
-}
-
 void FilamentPanel::updateLastFilament(const std::vector<std::string>& presetName)
 {
     int i = 0;
@@ -3564,10 +3610,11 @@ void FilamentPanel::on_auto_mapping_filament(const DM::Device& device_data,
 }
 
 void FilamentPanel::apply_auto_mapping_filament(std::vector<std::pair<int, DM::Material>> validMaterials,
-                                                bool isCfsMini,
-                                                std::map<std::string, std::string> section_new,
-                                                bool profile_available)
+                                                 bool isCfsMini,
+                                                 std::map<std::string, std::string> section_new,
+                                                 bool profile_available)
 {
+    const DM::Device& deviceData = DM::DataCenter::Ins().get_current_device_data();
     const bool profile_changed = profile_available && SetFilamentProfile(section_new);
 
     if (m_vt_filament.size() != validMaterials.size()) {
@@ -3622,7 +3669,9 @@ void FilamentPanel::apply_auto_mapping_filament(std::vector<std::pair<int, DM::M
         std::string new_filament_name  = validMaterials[i].second.name;
 
         char     index_char          = 'A' + (validMaterials[i].second.material_id % 4); // Calculate the letter part (A, B, C, D)
-        wxString material_sync_label = wxString::Format("%d%c", validMaterials[i].first, index_char);
+        wxString material_sync_label = is_f030_rack_mode(deviceData)
+            ? wxString("EXT")
+            : wxString::Format("%d%c", validMaterials[i].first, index_char);
 
         if (isCfsMini && validMaterials[i].first == 5) 
         {
@@ -4077,7 +4126,7 @@ void BoxColorPopPanel::OnFirstColumnButtonClicked(wxCommandEvent& event)
                 material_box_info = &box_info;
                 //break;
             }
-            if (box_info.box_type == 1) {
+            if (box_info.box_type == 1 && !is_f030_device(m_device_data)) {
                 ext_material_box_info = &box_info;
             }
         }
@@ -4091,7 +4140,7 @@ void BoxColorPopPanel::OnFirstColumnButtonClicked(wxCommandEvent& event)
         bool has_exact_material = false;
         
         int startIndex = -1;
-        if (m_device_data.cfsName == "MF049") {
+        if (m_device_data.cfsName == "MF049" || is_f030_device(m_device_data)) {
             startIndex = 0;                     // MF049设备跳过外置料架
         }
         for (int i = startIndex; i < 4; i++) {
@@ -4220,6 +4269,8 @@ void BoxColorPopPanel::OnSecondColumnItemClicked(wxCommandEvent& event)
 	std::string new_filament_color = item_color.GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
 	std::string new_filament_name = item->get_filament_name();
     wxString syncLabel = item->get_material_index_info();
+    if (is_f030_rack_mode(m_device_data))
+        syncLabel = "EXT";
     if (filamentUserMaterialRet != 0 && filamentUserMaterialRet != 1 && filamentUserMaterialRet != (int)wxID_YES) {
         new_filament_name = "";
         syncLabel         = "";
@@ -4248,7 +4299,9 @@ void BoxColorPopPanel::init_by_device_data(const DM::Device& device_data)
 
 		if (0 == material_box_info.box_type) {  // normal multi-color box
 
-        wxString cfs_index_info = wxString::Format("cfs%d", material_box_info.box_id);  // CFS1, CFS2, CFS3, CFS4
+        wxString cfs_index_info = is_f030_rack_mode(m_device_data)
+            ? _L("EXT")
+            : wxString::Format("cfs%d", material_box_info.box_id);  // CFS1, CFS2, CFS3, CFS4
 
 		wxButton* button = new wxButton(this, wxID_ANY, cfs_index_info, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
         button->SetMinSize(wxSize(FromDIP(50), FromDIP(24)));
@@ -4704,6 +4757,33 @@ void MaterialContextMenu::OnDecomposeColor()
     // Step 1: create any missing base-color physicals. For MaterialList mode
     // this list is always empty, so the loop is a no-op.
     if (!missing.empty()) {
+        // Preserve the existing standard-mode material requirement. Check against
+        // the current printer rather than relying on cached compatibility flags.
+        const auto active_printer = preset_bundle->printers.get_edited_preset_with_vendor_profile();
+        const auto usable_preset = [&](const Slic3r::Preset& preset) {
+            return preset.is_visible && is_compatible_with_printer(
+                preset_bundle->filaments.get_preset_with_vendor_profile(preset), active_printer);
+        };
+        const auto* source_preset = preset_bundle->filaments.find_preset(source_preset_name, false);
+        std::string hyper_pla_preset;
+        if (static_cast<size_t>(m_index) < filament_types.size() && filament_types[m_index] == kDecomposeHyperPlaType &&
+            source_preset != nullptr && usable_preset(*source_preset)) {
+            hyper_pla_preset = source_preset_name;
+        } else {
+            for (const auto& preset : preset_bundle->filaments.get_presets()) {
+                if (preset.name.rfind(kDecomposeHyperPlaType, 0) == 0 && usable_preset(preset)) {
+                    hyper_pla_preset = preset.name;
+                    break;
+                }
+            }
+        }
+
+        if (hyper_pla_preset.empty()) {
+            BOOST_LOG_TRIVIAL(error) << "[ColorDecompose] No compatible Hyper PLA preset for the current printer";
+            show_error(wxGetApp().mainframe, _L("No compatible Hyper PLA preset is available for the current printer."));
+            return;
+        }
+
         std::vector<wxColour> new_colors;
         new_colors.reserve(missing.size());
         for (const auto& m : missing) {
@@ -4724,60 +4804,8 @@ void MaterialContextMenu::OnDecomposeColor()
             new_colors.push_back(col);
         }
         const int target_count = static_cast<int>(preset_bundle->filament_presets.size() + new_colors.size());
-        wxGetApp().plater()->sidebar().add_filaments_batch(target_count, new_colors);
-
-        // Step 1b: override the new physical slots to use a Hyper PLA preset.
-        // add_filaments_batch() -> set_num_filaments() copies the last existing
-        // preset onto every new slot, so if the project ended in a "Generic PLA"
-        // (or any non-Hyper) preset, the new CMYW/RYBW base colors would be
-        // marked as that material. Per user requirement, the new base-color
-        // physicals created by CMYW/RYBW decomposition must be Hyper PLA.
-        //
-        // Find an available Hyper PLA preset name (e.g. "Hyper PLA @Creality
-        // K2 Plus 0.4 nozzle" or the plain "Hyper PLA" baseline) and rewrite
-        // the per-slot preset name for every newly appended slot.
-        std::string hyper_pla_preset;
-        for (const auto& p : preset_bundle->filaments.get_presets()) {
-            // System/user preset names follow the "<Display Type> @<Printer>"
-            // convention. We want any preset whose name starts with "Hyper PLA".
-            if (p.name.rfind("Hyper PLA", 0) == 0) {
-                hyper_pla_preset = p.name;
-                break;
-            }
-        }
-        if (!hyper_pla_preset.empty()) {
-            const size_t new_physicals_start = preset_bundle->filament_presets.size() - new_colors.size();
-            for (size_t i = new_physicals_start; i < preset_bundle->filament_presets.size(); ++i) {
-                preset_bundle->filament_presets[i] = hyper_pla_preset;
-            }
-            // Re-apply the changed slot presets so the filament tab + extruder
-            // counts reflect the new Hyper PLA assignment. Using
-            // on_filaments_change with the current physical count is enough
-            // because the per-slot preset name is read from filament_presets
-            // every refresh.
-            wxGetApp().plater()->on_filaments_change(preset_bundle->filament_presets.size());
-
-            // Step 1c: refresh each newly created FilamentItem so the
-            // COLLAPSED view label picks up the new Hyper PLA preset. The
-            // FilamentItem constructor caches the preset's filament_type
-            // config (e.g. "PLA") into m_btn_param_list as the collapsed
-            // label. After we changed filament_presets[i] to Hyper PLA the
-            // underlying data is correct, but the cached button label still
-            // shows the previous preset's type (e.g. "Generic PLA"). Calling
-            // FilamentItem::update() rebuilds the combobox from the new
-            // filament_presets[i] entry and rewrites m_btn_param_list from
-            // the combobox's current selection, so the collapsed label now
-            // matches the expanded dropdown (both show "Hyper PLA").
-            auto panel_items = _filamentPanel->get_filament_items();
-            for (size_t i = new_physicals_start; i < preset_bundle->filament_presets.size(); ++i) {
-                if (i < panel_items.size() && panel_items[i] != nullptr) {
-                    panel_items[i]->update();
-                }
-            }
-        } else {
-            BOOST_LOG_TRIVIAL(warning) << "[DecomposeColor] No Hyper PLA preset found in the project; "
-                                      << "new CMYW/RYBW base-color physicals will keep the inherited preset.";
-        }
+        const std::vector<std::string> new_preset_names(new_colors.size(), hyper_pla_preset);
+        wxGetApp().plater()->sidebar().add_filaments_batch(target_count, new_colors, new_preset_names);
     }
 
     // Step 2: compute final component_a / component_b / mix_b_percent.

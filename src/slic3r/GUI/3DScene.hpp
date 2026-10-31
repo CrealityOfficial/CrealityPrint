@@ -389,6 +389,7 @@ public:
 
     // for GLVolume instance rendering, used in object clone preview
     void setup_instance_offsets(const std::vector<Vec3f>& instances_offsets);
+    BoundingBoxf3 clone_preview_bounding_box() const;
     void render_instanced(int type);
     void render_clone_single(int type);
     void release_instance_data();

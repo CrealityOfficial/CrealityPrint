@@ -43,7 +43,10 @@ class Migration(unittest.TestCase):
         (root / "user/default/machine" / (name + ".info")).write_bytes(b"setting_id = 123\nsync_info = update\n")
         return root
     def run_tool(self, ok=True):
-        p = subprocess.run([str(EXE), str(self.target), str(self.resources), "7.3.0"],
+        args = [str(EXE), str(self.target), str(self.resources), "7.3.0"]
+        if self.target.name.endswith(" Alpha"):
+            args.append("alpha")
+        p = subprocess.run(args,
                            capture_output=True, text=True, encoding="utf-8", errors="replace")
         self.assertEqual(p.returncode == 0, ok, p.stdout[-2000:] + p.stderr[-2000:])
         return p
@@ -93,7 +96,7 @@ class Migration(unittest.TestCase):
         put(six / "Creality.conf", {"app": []})
         self.run_tool(False)
         self.assertFalse((self.target / "migration/manifest.json").exists())
-        self.assertFalse((self.target / "Creality.conf").exists())
+        self.assertEqual((self.target / "Creality.conf").read_bytes(), (source / "Creality.conf").read_bytes())
         diagnostics = self.root / ".migration-7.3/report.json"
         report = json.loads(diagnostics.read_text(encoding="utf-8"))
         self.assertEqual(report["state"], "SOURCE_UNAVAILABLE")
@@ -207,9 +210,202 @@ class Migration(unittest.TestCase):
         self.source()
         manifest = self.resources / "profiles/Creality.json"
         saved = manifest.read_bytes(); manifest.unlink()
-        self.run_tool(False); self.assertFalse((self.target / "Creality.conf").exists())
+        self.run_tool(False)
+        self.assertEqual((self.target / "Creality.conf").read_bytes(), (self.root / "7.0/Creality.conf").read_bytes())
+        self.assertEqual(hashes(self.root / "7.0/user"), hashes(self.target / "user"))
         manifest.write_bytes(saved); self.run_tool()
         self.assertEqual(self.report()["valid_presets"], 1)
+    def test_fallback_preserves_root_files_and_retries(self):
+        source = self.source()
+        put(source / "deviceInfo.json", {"devices": ["device-a"]})
+        put(source / "user_info.json", {"account": "account-a"})
+        before = hashes(source)
+        resource = self.resources / "profiles/Creality.json"
+        saved = resource.read_bytes(); resource.unlink()
+        self.run_tool(False)
+        report = json.loads((self.target / "migration/user-fallback.json").read_text(encoding="utf-8"))
+        for name in ("Creality.conf", "deviceInfo.json", "user_info.json"):
+            self.assertEqual((self.target / name).read_bytes(), (source / name).read_bytes())
+            self.assertIn(name, report["root_files"])
+        self.assertFalse((self.target / "migration/manifest.json").exists())
+        self.assertEqual(hashes(source), before)
+        resource.write_bytes(saved); self.run_tool()
+        self.assertEqual(self.report()["valid_presets"], 1)
+    def test_fallback_root_files_without_user_or_valid_json(self):
+        source = self.root / "7.0"
+        source.mkdir()
+        for name in ("Creality.conf", "deviceInfo.json", "user_info.json"):
+            (source / name).write_bytes(b"broken json - preserve exact bytes")
+        before = hashes(source)
+        self.run_tool(False)
+        for name in before:
+            self.assertEqual((self.target / name).read_bytes(), (source / name).read_bytes())
+        self.assertEqual(hashes(source), before)
+    def test_fallback_root_files_never_overwrite_existing_files(self):
+        source = self.source()
+        for name in ("Creality.conf", "deviceInfo.json", "user_info.json"):
+            put(source / name, {"source": name})
+            put(self.target / name, {"target": name})
+        before = {name: (self.target / name).read_bytes()
+                  for name in ("Creality.conf", "deviceInfo.json", "user_info.json")}
+        self.run_tool(False)
+        for name, data in before.items():
+            self.assertEqual((self.target / name).read_bytes(), data)
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+    def test_fallback_root_copy_error_continues_other_files_and_user(self):
+        source = self.source()
+        put(source / "deviceInfo.json", {"devices": [1]})
+        put(source / "user_info.json", {"account": "a"})
+        (self.target / "Creality.conf").mkdir(parents=True)
+        self.run_tool(False)
+        for name in ("deviceInfo.json", "user_info.json"):
+            self.assertEqual((self.target / name).read_bytes(), (source / name).read_bytes())
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+        report = json.loads((self.target / "migration/user-fallback.json").read_text(encoding="utf-8"))
+        self.assertEqual([item["file"] for item in report["errors"]], ["Creality.conf"])
+    def test_changed_fallback_root_file_is_not_reimported(self):
+        source = self.source()
+        put(source / "deviceInfo.json", {"devices": [1]})
+        resource = self.resources / "profiles/Creality.json"
+        saved = resource.read_bytes(); resource.unlink()
+        self.run_tool(False)
+        put(self.target / "deviceInfo.json", {"devices": [2]})
+        before = hashes(self.target)
+        resource.write_bytes(saved); self.run_tool()
+        self.assertEqual(hashes(self.target), before)
+        self.assertFalse((self.target / "migration/manifest.json").exists())
+    def test_unreadable_user_structure_does_not_block_root_files(self):
+        source = self.root / "7.0"
+        source.mkdir()
+        (source / "Creality.conf").write_bytes(b"broken")
+        put(source / "deviceInfo.json", {"devices": [1]})
+        put(source / "user_info.json", {"account": "a"})
+        (source / "user").write_bytes(b"not a directory")
+        self.run_tool(False)
+        for name in ("Creality.conf", "deviceInfo.json", "user_info.json"):
+            self.assertEqual((self.target / name).read_bytes(), (source / name).read_bytes())
+        report = json.loads((self.target / "migration/user-fallback.json").read_text(encoding="utf-8"))
+        self.assertTrue(report["errors"])
+    def test_missing_config_preserves_complete_user_directory(self):
+        source = self.source()
+        (source / "Creality.conf").unlink()
+        put(source / "user/second-account/process/nested/Custom.json", {"name": "Custom"})
+        put(source / "user/default/sync_data/queue.json", {"pending": [1]})
+        (source / "user/default/machine/cache.cereal").write_bytes(b"legacy-cache")
+        (source / "user/empty-account/process").mkdir(parents=True)
+        before = hashes(source)
+        self.run_tool(False)
+        self.assertEqual(hashes(source), before)
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+        self.assertTrue((self.target / "user/empty-account/process").is_dir())
+        self.assertTrue((self.target / "migration/preserve-user-presets").is_file())
+        self.assertFalse((self.target / "migration/manifest.json").exists())
+        self.run_tool(False)
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+    def test_six_missing_config_fallback(self):
+        source = self.source("6.0", "01.09.03.50")
+        (source / "Creality.conf").unlink()
+        self.run_tool(False)
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+        self.assertFalse((self.root / "7.0").exists())
+    def test_resource_failure_preserves_selected_source(self):
+        seven = self.source()
+        (seven / "Creality.conf").write_bytes(b"broken")
+        six = self.source("6.0", "01.09.03.50", "Six")
+        (self.resources / "profiles/Creality.json").unlink()
+        before = hashes(six)
+        self.run_tool(False)
+        self.assertEqual(hashes(six), before)
+        self.assertEqual(hashes(six / "user"), hashes(self.target / "user"))
+    def test_fallback_does_not_overwrite_existing_user_files(self):
+        source = self.source()
+        (source / "Creality.conf").unlink()
+        existing = self.target / "user/default/machine/User printer.json"
+        put(existing, {"name": "User modification"})
+        saved = existing.read_bytes()
+        self.run_tool(False)
+        self.assertEqual(existing.read_bytes(), saved)
+        self.assertTrue(existing.with_suffix(".info").exists())
+        put(source / "Creality.conf", {"app": {"version": "7.2.2"}})
+        self.run_tool(False)
+        self.assertEqual(existing.read_bytes(), saved)
+    def test_changed_fallback_user_files_are_not_reimported(self):
+        self.source()
+        manifest = self.resources / "profiles/Creality.json"
+        saved = manifest.read_bytes(); manifest.unlink()
+        self.run_tool(False)
+        user = self.target / "user/default/machine/User printer.json"
+        put(user, {"name": "Edited after fallback"})
+        before = hashes(self.target)
+        manifest.write_bytes(saved)
+        self.run_tool()  # Existing valid config wins once fallback user files change.
+        self.assertEqual(hashes(self.target), before)
+    def test_failure_before_source_selection_still_preserves_user(self):
+        source = self.source()
+        (self.root / ".migration-7.3").write_bytes(b"blocked diagnostics path")
+        self.run_tool(False)
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+    def test_fallback_copy_error_does_not_block_remaining_files(self):
+        source = self.source()
+        (source / "Creality.conf").unlink()
+        collision = self.target / "user/default/machine/User printer.info"
+        collision.mkdir(parents=True)
+        put(source / "user/second-account/process/Other.json", {"name": "Other"})
+        p = self.run_tool(False)
+        self.assertIn("user fallback failed", p.stderr)
+        other = Path("user/second-account/process/Other.json")
+        self.assertEqual((source / other).read_bytes(), (self.target / other).read_bytes())
+        report = json.loads((self.target / "migration/user-fallback.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(report["errors"]), 1)
+        self.assertEqual(Path(report["errors"][0]["file"]).as_posix(), "default/machine/User printer.info")
+    def test_alpha_fallback_uses_same_channel_only(self):
+        self.source(name="Release preset")
+        source = self.source("7.0 Alpha", name="Alpha preset")
+        (source / "Creality.conf").unlink()
+        self.target = self.root / "7.3 Alpha"
+        self.run_tool(False)
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+        self.assertFalse((self.target / "user/default/machine/Release preset.json").exists())
+    def test_broken_target_config_still_preserves_user(self):
+        source = self.source()
+        self.target.mkdir()
+        config = self.target / "Creality.conf"
+        config.write_bytes(b"broken target config")
+        self.run_tool(False)
+        self.assertEqual(config.read_bytes(), b"broken target config")
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+    def test_broken_target_manifest_still_preserves_user(self):
+        source = self.source()
+        manifest = self.target / "migration/manifest.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_bytes(b"broken manifest")
+        self.run_tool(False)
+        self.assertEqual(manifest.read_bytes(), b"broken manifest")
+        self.assertEqual(hashes(source / "user"), hashes(self.target / "user"))
+    @unittest.skipUnless(os.name == "nt", "Windows directory sharing behavior")
+    def test_commit_retries_temporary_directory_lock(self):
+        import ctypes
+        import threading
+        import time
+        self.source()
+        self.target.mkdir()
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32,
+                                        ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+        kernel32.CreateFileW.restype = ctypes.c_void_p
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        # Permit normal reading/writing, but temporarily deny directory renaming.
+        handle = kernel32.CreateFileW(str(self.target), 0, 3, None, 3, 0x02000000, None)
+        self.assertNotEqual(handle, ctypes.c_void_p(-1).value, ctypes.get_last_error())
+        release = threading.Timer(0.75, lambda: kernel32.CloseHandle(handle))
+        release.start()
+        started = time.monotonic()
+        try:
+            self.run_tool()
+        finally:
+            release.join()
+        self.assertGreaterEqual(time.monotonic() - started, 0.65)
+        self.assertTrue((self.target / "migration/manifest.json").exists())
     def test_fresh_initialization(self):
         self.run_tool(); self.assertEqual(self.report()["valid_presets"], 0)
         self.assertFalse((self.target / "migration/cloud-sync-hold.json").exists())

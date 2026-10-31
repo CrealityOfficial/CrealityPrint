@@ -1,0 +1,21 @@
+diff --git a/src/unix/appunix.cpp b/src/unix/appunix.cpp
+index 49e35ee0a2..baee574191 100644
+--- a/src/unix/appunix.cpp
++++ b/src/unix/appunix.cpp
+@@ -91,8 +91,13 @@ bool wxAppConsole::Initialize(int& argc_, wxChar** argv_)
+ {
+ #ifdef __DARWIN__
+-    // On command line apps on macOS we need to initialize Cocoa framework
+-    wxMacAutoreleasePool autoreleasepool;
++    // Only command-line applications need to initialize Cocoa here. GUI
++    // applications must install wxNSAppController before AppKit sends its
++    // launch notifications so URL Apple Event handling can be registered.
++    if ( !IsGUI() )
++    {
++        wxMacAutoreleasePool autoreleasepool;
+ #ifdef __WXDARWIN_OSX__
+-    wxMacInitCocoa();
++        wxMacInitCocoa();
+ #endif
++    }
+ #endif // __DARWIN__

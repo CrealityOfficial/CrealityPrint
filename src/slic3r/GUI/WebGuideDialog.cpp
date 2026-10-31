@@ -1223,7 +1223,7 @@ bool GuideFrame::apply_config(AppConfig *app_config, PresetBundle *preset_bundle
     for (const auto &it : enabled_vendors) {
         if (it.second.size() > 0) {
             auto vendor_file = vendor_dir/(it.first + ".json");
-            if (!fs::exists(vendor_file)) {
+            if (!fs::exists(vendor_file) || get_version_from_json(vendor_file.string()) == Semver()) {
                 install_bundles.emplace_back(it.first);
             }
         }

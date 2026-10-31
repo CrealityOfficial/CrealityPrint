@@ -5,6 +5,7 @@
 #include "../PrintConfig.hpp"
 #include "ZaaIntervalProtocol.hpp"
 
+#include <array>
 #include <queue>
 
 namespace Slic3r {
@@ -76,11 +77,13 @@ private:
     // Internal data.
     // X,Y,Z,E,F
     float                           m_current_pos[5];
+    std::array<bool, 3>              m_current_xyz_known{};
     size_t                          m_current_extruder;
     ExtrusionRole                   m_current_extrusion_role;
     std::optional<uint16_t>         m_current_perimeter_index;
     bool                            m_retracted;
     bool                            m_use_relative_e_distances;
+    bool                            m_extrusion_rate_smoothing_external_perimeter_only;
 
 	// Maximum segment length to split a long segment if the initial and the final flow rate differ.
 	// Smaller value means a smoother transition between two different flow rates.
@@ -136,7 +139,6 @@ private:
             assert(avg_correction <= 1.00000001f);
             return avg_correction;
         }
-        float       time_corrected()  const { return time() * volumetric_correction_avg(); }
 
         GCodeLineType type;
 
@@ -152,6 +154,8 @@ private:
         float       pos_end[5];
         // Was the axis found on the G-code line? X,Y,Z,E,F
         bool        pos_provided[5];
+        // Whether the input stream established each starting XYZ coordinate.
+        std::array<bool, 3> pos_start_xyz_known;
 
         // Index of the active extruder.
         size_t      extruder_id;
@@ -203,8 +207,18 @@ private:
     inline void push_to_output(GCodeG1Formatter &formatter);
     inline void push_to_output(const std::string &text, bool add_eol);
     inline void push_to_output(const char *text, size_t len, bool add_eol = true);
-    // Push a G-code line to the output.
-    void push_line_to_output(size_t line_idx, float new_feedrate, const char *comment);
+    struct OutputSegment {
+        std::array<float, 4> pos_start;
+        std::array<float, 4> pos_end;
+        std::array<bool, 3>  start_xyz_known;
+        float               feedrate;
+        int64_t             relative_e_units;
+        const char         *comment;
+        bool                mergeable;
+    };
+
+    // Emit an already quantized segment without changing the planning cursor.
+    void push_line_to_output(size_t line_idx, const OutputSegment &segment);
 
 public:
     std::queue<LayerResult*> m_layer_results;

@@ -1,4 +1,5 @@
 #include "MixedFilament.hpp"
+#include "ColorDecomposeKM.hpp"
 #include "filament_mixer.h"
 
 #include <algorithm>
@@ -2164,7 +2165,11 @@ ExpandedFilamentUsage MixedFilamentManager::expand_filament_usage(
     return usage;
 }
 
-// Blend N colours using weighted pairwise FilamentMixer blending.
+// Blend N colours. Prefer K-M spectral mixing when every component color
+// matches a measured base-color spectrum (official Hyper PLA base colors),
+// so the displayed mixed color agrees with the K-M-based color-decompose
+// recommendation; arbitrary colors keep the weighted pairwise polynomial
+// blending below.
 std::string MixedFilamentManager::blend_color_multi(
     const std::vector<std::pair<std::string, int>> &color_percents)
 {
@@ -2172,6 +2177,24 @@ std::string MixedFilamentManager::blend_color_multi(
         return "#000000";
     if (color_percents.size() == 1)
         return color_percents.front().first;
+
+    std::vector<std::string> hexes;
+    std::vector<int> weights;
+    hexes.reserve(color_percents.size());
+    weights.reserve(color_percents.size());
+    for (size_t i = 0; i < color_percents.size(); ++i) {
+        const auto &[hex, pct] = color_percents[i];
+        if (pct <= 0)
+            continue;
+        hexes.push_back(hex);
+        weights.push_back(pct);
+    }
+    if (hexes.empty())
+        return "#000000";
+
+    const std::string spectral = BaseColorSpectra::blend_color_multi_spectrum_first(hexes, weights);
+    if (!spectral.empty())
+        return spectral;
 
     struct WeightedColor {
         RGB color;
@@ -2210,13 +2233,21 @@ std::string MixedFilamentManager::blend_color_multi(
         accumulated_pct = new_total;
     }
 
-    return rgb_to_hex({int(r), int(g), int(b)});
+    return rgb_to_hex(RGB{int(r), int(g), int(b)});
 }
 
 std::string MixedFilamentManager::blend_color(const std::string &color_a,
                                               const std::string &color_b,
                                               int ratio_a, int ratio_b)
 {
+    // Prefer K-M spectral mixing when both colors match measured base-color
+    // spectra (see BaseColorSpectra), so the preview agrees with the K-M-based
+    // color-decompose recommendation.
+    const std::string spectral = BaseColorSpectra::blend_color_multi_spectrum_first(
+        {color_a, color_b}, {ratio_a, ratio_b});
+    if (!spectral.empty())
+        return spectral;
+
     const int safe_a = std::max(0, ratio_a);
     const int safe_b = std::max(0, ratio_b);
     const int total  = safe_a + safe_b;
@@ -2236,7 +2267,7 @@ std::string MixedFilamentManager::blend_color(const std::string &color_a,
                         static_cast<unsigned char>(rgb_b.b),
                         t, &out_r, &out_g, &out_b);
 
-    return rgb_to_hex({int(out_r), int(out_g), int(out_b)});
+    return rgb_to_hex(RGB{int(out_r), int(out_g), int(out_b)});
 }
 
 void MixedFilamentManager::refresh_display_colors(const std::vector<std::string> &filament_colours)

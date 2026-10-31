@@ -58,6 +58,8 @@ public:
 
     void set_selection_changed_function(std::function<void(int)> sel_changed) { on_selection_changed = sel_changed; }
 
+    // Stable preset identity, independent of display aliases and dirty labels.
+    std::string preset_name_for_item(int item) const;
     bool is_selected_physical_printer();
 
     // Return true, if physical printer was selected 
@@ -89,6 +91,7 @@ public:
     virtual void OnSelect(wxCommandEvent& evt);
 
 protected:
+    std::map<int, std::string> m_preset_names_by_item;
     typedef std::size_t Marker;
     std::function<void(int)>    on_selection_changed { nullptr };
 
@@ -184,7 +187,6 @@ public:
     void msw_rescale() override;
     void OnSelect(wxCommandEvent& evt) override;
     void     setSelectedItemCb(std::function<void(int)> funcSelectedItemCb) { m_funcSelectedItemCb = funcSelectedItemCb; }
-    std::string preset_name_for_item(int item) const;
 
 private:
     // Filament brand ("filament_vendor") used to group the drop-down list.
@@ -193,7 +195,6 @@ private:
     // BBS
     wxColor m_color;
     std::function<void(int)> m_funcSelectedItemCb = nullptr;
-    std::map<int, std::string> m_preset_names_by_item;
 };
 
 

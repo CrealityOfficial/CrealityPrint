@@ -97,6 +97,7 @@ var (
 	procSetWindowRgn               = modUser32.NewProc("SetWindowRgn")
 	procInitCommonControlsEx       = modComctl32.NewProc("InitCommonControlsEx")
 	procShellExecuteW              = modShell32.NewProc("ShellExecuteW")
+	procSHChangeNotify             = modShell32.NewProc("SHChangeNotify")
 	procCreateSolidBrush           = modGdi32.NewProc("CreateSolidBrush")
 	procCreatePen                  = modGdi32.NewProc("CreatePen")
 	procSelectObject               = modGdi32.NewProc("SelectObject")
@@ -117,7 +118,10 @@ var (
 
 	procCreateFontIndirectW = modGdi32.NewProc("CreateFontIndirectW")
 
-	procRegGetValueW             = modAdvapi32.NewProc("RegGetValueW")
+	procRegGetValueW            = modAdvapi32.NewProc("RegGetValueW")
+	procRegCreateKeyExW         = modAdvapi32.NewProc("RegCreateKeyExW")
+	procRegSetValueExW          = modAdvapi32.NewProc("RegSetValueExW")
+	procRegCloseKey             = modAdvapi32.NewProc("RegCloseKey")
 	procOpenProcessToken        = modAdvapi32.NewProc("OpenProcessToken")
 	procDuplicateTokenEx        = modAdvapi32.NewProc("DuplicateTokenEx")
 	procCreateProcessWithTokenW = modAdvapi32.NewProc("CreateProcessWithTokenW")
@@ -2647,9 +2651,9 @@ func runUpdateWithUI(log func(args ...interface{}), baseDir, installDir, current
 		return updateResult{err: err}
 	}
 
-	setInstallStage(log, "Copying files", 30)
+	setInstallStage(log, "Copying files", 65)
 	log("copying target tree to", newDir)
-	if err := copyDirWithProgressStage(log, targetTree, newDir, 30, 85, "Copying files"); err != nil {
+	if err := copyDirWithProgressStage(log, targetTree, newDir, 65, 85, "Copying files"); err != nil {
 		log("copy target tree failed:", err)
 		os.RemoveAll(newDir)
 		return updateResult{err: err}
@@ -2728,6 +2732,7 @@ func runUpdateWithUI(log func(args ...interface{}), baseDir, installDir, current
 
 	setInstallStage(log, "Finishing installation", 98)
 	log("update succeeded from", currentVer, "to", finalVersion)
+	repairThumbnailRegistration(log, installPath, backupDir)
 
 	// Preserve the original NSIS-generated Uninstall.exe from the backup so
 	// that "Programs and Features" uninstall keeps working after a hot-update.
@@ -2777,6 +2782,144 @@ func runUpdateWithUI(log func(args ...interface{}), baseDir, installDir, current
 
 	setInstallStage(log, "Installation complete", 100)
 	return updateResult{err: nil, rollbackApplied: rollbackApplied, backupDir: backupDir, rollbackOK: true, targetVersion: finalVersion}
+}
+
+const (
+	thumbnailProviderCLSID = "{AF07F051-9D08-44A7-8C63-9296ADFEDDD7}"
+	thumbnailShellExtKey   = "{e357fccd-a995-4576-b01f-234630154e96}"
+)
+
+// repairThumbnailRegistration restores the Explorer thumbnail provider after
+// a Squirrel update. NSIS performs this registration during installation, but
+// a hot update only replaces the application files and never runs NSIS.
+func repairThumbnailRegistration(log func(args ...interface{}), installDir, backupDir string) {
+	const (
+		dllName = "STLThumbWinShellExtension.dll"
+		exeName = "stl-thumb.exe"
+	)
+
+	appData := strings.TrimSpace(os.Getenv("APPDATA"))
+	if appData == "" {
+		if configDir, err := os.UserConfigDir(); err == nil {
+			appData = configDir
+		}
+	}
+	if appData == "" {
+		log("WARN: thumbnail registration skipped; APPDATA is unavailable")
+		return
+	}
+	thumbnailDir := filepath.Join(appData, "Creality_STLThumbnail")
+
+	for _, name := range []string{dllName, exeName} {
+		dst := filepath.Join(thumbnailDir, name)
+		if _, err := os.Stat(dst); err == nil {
+			continue
+		}
+
+		src := filepath.Join(installDir, name)
+		if _, err := os.Stat(src); err != nil {
+			src = filepath.Join(backupDir, name)
+		}
+		if _, err := os.Stat(src); err != nil {
+			log("thumbnail helper is missing from install and backup:", name)
+			continue
+		}
+		if err := copyFile(src, dst); err != nil {
+			log("WARN: failed to restore thumbnail helper:", name, err)
+		} else {
+			log("restored thumbnail helper:", src, "->", dst)
+		}
+	}
+
+	dllPath := filepath.Join(thumbnailDir, dllName)
+	if _, err := os.Stat(dllPath); err != nil {
+		log("WARN: thumbnail registration skipped; DLL is missing:", dllPath)
+		return
+	}
+
+	clsidKey := `HKCR\CLSID\` + thumbnailProviderCLSID
+	inprocKey := clsidKey + `\InprocServer32`
+	// Write the same values as NSIS in-process. Do not spawn reg.exe or
+	// regsvr32.exe from the updater, since both are common LOLBin heuristics.
+	registrations := []struct {
+		key   string
+		name  string
+		typ   uint32
+		value string
+	}{
+		{key: clsidKey, typ: regTypeString, value: "STLThumbWinShellExtension.STLThumbnailProvider Class"},
+		{key: clsidKey, name: "DisableProcessIsolation", typ: regTypeDword, value: "1"},
+		{key: inprocKey, typ: regTypeString, value: dllPath},
+		{key: inprocKey, name: "ThreadingModel", typ: regTypeString, value: "Apartment"},
+		{key: `HKCR\.stl\shellex\` + thumbnailShellExtKey, typ: regTypeString, value: thumbnailProviderCLSID},
+		{key: `HKCR\.3mf\shellex\` + thumbnailShellExtKey, typ: regTypeString, value: thumbnailProviderCLSID},
+	}
+	for _, registration := range registrations {
+		var err error
+		if registration.typ == regTypeDword {
+			err = setRegistryDword(registration.key, registration.name, 1)
+		} else {
+			err = setRegistryString(registration.key, registration.name, registration.value)
+		}
+		if err != nil {
+			log("WARN: thumbnail registry update failed:", err)
+		}
+	}
+
+	// Tell Explorer to discard the old association and thumbnail-provider cache.
+	procSHChangeNotify.Call(uintptr(0x08000000), uintptr(0x2000), 0, 0)
+	log("thumbnail registration repaired for", dllPath)
+}
+
+const (
+	hkeyClassesRoot = uintptr(0x80000000)
+	keyWrite        = uintptr(0x00020006)
+	regTypeString   = uint32(1)
+	regTypeDword    = uint32(4)
+)
+
+func setRegistryString(keyPath, valueName, value string) error {
+	data := syscall.StringToUTF16(value)
+	return setRegistryValue(keyPath, valueName, regTypeString, unsafe.Pointer(&data[0]), uint32(len(data)*2))
+}
+
+func setRegistryDword(keyPath, valueName string, value uint32) error {
+	return setRegistryValue(keyPath, valueName, regTypeDword, unsafe.Pointer(&value), uint32(unsafe.Sizeof(value)))
+}
+
+func setRegistryValue(keyPath, valueName string, valueType uint32, data unsafe.Pointer, dataSize uint32) error {
+	const hivePrefix = "HKCR\\"
+	if !strings.HasPrefix(keyPath, hivePrefix) {
+		return fmt.Errorf("unsupported registry hive in %q", keyPath)
+	}
+
+	subKey := syscall.StringToUTF16Ptr(strings.TrimPrefix(keyPath, hivePrefix))
+	var key uintptr
+	ret, _, _ := procRegCreateKeyExW.Call(
+		hkeyClassesRoot,
+		uintptr(unsafe.Pointer(subKey)),
+		0,
+		0,
+		0,
+		keyWrite,
+		0,
+		uintptr(unsafe.Pointer(&key)),
+		0,
+	)
+	if ret != 0 {
+		return fmt.Errorf("RegCreateKeyExW %q failed: %w", keyPath, syscall.Errno(ret))
+	}
+	defer procRegCloseKey.Call(key)
+
+	var name uintptr
+	if valueName != "" {
+		name = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(valueName)))
+	}
+	ret, _, _ = procRegSetValueExW.Call(key, name, 0, uintptr(valueType), uintptr(data), uintptr(dataSize))
+	if ret != 0 {
+		return fmt.Errorf("RegSetValueExW %q failed: %w", keyPath, syscall.Errno(ret))
+	}
+	return nil
 }
 
 // preserveUninstallerFromBackup copies Uninstall.exe from the backup directory
@@ -3310,15 +3453,26 @@ func buildTargetTree(log func(args ...interface{}), baseDir, installDir, current
 		log("first chain step is a full package, skip copying base tree")
 	}
 
-	for _, info := range chain {
+	for step, info := range chain {
 		if isCanceled() {
 			return "", errCanceled
 		}
+		lastPercent := -1
+		progress := func(fraction float64) {
+			percent := 20 + int(45*(float64(step)+fraction)/float64(len(chain)))
+			if percent > lastPercent {
+				lastPercent = percent
+				setInstallProgress(percent)
+			}
+		}
+		progress(0)
 		if info.Delta != nil {
-			setInstallProgress(20)
 			nupkgPath := filepath.Join(baseDir, info.Delta.FileName)
 			log("apply delta:", nupkgPath)
-			if err := applyDeltaNupkg(log, nupkgPath, root); err != nil {
+			if err := applyDeltaNupkg(log, nupkgPath, root, progress); err != nil {
+				if errors.Is(err, errCanceled) {
+					return "", err
+				}
 				fullPath := ""
 				if info.Full != nil {
 					fullPath = filepath.Join(baseDir, info.Full.FileName)
@@ -3335,12 +3489,11 @@ func buildTargetTree(log func(args ...interface{}), baseDir, installDir, current
 				if err2 := os.MkdirAll(root, 0755); err2 != nil {
 					return "", err2
 				}
-				if err2 := extractNupkgLibNet45(fullPath, root); err2 != nil {
+				if err2 := extractNupkgLibNet45WithProgress(fullPath, root, progress); err2 != nil {
 					return "", err2
 				}
 			}
 		} else if info.Full != nil {
-			setInstallProgress(12)
 			if err := os.RemoveAll(root); err != nil {
 				return "", err
 			}
@@ -3349,14 +3502,15 @@ func buildTargetTree(log func(args ...interface{}), baseDir, installDir, current
 			}
 			fullPath := filepath.Join(baseDir, info.Full.FileName)
 			log("extract full:", fullPath)
-			if err := extractNupkgLibNet45(fullPath, root); err != nil {
+			if err := extractNupkgLibNet45WithProgress(fullPath, root, progress); err != nil {
 				return "", err
 			}
 		} else {
 			return "", fmt.Errorf("no package for version %s", info.Version)
 		}
+		progress(1)
 	}
-	setInstallProgress(28)
+	setInstallProgress(65)
 	return root, nil
 }
 
@@ -3395,12 +3549,17 @@ func readShasumFile(f *zip.File) (string, int64, error) {
 	return sha, size, nil
 }
 
-func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) error {
+func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string, report func(float64)) (resultErr error) {
+	started := time.Now()
+	defer func() {
+		log("delta total:", nupkgPath, "elapsed:", time.Since(started), "err:", resultErr)
+	}()
 	r, err := zip.OpenReader(nupkgPath)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
+	progress := newDeltaProgress(r.File, report)
 	filesByName := make(map[string]*zip.File)
 	for _, f := range r.File {
 		filesByName[f.Name] = f
@@ -3436,6 +3595,7 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 		if !strings.HasSuffix(strings.ToLower(rel), ".shasum") {
 			continue
 		}
+		progress.start(f.Name)
 		targetRel := strings.TrimSuffix(rel, ".shasum")
 
 		// Skip ExecutionStub files - they are generated by Squirrel installer and not part of NSIS package
@@ -3503,6 +3663,12 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 		}
 		tmpPath := oldPath + ".new"
 		applyPatch := func(pf *zip.File) error {
+			started := time.Now()
+			defer func() {
+				if elapsed := time.Since(started); elapsed >= 500*time.Millisecond {
+					log("delta patch timing:", targetRel, "patch:", pf.Name, "patchBytes:", pf.UncompressedSize64, "outputBytes:", size, "elapsed:", elapsed)
+				}
+			}()
 			pr, err := pf.Open()
 			if err != nil {
 				return err
@@ -3518,7 +3684,7 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 			}
 			defer pr2.Close()
 			if isBsdiff {
-				return applyBsdiffFile(oldPath, tmpPath, pr2)
+				return applyBsdiffFile(oldPath, tmpPath, pr2, progress.update)
 			}
 			return applyMsDiffFile(oldPath, tmpPath, pr2)
 		}
@@ -3530,6 +3696,10 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 				applied = true
 				break
 			} else {
+				if errors.Is(err, errCanceled) {
+					_ = os.Remove(tmpPath)
+					return err
+				}
 				lastErr = err
 				_ = os.Remove(tmpPath)
 				if logged < logLimit {
@@ -3544,8 +3714,11 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 				if err == nil {
 					out, err2 := os.Create(tmpPath)
 					if err2 == nil {
-						_, err3 := io.Copy(out, cancelReader{r: rc})
-						_ = out.Close()
+						_, err3 := io.Copy(out, &progressReader{r: rc, total: size, report: func(fraction float64) { progress.update(0.85 * fraction) }})
+						closeErr := out.Close()
+						if err3 == nil {
+							err3 = closeErr
+						}
 						_ = rc.Close()
 						if err3 == nil {
 							applied = true
@@ -3565,6 +3738,10 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 					lastErr = err
 				}
 			}
+		}
+		if isCanceled() {
+			_ = os.Remove(tmpPath)
+			return errCanceled
 		}
 		if !applied {
 			_ = os.Remove(tmpPath)
@@ -3597,13 +3774,17 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 			os.Remove(tmpPath)
 			return err
 		}
+		verifyStarted := time.Now()
 		h := sha1.New()
-		if _, err := io.Copy(h, cancelReader{r: fNew}); err != nil {
+		if _, err := io.Copy(h, &progressReader{r: fNew, total: size, report: func(fraction float64) { progress.update(0.85 + 0.15*fraction) }}); err != nil {
 			fNew.Close()
 			os.Remove(tmpPath)
 			return err
 		}
 		fNew.Close()
+		if elapsed := time.Since(verifyStarted); elapsed >= 500*time.Millisecond {
+			log("delta verify timing:", targetRel, "outputBytes:", size, "elapsed:", elapsed)
+		}
 		gotSha := fmt.Sprintf("%x", h.Sum(nil))
 		if !strings.EqualFold(gotSha, sha) {
 			os.Remove(tmpPath)
@@ -3626,6 +3807,7 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 			return err
 		}
 		patchedCount++
+		progress.update(1)
 		if isCritical {
 			criticalPatched[base] = true
 		}
@@ -3646,6 +3828,7 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 		if strings.HasSuffix(lower, ".shasum") || strings.HasSuffix(lower, ".diff") || strings.HasSuffix(lower, ".bsdiff") {
 			continue
 		}
+		progress.start(f.Name)
 		key := filepath.ToSlash(rel)
 		keep[key] = true
 		targetPath := filepath.Join(root, rel)
@@ -3661,13 +3844,16 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 			rc.Close()
 			return err
 		}
-		if _, err := io.Copy(out, cancelReader{r: rc}); err != nil {
+		if _, err := io.Copy(out, &progressReader{r: rc, total: int64(f.UncompressedSize64), report: progress.update}); err != nil {
 			rc.Close()
 			out.Close()
 			return err
 		}
 		rc.Close()
-		out.Close()
+		if err := out.Close(); err != nil {
+			return err
+		}
+		progress.update(1)
 	}
 	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -3728,16 +3914,45 @@ func applyDeltaNupkg(log func(args ...interface{}), nupkgPath, root string) erro
 			return fmt.Errorf("%w: %s", errDeltaCriticalNotPatched, strings.Join(failed, "; "))
 		}
 	}
+	if report != nil {
+		report(1)
+	}
 	return nil
 }
 
-func applyBsdiffFile(oldPath, newPath string, patch io.Reader) error {
+func applyBsdiffFile(oldPath, newPath string, patch io.Reader, progress func(float64)) error {
 	patchData, err := io.ReadAll(cancelReader{r: patch})
 	if err != nil {
 		return err
 	}
 	if len(patchData) == 0 {
 		return binarydist.ErrCorrupt
+	}
+	var nativeErr error
+	if libbzip2Available() {
+		oldData, err := os.ReadFile(oldPath)
+		if err != nil {
+			return err
+		}
+		report := func(done, total int64) {
+			if progress != nil && total > 0 {
+				progress(0.1 + 0.7*float64(done)/float64(total))
+			}
+		}
+		newData, err := bspatchLibBzip2WithProgress(oldData, patchData, report)
+		if errors.Is(err, errCanceled) || isCanceled() {
+			return errCanceled
+		}
+		if err == nil {
+			if err := os.WriteFile(newPath, newData, 0644); err != nil {
+				return err
+			}
+			if progress != nil {
+				progress(0.85)
+			}
+			return nil
+		}
+		nativeErr = err
 	}
 
 	oldFile, err := os.Open(oldPath)
@@ -3750,38 +3965,24 @@ func applyBsdiffFile(oldPath, newPath string, patch io.Reader) error {
 	if err != nil {
 		return err
 	}
-	err = binarydist.Patch(oldFile, newFile, bytes.NewReader(patchData))
-	_ = newFile.Close()
+	// Keep the existing Go decoder for non-cgo builds and native failures.
+	err = binarydist.Patch(cancelReader{r: oldFile}, newFile, bytes.NewReader(patchData))
+	closeErr := newFile.Close()
+	if isCanceled() {
+		_ = os.Remove(newPath)
+		return errCanceled
+	}
 	if err == nil {
-		return nil
+		if progress != nil {
+			progress(0.85)
+		}
+		return closeErr
 	}
 	_ = os.Remove(newPath)
-
-	if !libbzip2Available() {
-		return err
+	if nativeErr != nil {
+		return fmt.Errorf("libbzip2 patch failed: %v; bsdiff patch failed: %w", nativeErr, err)
 	}
-
-	msg := strings.ToLower(err.Error())
-	isLikelyBzip2CompatIssue := strings.Contains(msg, "deprecated") ||
-		strings.Contains(msg, "random") ||
-		strings.Contains(msg, "corrupt patch") ||
-		errors.Is(err, binarydist.ErrCorrupt)
-	if !isLikelyBzip2CompatIssue {
-		return err
-	}
-
-	oldData, err2 := os.ReadFile(oldPath)
-	if err2 != nil {
-		return err
-	}
-	newData, err2 := bspatchLibBzip2(oldData, patchData)
-	if err2 != nil {
-		return fmt.Errorf("bsdiff patch failed: %v; libbzip2 patch failed: %v", err, err2)
-	}
-	if err2 := os.WriteFile(newPath, newData, 0644); err2 != nil {
-		return err2
-	}
-	return nil
+	return err
 }
 
 func applyMsDiffFile(oldPath, newPath string, patch io.Reader) error {
@@ -3864,6 +4065,10 @@ func applyMsDiffFile(oldPath, newPath string, patch io.Reader) error {
 }
 
 func extractNupkgLibNet45(nupkgPath, destRoot string) error {
+	return extractNupkgLibNet45WithProgress(nupkgPath, destRoot, nil)
+}
+
+func extractNupkgLibNet45WithProgress(nupkgPath, destRoot string, report func(float64)) error {
 	r, err := zip.OpenReader(nupkgPath)
 	if err != nil {
 		return err
@@ -3871,6 +4076,12 @@ func extractNupkgLibNet45(nupkgPath, destRoot string) error {
 	defer r.Close()
 
 	prefix := "lib/net45/"
+	var total, done uint64
+	for _, f := range r.File {
+		if strings.HasPrefix(f.Name, prefix) && !f.FileInfo().IsDir() {
+			total += f.UncompressedSize64
+		}
+	}
 	for _, f := range r.File {
 		if isCanceled() {
 			return errCanceled
@@ -3902,12 +4113,20 @@ func extractNupkgLibNet45(nupkgPath, destRoot string) error {
 			rc.Close()
 			return err
 		}
-		_, err = io.Copy(out, cancelReader{r: rc})
+		_, err = io.Copy(out, &progressReader{r: rc, total: int64(f.UncompressedSize64), report: func(fraction float64) {
+			if report != nil && total > 0 {
+				report((float64(done) + fraction*float64(f.UncompressedSize64)) / float64(total))
+			}
+		}})
 		rc.Close()
-		out.Close()
+		closeErr := out.Close()
 		if err != nil {
 			return err
 		}
+		if closeErr != nil {
+			return closeErr
+		}
+		done += f.UncompressedSize64
 	}
 	return nil
 }

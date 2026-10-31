@@ -1,10 +1,219 @@
 #include "FillPlanePath.hpp"
 
 #include "../ClipperUtils.hpp"
+#include "../AABBTreeLines.hpp"
 #include "../ShortestPath.hpp"
 #include "../Surface.hpp"
 
+#include <oneapi/tbb/blocked_range.h>
+#include <oneapi/tbb/parallel_for.h>
+
+#include <boost/log/trivial.hpp>
+#include <numeric>
+#include <unordered_map>
+
 namespace Slic3r {
+
+void Hilbert::filter_corner_gaps(ExPolygons &areas, const ExPolygons &boundary, double bead_width,
+                                  const std::function<void()> &throw_if_canceled)
+{
+    const auto check_cancel = [&] { if (throw_if_canceled) throw_if_canceled(); };
+    check_cancel();
+    if (areas.empty() || boundary.empty() || bead_width <= 0.)
+        return;
+    // Only discard small, compact, isolated interior triangles from
+    // Hilbert turns. These are conservative size heuristics, not a
+    // minimum printable width: all retained gaps use the original
+    // opening and medial-axis widths, including long thin gaps.
+    const double extent_limit = scaled<double>(0.5 * bead_width);
+    const double area_limit = 0.5 * extent_limit * extent_limit;
+    // Squared distances in scaled coordinates exceed the integer range.
+    const Linesf boundary_lines = to_linesf(boundary);
+    const auto boundary_tree = AABBTreeLines::build_aabb_tree_over_indexed_lines(boundary_lines);
+    if (boundary_tree.empty())
+        return;
+    const size_t original_count = areas.size();
+    size_t triangles = 0, compact = 0, protected_count = 0;
+    areas.erase(std::remove_if(areas.begin(), areas.end(),
+        [&](const ExPolygon &area) {
+            check_cancel();
+            if (!area.holes.empty() || area.contour.size() != 3)
+                return false;
+            ++triangles;
+            const BoundingBox box = get_extents(area);
+            const Vec2d size = box.size().cast<double>();
+            // Use the triangle diameter, not axis-aligned side lengths:
+            // the same turn residual must qualify at 0, 45 and 90 degrees.
+            const Points &points = area.contour.points;
+            for (size_t i = 0; i < 3; ++i)
+                if ((points[i].cast<double>() - points[(i + 1) % 3].cast<double>()).squaredNorm() >=
+                    2. * extent_limit * extent_limit)
+                    return false;
+            const double area_size = area.area();
+            if (area_size <= 0. || area_size >= area_limit)
+                return false;
+            // Reject slivers even when rotated into a nearly square
+            // bounding box. A square has perimeter^2 / area = 16.
+            const double perimeter = area.contour.length();
+            if (perimeter * perimeter > 24. * area_size)
+                return false;
+            ++compact;
+            // Keep the entire residual at least half a bead away from
+            // every infill boundary, including hole edges. The box's
+            // circumscribed circle bounds every point of the residual.
+            const double protected_radius = 0.5 * size.norm() + extent_limit + SCALED_EPSILON;
+            size_t hit_index = size_t(-1);
+            Vec2d hit_point = Vec2d::Zero();
+            const Vec2d center = box.center().cast<double>();
+            AABBTreeLines::squared_distance_to_indexed_lines(
+                boundary_lines, boundary_tree, center, hit_index, hit_point,
+                protected_radius * protected_radius);
+            protected_count += hit_index != size_t(-1);
+            return hit_index == size_t(-1);
+        }), areas.end());
+    BOOST_LOG_TRIVIAL(debug) << "Hilbert corner gap filtering: before=" << original_count
+        << " triangles=" << triangles << " compact=" << compact
+        << " protected=" << protected_count << " after=" << areas.size()
+        << " bead_width=" << bead_width;
+}
+
+Polylines Hilbert::clip(const Polyline &polyline, const ExPolygon &boundary, size_t block_size,
+                       const std::function<void()> &throw_if_canceled)
+{
+    const auto check_cancel = [&] { if (throw_if_canceled) throw_if_canceled(); };
+    const auto serial_clip = [&] {
+        check_cancel();
+        Polylines result = intersection_pl(polyline, boundary);
+        check_cancel();
+        return result;
+    };
+    check_cancel();
+    const size_t segment_count = polyline.size() > 1 ? polyline.size() - 1 : 0;
+    // Bound duplicated boundary storage even when many layers run concurrently.
+    // Use the same partition with one worker and many workers.
+    const size_t block_count = std::min(size_t(16), segment_count / std::max(size_t(1), block_size));
+    if (block_count < 2)
+        return serial_clip();
+
+    std::vector<size_t> cuts{0};
+    std::vector<bool> inside;
+    for (size_t block = 1; block < block_count; ++block) {
+        const size_t target = segment_count * block / block_count;
+        // Do not split a collinear run (Clipper may remove that vertex), or a
+        // boundary contact whose inclusion depends on the adjacent segments.
+        size_t cut = target;
+        for (; cut < std::min(target + 64, segment_count); ++cut) {
+            const Point &a = polyline.points[cut - 1];
+            const Point &p = polyline.points[cut];
+            const Point &b = polyline.points[cut + 1];
+            if ((a.x() == p.x() && p.x() == b.x()) || (a.y() == p.y() && p.y() == b.y()))
+                continue;
+            if (!boundary.on_boundary(p, SCALED_EPSILON))
+                break;
+        }
+        if (cut >= std::min(target + 64, segment_count) || cut <= cuts.back())
+            return serial_clip();
+        cuts.push_back(cut);
+        inside.push_back(boundary.contains(polyline.points[cut], false));
+    }
+    cuts.push_back(segment_count);
+
+    std::vector<Polylines> blocks(block_count);
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, block_count, 1),
+        [&](const tbb::blocked_range<size_t> &range) {
+            for (size_t block = range.begin(); block < range.end(); ++block) {
+                check_cancel();
+                Polyline part;
+                // Share the endpoint only; every input edge belongs to one block.
+                part.points.assign(polyline.points.begin() + cuts[block],
+                                   polyline.points.begin() + cuts[block + 1] + 1);
+                blocks[block] = intersection_pl(part, boundary);
+                check_cancel();
+            }
+        });
+
+    // Record only artificial cuts. Natural boundary contacts must never be
+    // joined merely because their rounded coordinates coincide.
+    std::unordered_map<Point, size_t, PointHash> cut_indices;
+    for (size_t i = 0; i < inside.size(); ++i)
+        if (inside[i])
+            cut_indices.emplace(polyline.points[cuts[i + 1]], i);
+    const size_t invalid = size_t(-1);
+    std::vector<std::pair<size_t, size_t>> joins(inside.size(), {invalid, invalid});
+    size_t path_count = 0;
+    for (const Polylines &block : blocks)
+        path_count += block.size();
+    Polylines paths;
+    paths.reserve(path_count);
+    for (size_t block = 0; block < block_count; ++block) {
+        check_cancel();
+        for (Polyline &path : blocks[block]) {
+            if (path.size() < 2)
+                continue;
+            for (const Point *end : {&path.first_point(), &path.last_point()}) {
+                const auto it = cut_indices.find(*end);
+                if (it != cut_indices.end()) {
+                    const size_t cut = it->second;
+                    if (block != cut && block != cut + 1)
+                        return serial_clip();
+                    size_t &index = block == cut ? joins[cut].first : joins[cut].second;
+                    if (index != invalid)
+                        return serial_clip();
+                    index = paths.size();
+                }
+            }
+            paths.emplace_back();
+            paths.back().points = std::move(path.points);
+        }
+    }
+
+    std::vector<size_t> parent(paths.size());
+    std::iota(parent.begin(), parent.end(), size_t(0));
+    auto root = [&parent](size_t index) {
+        while (parent[index] != index)
+            index = parent[index];
+        return index;
+    };
+    for (size_t cut = 0; cut < inside.size(); ++cut) {
+        if (!inside[cut])
+            continue;
+        if (joins[cut].first == invalid || joins[cut].second == invalid)
+            return serial_clip();
+        const size_t left = root(joins[cut].first);
+        const size_t right = root(joins[cut].second);
+        if (left == right)
+            return serial_clip();
+        Points &a = paths[left].points;
+        Points &b = paths[right].points;
+        const Point &p = polyline.points[cuts[cut + 1]];
+        if (a.front() == p)
+            std::reverse(a.begin(), a.end());
+        if (b.back() == p)
+            std::reverse(b.begin(), b.end());
+        if (a.back() != p || b.front() != p)
+            return serial_clip();
+        a.insert(a.end(), b.begin() + 1, b.end());
+        b.clear();
+        parent[right] = left;
+    }
+
+    // Clipper does not preserve path orientation or input order. Canonicalize
+    // before greedy chaining so task completion order cannot affect toolpaths.
+    auto point_less = [](const Point &a, const Point &b) {
+        return a.x() < b.x() || (a.x() == b.x() && a.y() < b.y());
+    };
+    paths.erase(std::remove_if(paths.begin(), paths.end(),
+        [](const Polyline &path) { return path.empty(); }), paths.end());
+    for (Polyline &path : paths)
+        if (point_less(path.last_point(), path.first_point()))
+            std::reverse(path.points.begin(), path.points.end());
+    std::sort(paths.begin(), paths.end(), [&](const Polyline &a, const Polyline &b) {
+        return std::lexicographical_compare(a.points.begin(), a.points.end(),
+                                           b.points.begin(), b.points.end(), point_less);
+    });
+    check_cancel();
+    return paths;
+}
 
 class InfillPolylineClipper : public InfillPolylineOutput {
 public:
@@ -118,12 +327,26 @@ void FillPlanePath::_fill_surface_single(
     }
 
     if (polyline.size() >= 2) {
-        Polylines polylines = intersection_pl(polyline, expolygon);
+        const auto *hilbert = dynamic_cast<const FillHilbertCurve *>(this);
+        // Sparse patterns use the stateful bounding-box preclipper. Limit block
+        // clipping to dense Hilbert paths, whose grid vertices remain unique.
+        Polylines polylines = hilbert && !align ?
+            Hilbert::clip(polyline, expolygon, 65536, hilbert->cancel_callback()) : intersection_pl(polyline, expolygon);
+        if (hilbert)
+            hilbert->throw_if_canceled();
         Polylines chained;
-        if (params.dont_connect() || params.density > 0.5 || polylines.size() <= 1)
-            chained = chain_polylines(std::move(polylines));
-        else
+        if (params.dont_connect() || params.density > 0.5 || polylines.size() <= 1) {
+            // Holes can split Hilbert infill into thousands of pieces. Keep the
+            // greedy order without the quadratic two-exchange refinement.
+            // The legacy refinement builds a local result without writing it
+            // back. Keep only the effective greedy ordering.
+            chained = hilbert ?
+                chain_polylines_greedy(std::move(polylines)) :
+                chain_polylines(std::move(polylines));
+        } else
             connect_infill(std::move(polylines), expolygon, chained, this->spacing, params);
+        if (hilbert)
+            hilbert->throw_if_canceled();
         // paths must be repositioned and rotated back
         for (Polyline &pl : chained) {
             pl.translate(shift.x(), shift.y());
@@ -210,7 +433,8 @@ static inline Point hilbert_n_to_xy(const size_t n)
 }
 
 template<typename Output>
-static void generate_hilbert_curve(coord_t min_x, coord_t min_y, coord_t max_x, coord_t max_y, Output &output)
+static void generate_hilbert_curve(coord_t min_x, coord_t min_y, coord_t max_x, coord_t max_y, Output &output,
+                                   const std::function<void()> &throw_if_canceled)
 {
     // Minimum power of two square to fit the domain.
     size_t sz = 2;
@@ -226,6 +450,8 @@ static void generate_hilbert_curve(coord_t min_x, coord_t min_y, coord_t max_x, 
     size_t sz2 = sz * sz;
     output.reserve(sz2);
     for (size_t i = 0; i < sz2; ++ i) {
+        if ((i & 4095) == 0 && throw_if_canceled)
+            throw_if_canceled();
         Point p = hilbert_n_to_xy(i);
         output.add_point({ p.x() + min_x, p.y() + min_y });
     }
@@ -234,9 +460,9 @@ static void generate_hilbert_curve(coord_t min_x, coord_t min_y, coord_t max_x, 
 void FillHilbertCurve::generate(coord_t min_x, coord_t min_y, coord_t max_x, coord_t max_y, const double /* resolution */, InfillPolylineOutput &output)
 {
     if (output.clips())
-        generate_hilbert_curve(min_x, min_y, max_x, max_y, static_cast<InfillPolylineClipper&>(output));
+        generate_hilbert_curve(min_x, min_y, max_x, max_y, static_cast<InfillPolylineClipper&>(output), m_cancel_callback);
     else
-        generate_hilbert_curve(min_x, min_y, max_x, max_y, output);
+        generate_hilbert_curve(min_x, min_y, max_x, max_y, output, m_cancel_callback);
 }
 
 template<typename Output>
