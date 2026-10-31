@@ -6,7 +6,9 @@
 #include "PathologicalSegmentProbe.hpp"
 
 #include <string>
+#include <string_view>
 #include <functional>
+#include <utility>
 #include <vector>
 
 namespace Slic3r {
@@ -47,11 +49,15 @@ public:
     std::string process_layer(std::string&& gcode);
     std::string process_gcode(std::string&& gcode, bool flush);
     bool        process_file(const std::string& path);
+    // Called after an unchanged source line is emitted, and once at EOF.
+    // Consumers may append metadata using the final output byte positions.
+    using OutputCallback = std::function<void(std::string_view, std::string&, bool)>;
+    void set_output_callback(OutputCallback callback) { m_output_callback = std::move(callback); }
 
 private:
     struct State;
 
-    static std::string apply(
+    std::string apply(
         std::string&& gcode, const Config& cfg, GCodeFlavor flavor,
         State& state, const std::function<void()>& cancel,
         bool compact_streaming,
@@ -66,6 +72,7 @@ private:
     std::shared_ptr<PathologicalLineAnalysis> m_prescan;
     KlipperSim::SimConfig m_sim_config;
     std::function<void(int, const std::string&)> m_status_callback;
+    OutputCallback m_output_callback;
     std::unique_ptr<State>  m_state;
 };
 

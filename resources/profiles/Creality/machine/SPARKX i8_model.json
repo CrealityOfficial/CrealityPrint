@@ -1,0 +1,13 @@
+{
+    "type": "machine_model",
+    "name": "SPARKX i8",
+    "nozzle_diameter": "0.4",
+    "bed_model": "Creality F022_buildplate_model.stl",
+    "default_bed_type": "Cool Plate",
+    "bed_texture": "",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "SPARKX_i8",
+    "default_materials": "Generic PETG;Generic PLA;Hyper PETG;CR-PLA Matte;CR-PETG;CR-Silk;Hyper PLA"
+}

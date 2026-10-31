@@ -1041,7 +1041,7 @@ private:
     // BBS: add project slice related functions
     int start_next_slice();
 
-    void _calib_pa_pattern(const Calib_Params& params);
+    bool _calib_pa_pattern(const Calib_Params& params);
     void _calib_pa_tower(const Calib_Params& params);
     void _calib_pa_select_added_objects();
 

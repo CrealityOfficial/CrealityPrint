@@ -496,28 +496,28 @@ bool PresetBundle::use_bbl_device_tab() {
 }
 
 //BBS: load project embedded presets
-static void migrate_project_printer_references(PresetBundle &bundle, DynamicPrintConfig &config)
+void PresetBundle::migrate_preset_references(DynamicPrintConfig &config) const
 {
     if (auto *model = config.option<ConfigOptionString>("printer_model")) {
         if (model->value == "Creality F039" &&
-            bundle.printers.canonical_preset_name("Creality F039 0.4 nozzle") == "Creality K3")
+            printers.canonical_preset_name("Creality F039 0.4 nozzle") == "Creality K3")
             model->value = "Creality K3";
     }
     for (const char *key : {"compatible_printers", "print_compatible_printers"})
         if (auto *names = config.option<ConfigOptionStrings>(key))
             for (std::string &name : names->values)
-                name = bundle.printers.canonical_preset_name(name);
+                name = printers.canonical_preset_name(name);
     if (auto *name = config.option<ConfigOptionString>("default_print_profile"))
-        name->value = bundle.prints.canonical_preset_name(name->value);
+        name->value = prints.canonical_preset_name(name->value);
     if (auto *names = config.option<ConfigOptionStrings>("default_filament_profile"))
         for (std::string &name : names->values)
-            name = bundle.filaments.canonical_preset_name(name);
+            name = filaments.canonical_preset_name(name);
 }
 
 PresetsConfigSubstitutions PresetBundle::load_project_embedded_presets(std::vector<Preset*> project_presets, ForwardCompatibilitySubstitutionRule substitution_rule)
 {
     for (Preset *preset : project_presets)
-        migrate_project_printer_references(*this, preset->config);
+        migrate_preset_references(preset->config);
     // First load the vendor specific system presets.
     PresetsConfigSubstitutions substitutions;
     std::string errors_cummulative;
@@ -654,9 +654,9 @@ std::string PresetBundle::get_texture_for_printer_model(std::string model_name)
         }
     }
 
-    // Override for Creality: F022 uses smooth_F022.png, others use smooth.png
+    // Override for Creality: SPARKX i7 and SPARKX i8 share the F022 bed, others use smooth.png.
     if (!vendor_name.empty() && vendor_name == "Creality") {
-        if (model_name == "SPARKX i7")
+        if (model_name == "SPARKX i7" || model_name == "SPARKX i8")
             texture_name = "smooth_F022.png";
         else
             texture_name = "smooth.png";
@@ -3338,9 +3338,9 @@ std::vector<bool> PresetBundle::get_print_preset_nozzle_compatibility(const Pres
     return compatible;
 }
 
-bool PresetBundle::is_print_preset_compatible_with_nozzle_variants(const Preset &preset) const
+bool PresetBundle::is_print_preset_compatible_with_nozzle_variants(const Preset &preset, bool hard_limits) const
 {
-    const std::vector<bool> compatible = this->get_print_preset_nozzle_compatibility(preset);
+    const std::vector<bool> compatible = this->get_print_preset_nozzle_compatibility(preset, hard_limits);
     return std::any_of(compatible.begin(), compatible.end(), [](bool value) { return value; });
 }
 
@@ -3948,7 +3948,7 @@ void PresetBundle::load_config_file_config(const std::string &name_or_path, bool
         BOOST_LOG_TRIVIAL(warning) << "[BUG18126][input] inherits_group=" << k3_trace_value(config, "inherits_group")
             << ", different_settings_to_system=" << k3_trace_value(config, "different_settings_to_system");
     if (is_external)
-        migrate_project_printer_references(*this, config);
+        migrate_preset_references(config);
     PrinterTechnology printer_technology = Preset::printer_technology(config);
 
     auto clear_compatible_printers = [](DynamicPrintConfig& config){
@@ -4146,12 +4146,11 @@ void PresetBundle::load_config_file_config(const std::string &name_or_path, bool
             }
             // Load the configs into this->filaments and make them active.
             this->filament_presets = std::vector<std::string>(configs.size());
-            // To avoid incorrect selection of the first filament preset (means a value of Preset->m_idx_selected)
-            // in a case when next added preset take a place of previosly selected preset,
-            // we should add presets from last to first
-            bool any_modified = false;
-            //BBS: add config related logs
-            BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": load multiple filament preset from filament_settings_id");
+            std::vector<std::set<std::string>> filament_different_keys(configs.size());
+            std::vector<size_t> equivalent_filament(configs.size());
+            for (size_t i = 0; i < equivalent_filament.size(); ++i)
+                equivalent_filament[i] = i;
+
             auto getInheritsValue = [this, &print_compatible_printers](const std::string& inherits_value) -> std::string {
                 size_t pos = inherits_value.find("@");
                 if (pos == std::string::npos) {
@@ -4166,31 +4165,58 @@ void PresetBundle::load_config_file_config(const std::string &name_or_path, bool
                 }
                 return "";
             };
-            for (int i = (int)configs.size()-1; i >= 0; i--) {
+
+            // Prepare every split config before looking for duplicates. Project slot colours are
+            // intentionally not part of filament preset identity: two slots may use the same
+            // tuned preset while retaining different colours in project_config.
+            for (size_t i = 0; i < configs.size(); ++i) {
                 DynamicPrintConfig &cfg = configs[i];
-                // Split the "compatible_printers_condition" and "inherits" from the cummulative vectors to separate filament presets.
                 cfg.opt_string("compatible_printers_condition", true) = compatible_printers_condition_values[i + 1];
-                cfg.opt_string("compatible_prints_condition",   true) = compatible_prints_condition_values[i];
-                cfg.opt_string("inherits", true) = getInheritsValue(inherits_values[i + 1]); //""; // inherits_values[i + 1];
+                cfg.opt_string("compatible_prints_condition", true) = compatible_prints_condition_values[i];
+                cfg.opt_string("inherits", true) = getInheritsValue(inherits_values[i + 1]);
 
-                //BBS: add different settings logic
-                std::vector<std::string> filament_different_keys_vector;
-                std::string filament_different_settings = different_values[i+1];
-                Slic3r::unescape_strings_cstyle(filament_different_settings, filament_different_keys_vector);
-                std::set<std::string> filament_different_keys_set(filament_different_keys_vector.begin(), filament_different_keys_vector.end());
-                //if (!has_different_settings_to_system) {
-                //    filament_different_keys_set.clear();
-                //}
-                //else
-                    filament_different_keys_set.insert(ignore_settings_list.begin(), ignore_settings_list.end());
+                std::vector<std::string> different_keys;
+                Slic3r::unescape_strings_cstyle(different_values[i + 1], different_keys);
+                filament_different_keys[i].insert(different_keys.begin(), different_keys.end());
+                filament_different_keys[i].insert(ignore_settings_list.begin(), ignore_settings_list.end());
+            }
 
+            auto same_filament_preset = [](const DynamicPrintConfig &lhs, const DynamicPrintConfig &rhs) {
+                t_config_option_keys diff = lhs.diff(rhs);
+                for (const char *key : {"filament_colour", "filament_multi_colour",
+                                        "filament_colour_type", "default_filament_colour",
+                                        "filament_settings_id"})
+                    diff.erase(std::remove(diff.begin(), diff.end(), key), diff.end());
+                return diff.empty();
+            };
+            for (size_t i = 0; i < configs.size(); ++i) {
+                for (size_t j = 0; j < i; ++j) {
+                    if (old_filament_profile_names->values[i] != old_filament_profile_names->values[j] ||
+                        filament_ids[i] != filament_ids[j] ||
+                        filament_different_keys[i] != filament_different_keys[j] ||
+                        !same_filament_preset(configs[i], configs[j]))
+                        continue;
+                    equivalent_filament[i] = equivalent_filament[j];
+                    break;
+                }
+            }
+            // To avoid incorrect selection of the first filament preset (means a value of Preset->m_idx_selected)
+            // in a case when next added preset take a place of previosly selected preset,
+            // we should add presets from last to first
+            bool any_modified = false;
+            //BBS: add config related logs
+            BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": load multiple filament preset from filament_settings_id");
+            for (int i = (int)configs.size()-1; i >= 0; i--) {
+                if (equivalent_filament[i] != size_t(i))
+                    continue;
+                DynamicPrintConfig &cfg = configs[i];
                 std::string filament_id = filament_ids[i];
 
                 // Load all filament presets, but only select the first one in the preset dialog.
                 auto [loaded, modified] = this->filaments.load_external_preset(name_or_path, name,
                     (i < int(old_filament_profile_names->values.size())) ? old_filament_profile_names->values[i] : "",
                     std::move(cfg),
-                    filament_different_keys_set,
+                    filament_different_keys[i],
                     i == 0 ?
                         PresetCollection::LoadAndSelect::Always :
                     any_modified ?
@@ -4199,7 +4225,9 @@ void PresetBundle::load_config_file_config(const std::string &name_or_path, bool
                     file_version,
                     filament_id);
                 any_modified |= modified;
-                this->filament_presets[i] = loaded->name;
+                for (size_t slot = 0; slot < equivalent_filament.size(); ++slot)
+                    if (equivalent_filament[slot] == size_t(i))
+                        this->filament_presets[slot] = loaded->name;
             }
         }
 

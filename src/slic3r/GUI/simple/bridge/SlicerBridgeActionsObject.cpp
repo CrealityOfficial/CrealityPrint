@@ -18,6 +18,7 @@
 #include "libslic3r/CutUtils.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/QuadricEdgeCollapse.hpp"
+#include "libslic3r/Format/bbs_3mf.hpp"
 #include "slic3r/GUI/Selection.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
 #include "slic3r/GUI/GLCanvas3D.hpp"
@@ -25,10 +26,15 @@
 #include "slic3r/GUI/print_manage/data/DataCenter.hpp"
 #include "slic3r/Utils/Http.hpp"
 
+#include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
+#include <openssl/sha.h>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <ctime>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <random>
 #include <sstream>
@@ -40,6 +46,55 @@ using json = nlohmann::json;
 namespace Slic3r {
 namespace GUI {
 namespace Bridge {
+
+namespace {
+
+constexpr long long kMaxGeneratedModelBytes = 25LL * 1024LL * 1024LL;
+
+std::string lowercase_ascii(std::string value)
+{
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
+}
+
+bool is_allowed_generated_model_url(const std::string& url)
+{
+    const std::string lower = lowercase_ascii(url);
+    if (lower.rfind("https://", 0) == 0)
+        return true;
+    const auto is_exact_http_host = [&lower](const std::string& prefix) {
+        if (lower.rfind(prefix, 0) != 0)
+            return false;
+        if (lower.size() == prefix.size())
+            return true;
+        const char delimiter = lower[prefix.size()];
+        return delimiter == ':' || delimiter == '/';
+    };
+    return is_exact_http_host("http://127.0.0.1") ||
+           is_exact_http_host("http://localhost") ||
+           is_exact_http_host("http://[::1]");
+}
+
+bool is_sha256_hex(const std::string& value)
+{
+    return value.size() == SHA256_DIGEST_LENGTH * 2 &&
+           std::all_of(value.begin(), value.end(), [](unsigned char ch) { return std::isxdigit(ch) != 0; });
+}
+
+std::string sha256_hex(const std::string& content)
+{
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    SHA256(reinterpret_cast<const unsigned char*>(content.data()), content.size(), digest);
+    std::ostringstream stream;
+    stream << std::hex << std::setfill('0');
+    for (unsigned char byte : digest)
+        stream << std::setw(2) << static_cast<unsigned int>(byte);
+    return stream.str();
+}
+
+} // namespace
 
 json SlicerBridge::DoSetObjectColor(const json& params)
 {
@@ -399,6 +454,106 @@ json SlicerBridge::DoImportModel(const json& params)
     paths.Add(from_u8(path));
     plater->load_files(paths);
     return {{"success", true}, {"message", "Model imported"}, {"path", path}};
+}
+
+json SlicerBridge::DoImportGeneratedModel(const json& params)
+{
+    const std::string download_url = params.value("download_url", "");
+    const std::string expected_sha256 = lowercase_ascii(params.value("sha256", ""));
+    const long long expected_size = params.value("size_bytes", 0LL);
+    const long long expires = params.value("expires", 0LL);
+
+    if (!is_allowed_generated_model_url(download_url))
+        return {{"success", false}, {"message", "Generated model URL must use HTTPS"}};
+    if (!is_sha256_hex(expected_sha256))
+        return {{"success", false}, {"message", "Generated model SHA-256 is invalid"}};
+    if (expected_size <= 0 || expected_size > kMaxGeneratedModelBytes)
+        return {{"success", false}, {"message", "Generated model size is invalid"}};
+    if (expires > 0 && static_cast<long long>(std::time(nullptr)) >= expires)
+        return {{"success", false}, {"message", "Generated model download URL has expired"}};
+
+    std::string body;
+    std::string download_error;
+    Http::get(download_url)
+        .timeout_connect(15)
+        .timeout_max(180)
+        .size_limit(static_cast<size_t>(kMaxGeneratedModelBytes))
+        .on_error([&](std::string, std::string error, unsigned http_status) {
+            download_error = error.empty() ? "HTTP " + std::to_string(http_status) : std::move(error);
+        })
+        .on_complete([&](std::string content, unsigned) { body = std::move(content); })
+        .perform_sync();
+
+    if (!download_error.empty() || body.empty())
+        return {{"success", false}, {"message", "Generated model download failed"}, {"details", download_error}};
+    if (static_cast<long long>(body.size()) != expected_size)
+        return {{"success", false}, {"message", "Generated model size verification failed"}};
+    const std::string actual_sha256 = sha256_hex(body);
+    if (actual_sha256 != expected_sha256)
+        return {{"success", false}, {"message", "Generated model integrity verification failed"}};
+
+    boost::filesystem::path target_dir = boost::filesystem::temp_directory_path() / "creality-print-ai-models";
+    boost::filesystem::path target_path;
+    try {
+        boost::filesystem::create_directories(target_dir);
+        target_path = target_dir / boost::filesystem::unique_path("generated-%%%%%%%%-%%%%%%%%.3mf");
+        std::ofstream output(target_path.string(), std::ios::binary | std::ios::trunc);
+        if (!output)
+            return {{"success", false}, {"message", "Cannot create temporary generated model file"}};
+        output.write(body.data(), static_cast<std::streamsize>(body.size()));
+        output.close();
+        if (!output)
+            return {{"success", false}, {"message", "Cannot write temporary generated model file"}};
+    } catch (const std::exception& exc) {
+        return {{"success", false}, {"message", "Cannot store generated model file"}, {"details", exc.what()}};
+    }
+
+    if (!bbs_is_creality_3mf(target_path.string().c_str())) {
+        boost::system::error_code error;
+        boost::filesystem::remove(target_path, error);
+        return {{"success", false}, {"message", "Generated 3MF is not a native Creality Print project"}};
+    }
+
+    auto* plater = wxGetApp().plater();
+    if (!plater) {
+        boost::system::error_code error;
+        boost::filesystem::remove(target_path, error);
+        return {{"success", false}, {"message", "Plater not available"}};
+    }
+
+    // Keep generated Creality 3MF behavior aligned with the model-library
+    // one-click import path: open it as a project instead of appending its
+    // objects to the project that is already on the plate.
+    plater->load_project(target_path.wstring());
+    if (plater->get_project_filename(".3mf") != wxString(target_path.wstring())) {
+        boost::system::error_code error;
+        boost::filesystem::remove(target_path, error);
+        return {
+            {"success", false},
+            {"message", "Generated project was not opened (cancelled or load failed)"},
+            {"path", target_path.string()}
+        };
+    }
+
+    std::vector<size_t> object_indices;
+    object_indices.reserve(plater->model().objects.size());
+    for (size_t index = 0; index < plater->model().objects.size(); ++index)
+        object_indices.push_back(index);
+
+    json imported = {
+        {"success", true},
+        {"message", "Generated project imported"},
+        {"path", target_path.string()},
+        {"object_indices", object_indices}
+    };
+    imported["generated"] = true;
+    imported["sha256"] = actual_sha256;
+    imported["size_bytes"] = expected_size;
+    imported["file_name"] = params.value("file_name", std::string("ai-generated-model.3mf"));
+    // load_project records this path as the current project file, matching the
+    // model-library flow. Keep it until the project is closed or saved elsewhere.
+    imported["temporary_file_removed"] = false;
+    return imported;
 }
 
 

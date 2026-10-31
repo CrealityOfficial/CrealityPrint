@@ -4,6 +4,7 @@
 #include "FilamentChangeTopology.hpp"
 
 #include <cmath>
+#include <limits>
 #include <string>
 #include <sstream>
 #include <utility>
@@ -48,8 +49,10 @@ public:
 
 	struct ToolChangeResult
 	{
-        float m_wipe_max_y;
-		float m_wipe_max_x;
+        float m_wipe_max_y = std::numeric_limits<float>::lowest();
+		float m_wipe_max_x = std::numeric_limits<float>::lowest();
+        // Usable rear-wall segments, in tower coordinates, including the legacy 0.1 mm offset.
+        std::vector<std::pair<Vec2f, Vec2f>> outer_wall_wipe_segments;
 		// Print heigh of this tool change.
 		float					print_z;
 		float 					layer_height;
@@ -71,6 +74,7 @@ public:
         bool                    priming;
 
 		bool  is_tool_change{false};
+        bool  extra_interlayer_wipe{false};
         Vec2f tool_change_start_pos;
         bool  wipe_tower_inner_wall_box_valid{false};
         Vec2f wipe_tower_inner_wall_box[4];

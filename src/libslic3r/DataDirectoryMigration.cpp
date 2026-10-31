@@ -192,13 +192,45 @@ bool valid_config(const Json& j)
     return j.is_object() && j.contains("app") && j["app"].is_object() &&
         j["app"].contains("version") && j["app"]["version"].is_string();
 }
+const std::set<std::string> fallback_root_files{"Creality.conf", "deviceInfo.json", "user_info.json"};
 bool runtime_only(const fs::path& target)
 {
     if (!fs::exists(target)) return true;
     check_path(target);
+    const auto fallback_file = target / "migration" / "user-fallback.json";
+    const bool fallback = fs::exists(fallback_file);
+    Json root_inventory = Json::object();
+    if (fallback) {
+        // Retry only while the preserved files have not been changed by the user.
+        check_path(target / "migration"); check_path(fallback_file);
+        const auto fallback_report = parse(fallback_file);
+        if (!fallback_report.value("retryable", false)) return false;
+        const auto inventory = fallback_report.at("files");
+        const auto preserved = files(target / "user");
+        if (inventory.size() != preserved.size()) return false;
+        for (const auto& p : preserved) {
+            const auto relative = p.lexically_relative(target / "user").u8string();
+            if (!inventory.contains(relative) || inventory.at(relative) != digest(read(p))) return false;
+        }
+        root_inventory = fallback_report.value("root_files", Json::object());
+        if (!root_inventory.is_object()) return false;
+        for (auto it = root_inventory.begin(); it != root_inventory.end(); ++it) {
+            if (!fallback_root_files.count(it.key())) return false;
+            const auto p = target / fs::u8path(it.key());
+            check_path(p);
+            if (!fs::is_regular_file(p) || it.value() != digest(read(p))) return false;
+        }
+        for (const auto& e : fs::directory_iterator(target / "migration")) {
+            check_path(e.path());
+            const auto n = e.path().filename().u8string();
+            if (n != "user-fallback.json" && n != "preserve-user-presets") return false;
+        }
+    }
     for (const auto& e : fs::directory_iterator(target)) {
         const auto n = e.path().filename().u8string();
         check_path(e.path());
+        if (fallback && (n == "user" || n == "migration")) continue;
+        if (fallback && root_inventory.contains(n)) continue;
         if (n != "log" && n != "cache" && n != "applock.data") return false;
     }
     return true;
@@ -214,6 +246,122 @@ void copy_tree(const fs::path& from, const fs::path& to)
     if (!fs::is_directory(from)) throw Error("Missing bundled resources: " + from.u8string());
     fs::create_directories(to);
     for (const auto& p : files(from)) copy_checked(p, to / p.lexically_relative(from));
+}
+void rename_with_retry(const fs::path& from, const fs::path& to)
+{
+    for (int attempt = 0; ; ++attempt) {
+        std::error_code error;
+        fs::rename(from, to, error);
+        if (!error) return;
+#ifdef _WIN32
+        // Antivirus/indexing can briefly hold a directory during the commit.
+        const bool temporarily_busy = error.value() == ERROR_ACCESS_DENIED ||
+            error.value() == ERROR_SHARING_VIOLATION || error.value() == ERROR_LOCK_VIOLATION;
+        if (temporarily_busy && attempt < 20) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
+#endif
+        throw fs::filesystem_error("Cannot rename migration directory", from, to, error);
+    }
+}
+void preserve_user_directory(const Options& o, fs::path source)
+{
+    const auto target = fs::absolute(o.target).lexically_normal();
+    const std::string suffix = o.alpha ? " Alpha" : "";
+    if (o.data_version != "7.3" || target.filename().u8string() != o.data_version + suffix) return;
+    const auto parent = target.parent_path();
+    check_path(parent); check_path(target);
+    fs::create_directories(parent);
+    Lock lock(parent / fs::u8path(".migration-" + target.filename().u8string() + ".lock"));
+    // Called only after initialization fails. Even a broken target config or manifest
+    // must not prevent rescuing missing user files; existing destination files win.
+    bool retryable = false;
+    try { retryable = runtime_only(target); } catch (const std::exception&) {}
+    if (fs::exists(target / "migration" / "user-fallback.json") && !retryable) return;
+    if (source.empty()) {
+        for (const auto& version : {"7.0", "6.0"}) {
+            const auto candidate = parent / fs::u8path(std::string(version) + suffix);
+            check_path(candidate);
+            std::error_code probe_error;
+            bool has_data = fs::is_directory(candidate / "user", probe_error);
+            for (const auto& name : fallback_root_files)
+                has_data = has_data || fs::exists(candidate / fs::u8path(name), probe_error);
+            if (has_data) { source = candidate; break; }
+        }
+    }
+    if (source.empty()) return;
+    check_path(source);
+    check_path(target / "migration");
+    Json report = {{"state", "USER_PRESERVED_AFTER_FAILURE"}, {"source_directory", source.filename().u8string()},
+        {"files", Json::object()}, {"root_files", Json::object()},
+        {"errors", Json::array()}, {"retryable", retryable}};
+    // Failure to write diagnostics must not prevent copying to a writable user directory.
+    try { write(target / "migration" / "preserve-user-presets", "Do not rewrite migrated preset names or parameters.\n"); }
+    catch (const std::exception& error) {
+        report["errors"].push_back({{"file", "migration/preserve-user-presets"}, {"reason", error.what()}});
+    }
+    // Preserve root files even when user/ is absent or unreadable. Keep raw bytes;
+    // malformed JSON does not block preservation and existing target files win.
+    for (const auto& name : fallback_root_files) {
+        try {
+            const auto from = source / fs::u8path(name), to = target / fs::u8path(name);
+            check_path(from); check_path(to);
+            if (!fs::exists(from)) continue;
+            if (!fs::is_regular_file(from)) throw Error("Source is not a regular file");
+            if (fs::exists(to)) {
+                if (!fs::is_regular_file(to)) throw Error("Destination is not a regular file");
+            } else copy_checked(from, to);
+            report["root_files"][name] = digest(read(to));
+        } catch (const std::exception& error) {
+            report["errors"].push_back({{"file", name}, {"reason", error.what()}});
+        }
+    }
+    std::function<void(const fs::path&)> copy_directory;
+    copy_directory = [&](const fs::path& directory) {
+        std::error_code error;
+        fs::directory_iterator it(directory, error), end;
+        while (!error && it != end) {
+            const auto entry = *it;
+            const auto relative = entry.path().lexically_relative(source / "user");
+            const auto destination = target / "user" / relative;
+            try {
+                check_path(entry.path());
+                auto current = target / "user";
+                for (const auto& component : relative) { current /= component; check_path(current); }
+                if (entry.is_directory()) {
+                    fs::create_directories(destination);
+                    copy_directory(entry.path());
+                } else {
+                    if (!entry.is_regular_file()) throw Error("Unsupported user file type");
+                    // Copy every category, including caches and sync metadata, without overwriting.
+                    if (fs::exists(destination)) {
+                        if (!fs::is_regular_file(destination)) throw Error("Destination is not a regular file");
+                    } else copy_checked(entry.path(), destination);
+                    report["files"][relative.u8string()] = digest(read(destination));
+                }
+            } catch (const std::exception& error) {
+                report["errors"].push_back({{"file", relative.u8string()}, {"reason", error.what()}});
+            }
+            it.increment(error);
+        }
+        // An unreadable account directory must not block copying the other accounts.
+        if (error) report["errors"].push_back({{"file", directory.lexically_relative(source / "user").u8string()},
+            {"reason", error.message()}});
+    };
+    try {
+        check_path(source / "user"); check_path(target / "user");
+        if (fs::exists(source / "user")) {
+            if (!fs::is_directory(source / "user")) throw Error("Source user path is not a directory");
+            fs::create_directories(target / "user");
+            copy_directory(source / "user");
+        }
+    } catch (const std::exception& error) {
+        report["errors"].push_back({{"file", "user"}, {"reason", error.what()}});
+    }
+    write(target / "migration" / "user-fallback.json", report.dump(2));
+    if (!report["errors"].empty()) throw Error("Some user files could not be preserved; see " +
+        (target / "migration" / "user-fallback.json").u8string());
 }
 // Cleanup is best-effort after commit. Never recursively delete runtime data or a lock file.
 void cleanup_empty_runtime_backup(const fs::path& target, const Json& manifest) noexcept
@@ -341,7 +489,7 @@ bool preserves_user_presets(const fs::path& target)
 {
     return fs::exists(target / "migration" / "preserve-user-presets");
 }
-Result initialize(const Options& o)
+static Result initialize_impl(const Options& o, fs::path& fallback_source)
 {
     Result result;
     const auto target = fs::absolute(o.target).lexically_normal();
@@ -368,7 +516,10 @@ Result initialize(const Options& o)
             cleanup_empty_runtime_backup(target, manifest);
             return result; // Never re-import into a previously initialized target, even if config later breaks.
         }
-        if (fs::exists(target / "Creality.conf")) {
+        // An unchanged fallback config is not proof that initialization completed.
+        // Once preserved files change, apply the normal existing-target policy.
+        const bool retrying_fallback = fs::exists(target / "migration" / "user-fallback.json") && runtime_only(target);
+        if (fs::exists(target / "Creality.conf") && !retrying_fallback) {
             try { if (valid_config(parse(target / "Creality.conf", true))) return result; }
             catch (const Json::exception&) {}
             throw Error("Existing target configuration needs recovery; refusing to overwrite it");
@@ -399,6 +550,7 @@ Result initialize(const Options& o)
                     // provenance: pre-isolation 7.3 builds wrote 7.0, and 6.0 used 01.09.03.50.
                     // JSON structure and read-only native preset validation decide compatibility.
                     source = candidate; config_file = file;
+                    fallback_source = source;
                     result.source_version = j["app"]["version"].get<std::string>();
                     config = std::move(j); break;
                 } catch (const Json::exception& error) {
@@ -499,8 +651,8 @@ Result initialize(const Options& o)
         state("READY_TO_COMMIT");
         write(stage / "migration/manifest.json", manifest.dump(2));
         if (!runtime_only(target)) throw Error("Target changed before commit");
-        if (fs::exists(target)) fs::rename(target, parent / fs::u8path("." + target.filename().u8string() + ".runtime-backup-" + transaction));
-        fs::rename(stage, target);
+        if (fs::exists(target)) rename_with_retry(target, parent / fs::u8path("." + target.filename().u8string() + ".runtime-backup-" + transaction));
+        rename_with_retry(stage, target);
         // The manifest is already durable in the renamed directory. Recovery accepts READY_TO_COMMIT.
         state("COMMITTED");
         write(target / "migration/manifest.json", manifest.dump(2));
@@ -510,6 +662,23 @@ Result initialize(const Options& o)
     } catch (const std::exception& e) {
         try { write(diagnostics / "last-error.txt", e.what()); } catch (...) {}
         throw Error(e.what());
+    }
+}
+Result initialize(const Options& o)
+{
+    fs::path source;
+    try {
+        return initialize_impl(o, source);
+    } catch (const std::exception& error) {
+        // Also covers failures before a transaction starts. The transaction lock is released.
+        try { preserve_user_directory(o, source); }
+        catch (const std::exception& fallback_error) {
+            throw Error(std::string(error.what()) + "; user fallback failed: " + fallback_error.what());
+        }
+        throw Error(error.what());
+    } catch (...) {
+        preserve_user_directory(o, source);
+        throw Error("Unknown error during data directory migration");
     }
 }
 } // namespace Slic3r::DataMigration

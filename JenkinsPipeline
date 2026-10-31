@@ -31,6 +31,7 @@ pipeline {
         COMMUNITY_REPO = 'ssh://jenkins@172.20.180.12:29418/yanfa4/CrealityCommunity'
         FEISHU_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/6355c46f-75e2-4f64-b762-aa601586225d'
         WINDOWS_SIGN_SERVICE_URL = 'http://172.20.180.14:3001'
+        WINDOWS_DLL_SIGN_CACHE = 'D:\\Jenkins\\cache\\CrealityPrint\\dll-signatures'
     }
     stages {
         stage('Checkout') {
@@ -164,8 +165,25 @@ if not defined VS_INSTALL (
   echo [ERROR] Visual Studio with C++ tools not found.
   exit /b 1
 )
-call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
+set VSINSTALLDIR=
+set VCINSTALLDIR=
+set VCToolsInstallDir=
+set VSCMD_VER=
+call "%VS_INSTALL%\\Common7\\Tools\\VsDevCmd.bat" -no_logo -arch=x64 -host_arch=x64
+where cl.exe >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] cl.exe was not found after initializing the Visual Studio x64 environment.
+  exit /b 1
+)
 where cmake
+set "NINJA_EXE="
+for /f "delims=" %%i in ('where ninja.exe 2^>nul') do if not defined NINJA_EXE set "NINJA_EXE=%%i"
+if not defined NINJA_EXE if exist "%VS_INSTALL%\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe" set "NINJA_EXE=%VS_INSTALL%\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe"
+if not defined NINJA_EXE (
+  echo [ERROR] ninja.exe was not found in PATH or the Visual Studio CMake tools directory.
+  exit /b 1
+)
+echo Ninja executable: %NINJA_EXE%
 if exist "%BUILD_DIR%" (
   rmdir /S /Q "%BUILD_DIR%"
 )
@@ -182,7 +200,9 @@ cmake -S . -B %BUILD_DIR% ^
   -DENABLE_CPACK_PACKAGING=ON ^
   -DBBL_RELEASE_TO_PUBLIC=1 ^
   -DSLIC3R_STATIC=1 ^
-  -G "Visual Studio 17 2022" -A x64 ^
+  -G "Ninja Multi-Config" ^
+  "-DCMAKE_MAKE_PROGRAM:FILEPATH=%NINJA_EXE%" ^
+  -DSLIC3R_MSVC_COMPILE_PARALLEL=OFF ^
   -DUPDATE_ONLINE_MACHINES=1
 """
             }
@@ -198,12 +218,101 @@ if not defined VS_INSTALL (
   echo [ERROR] Visual Studio with C++ tools not found.
   exit /b 1
 )
-call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
+set VSINSTALLDIR=
+set VCINSTALLDIR=
+set VCToolsInstallDir=
+set VSCMD_VER=
+call "%VS_INSTALL%\\Common7\\Tools\\VsDevCmd.bat" -no_logo -arch=x64 -host_arch=x64
+where cl.exe >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] cl.exe was not found after initializing the Visual Studio x64 environment.
+  exit /b 1
+)
 set "CP_BUILD_JOBS=%NUMBER_OF_PROCESSORS%"
 if not "%CP_BUILD_CPU_LIMIT%"=="0" set "CP_BUILD_JOBS=%CP_BUILD_CPU_LIMIT%"
-echo CP build parallelism: %CP_BUILD_JOBS% jobs
-cmake --build %BUILD_DIR% --target %PROCESS_NAME%_app_gui --config %BUILD_TYPE% --parallel %CP_BUILD_JOBS%
+echo Ninja build parallelism: %CP_BUILD_JOBS% jobs
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKSPACE%\\scripts\\build_windows_with_retry.ps1" -BuildDirectory "%BUILD_DIR%" -Target "%PROCESS_NAME%_app_gui" -Configuration "%BUILD_TYPE%" -Parallel %CP_BUILD_JOBS%
 """
+            }
+        }
+
+        stage('Preserve Debug Artifacts') {
+            steps {
+                powershell '''
+                $ErrorActionPreference = "Stop"
+                $srcReleaseDir = Join-Path $env:WORKSPACE "$($env:BUILD_DIR)\\src\\$($env:BUILD_TYPE)"
+                # Keep debug inputs outside the CMake build tree so later package targets
+                # cannot rebuild, sign, clean or otherwise mutate the preserved files.
+                $symbolInputDir = Join-Path $env:WORKSPACE "debug-artifacts\\windows-pre-sign"
+
+                if (-not (Test-Path $srcReleaseDir)) {
+                    throw "Build output directory not found: $srcReleaseDir"
+                }
+                if (Test-Path $symbolInputDir) {
+                    Remove-Item -Recurse -Force $symbolInputDir
+                }
+                New-Item -ItemType Directory -Force -Path $symbolInputDir | Out-Null
+
+                # Preserve the exact DLL/PDB pair before Authenticode signing changes the DLL.
+                $slicerDll = Join-Path $srcReleaseDir "CrealityPrint_Slicer.dll"
+                $slicerPdb = Join-Path $srcReleaseDir "CrealityPrint_Slicer.pdb"
+                foreach ($requiredFile in @($slicerDll, $slicerPdb)) {
+                    if (-not (Test-Path $requiredFile -PathType Leaf)) {
+                        throw "Required debug input not found: $requiredFile"
+                    }
+                }
+
+                Get-ChildItem -Path $srcReleaseDir -Filter "*.pdb" -File |
+                    Copy-Item -Destination $symbolInputDir -Force
+                Copy-Item -Path $slicerDll -Destination $symbolInputDir -Force
+
+                $preservedDll = Join-Path $symbolInputDir "CrealityPrint_Slicer.dll"
+                $dllSignature = Get-AuthenticodeSignature -FilePath $preservedDll
+                if ($dllSignature.Status.ToString() -ne "NotSigned") {
+                    throw "Preserved DLL is not an unsigned build output: status=$($dllSignature.Status), path=$preservedDll"
+                }
+                $dllHash = (Get-FileHash -Path $preservedDll -Algorithm SHA256).Hash
+                $dllHashFile = Join-Path $symbolInputDir "CrealityPrint_Slicer.dll.sha256"
+                [System.IO.File]::WriteAllText($dllHashFile, $dllHash, [System.Text.Encoding]::ASCII)
+                Write-Host "=== Preserved pre-sign debug inputs ==="
+                Write-Host "Source: $srcReleaseDir"
+                Write-Host "Destination: $symbolInputDir"
+                Write-Host "DLL signature status: $($dllSignature.Status)"
+                Write-Host "DLL SHA256: $dllHash"
+                Get-ChildItem -Path $symbolInputDir -File | ForEach-Object {
+                    Write-Host ("  {0}  ({1:N2} MB)" -f $_.Name, ($_.Length / 1MB))
+                }
+
+                # Best effort: generate symbols from the preserved pre-sign pair. A failure
+                # must not discard the raw DLL/PDB fallback that will be archived later.
+                $breakpadScript = Join-Path $env:WORKSPACE "scripts\\breakpad.py"
+                if (Test-Path $breakpadScript -PathType Leaf) {
+                    Write-Host "Generating Breakpad symbols from pre-sign debug inputs..."
+                    $oldErrorAction = $ErrorActionPreference
+                    $ErrorActionPreference = "Continue"
+                    try {
+                        Push-Location $symbolInputDir
+                        & python $breakpadScript 2>&1 | ForEach-Object { Write-Host $_ }
+                        $breakpadExitCode = $LASTEXITCODE
+                    } finally {
+                        Pop-Location
+                        $ErrorActionPreference = $oldErrorAction
+                    }
+
+                    $symbolsDir = Join-Path $symbolInputDir "symbols"
+                    $symFiles = @(Get-ChildItem -Path $symbolsDir -Filter "*.sym" -File -Recurse -ErrorAction SilentlyContinue)
+                    if ($breakpadExitCode -eq 0 -and $symFiles.Count -gt 0) {
+                        Write-Host "Breakpad symbol generation succeeded: $($symFiles.Count) file(s)."
+                        $symFiles | ForEach-Object {
+                            Write-Host ("  {0}  ({1:N2} MB)" -f $_.FullName, ($_.Length / 1MB))
+                        }
+                    } else {
+                        Write-Warning "Breakpad symbol generation did not produce a usable symbol file (exit=$breakpadExitCode). The preserved pre-sign DLL/PDB files will still be archived."
+                    }
+                } else {
+                    Write-Warning "breakpad.py not found: $breakpadScript. The preserved pre-sign DLL/PDB files will still be archived."
+                }
+                '''
             }
         }
 
@@ -215,7 +324,8 @@ set DLL_OUTPUT_DIR=%WORKSPACE%\\%BUILD_DIR%\\src\\%BUILD_TYPE%
 echo Checking and signing DLLs in %DLL_OUTPUT_DIR%...
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKSPACE%\\scripts\\sign_windows_dlls.ps1" ^
     -SearchRoot "%DLL_OUTPUT_DIR%" ^
-    -SignServiceUrl "%WINDOWS_SIGN_SERVICE_URL%"
+    -SignServiceUrl "%WINDOWS_SIGN_SERVICE_URL%" ^
+    -CacheRoot "%WINDOWS_DLL_SIGN_CACHE%"
 if errorlevel 1 exit /b 1
 '''
             }
@@ -259,25 +369,20 @@ if not defined VS_INSTALL (
   echo [ERROR] Visual Studio with C++ tools not found.
   exit /b 1
 )
-call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
-cmake --build %BUILD_DIR% --target package --config %BUILD_TYPE% -- -m
+set VSINSTALLDIR=
+set VCINSTALLDIR=
+set VCToolsInstallDir=
+set VSCMD_VER=
+call "%VS_INSTALL%\\Common7\\Tools\\VsDevCmd.bat" -no_logo -arch=x64 -host_arch=x64
+where cl.exe >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] cl.exe was not found after initializing the Visual Studio x64 environment.
+  exit /b 1
+)
+set "CP_BUILD_JOBS=%NUMBER_OF_PROCESSORS%"
+if not "%CP_BUILD_CPU_LIMIT%"=="0" set "CP_BUILD_JOBS=%CP_BUILD_CPU_LIMIT%"
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKSPACE%\\scripts\\build_windows_with_retry.ps1" -BuildDirectory "%BUILD_DIR%" -Target "package" -Configuration "%BUILD_TYPE%" -Parallel %CP_BUILD_JOBS%
 """
-            }
-        }
-
-        stage('Sign NSIS Installer') {
-            steps {
-                script {
-                    def exeName = "${env.PROCESS_NAME}_${env.APP_VERSION}_${env.VERSION_EXTRA}.exe"
-                    bat """
-set EXE_NAME=${exeName}
-echo Signing NSIS installer: %EXE_NAME%
-cd %BUILD_DIR%
-"C:\\curl.exe" -X POST -F file=@%EXE_NAME% http://172.20.180.14:3001/sign
-"C:\\curl.exe" -L http://172.20.180.14:3001/exe/%EXE_NAME% -o %EXE_NAME%
-echo NSIS installer signed successfully.
-"""
-                }
             }
         }
 
@@ -291,8 +396,20 @@ if not defined VS_INSTALL (
   echo [ERROR] Visual Studio with C++ tools not found.
   exit /b 1
 )
-call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
-cmake --build %BUILD_DIR% --target install --config %BUILD_TYPE%
+set VSINSTALLDIR=
+set VCINSTALLDIR=
+set VCToolsInstallDir=
+set VSCMD_VER=
+call "%VS_INSTALL%\\Common7\\Tools\\VsDevCmd.bat" -no_logo -arch=x64 -host_arch=x64
+where cl.exe >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] cl.exe was not found after initializing the Visual Studio x64 environment.
+  exit /b 1
+)
+set "CP_BUILD_JOBS=%NUMBER_OF_PROCESSORS%"
+if not "%CP_BUILD_CPU_LIMIT%"=="0" set "CP_BUILD_JOBS=%CP_BUILD_CPU_LIMIT%"
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKSPACE%\\scripts\\build_windows_with_retry.ps1" -BuildDirectory "%BUILD_DIR%" -Target "install" -Configuration "%BUILD_TYPE%" -Parallel %CP_BUILD_JOBS%
+if errorlevel 1 exit /b 1
 for /f "tokens=1-3 delims=/ " %%1 in ("%date%") do set currentdate=%%1%%2%%3
 set zipName=%PROCESS_NAME%_%APP_VERSION%_%currentdate%.zip
 "%WORKSPACE%\\tools\\7z.exe" a -tzip %BUILD_DIR%\\%zipName% %BUILD_DIR%\\%PROCESS_NAME%
@@ -498,8 +615,19 @@ if not defined VS_INSTALL (
   echo [ERROR] Visual Studio with C++ tools not found.
   exit /b 1
 )
-call "%VS_INSTALL%\\VC\\Auxiliary\\Build\\vcvars64.bat"
-cmake --build %BUILD_DIR% --target squirrel-package --config %BUILD_TYPE% -- -m
+set VSINSTALLDIR=
+set VCINSTALLDIR=
+set VCToolsInstallDir=
+set VSCMD_VER=
+call "%VS_INSTALL%\\Common7\\Tools\\VsDevCmd.bat" -no_logo -arch=x64 -host_arch=x64
+where cl.exe >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] cl.exe was not found after initializing the Visual Studio x64 environment.
+  exit /b 1
+)
+set "CP_BUILD_JOBS=%NUMBER_OF_PROCESSORS%"
+if not "%CP_BUILD_CPU_LIMIT%"=="0" set "CP_BUILD_JOBS=%CP_BUILD_CPU_LIMIT%"
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKSPACE%\\scripts\\build_windows_with_retry.ps1" -BuildDirectory "%BUILD_DIR%" -Target "squirrel-package" -Configuration "%BUILD_TYPE%" -Parallel %CP_BUILD_JOBS%
 """
             }
         }
@@ -570,6 +698,22 @@ cmake --build %BUILD_DIR% --target squirrel-package --config %BUILD_TYPE% -- -m
             }
         }
 
+        // Squirrel depends on the CPack package target and can overwrite the NSIS EXE.
+        // Sign only after all packaging has finished, immediately before collection.
+        stage('Sign NSIS Installer') {
+            steps {
+                bat '''
+@echo off
+set "EXE_PATH=%WORKSPACE%\\%BUILD_DIR%\\%PROCESS_NAME%_%APP_VERSION%_%VERSION_EXTRA%.exe"
+echo Signing NSIS installer: %EXE_PATH%
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKSPACE%\\scripts\\sign_windows_file.ps1" ^
+    -FilePath "%EXE_PATH%" ^
+    -SignServiceUrl "%WINDOWS_SIGN_SERVICE_URL%"
+if errorlevel 1 exit /b 1
+'''
+            }
+        }
+
         stage('Collect Artifacts') {
             steps {
                 powershell '''
@@ -580,10 +724,17 @@ cmake --build %BUILD_DIR% --target squirrel-package --config %BUILD_TYPE% -- -m
                 if (Test-Path $artifacts) { Remove-Item -Recurse -Force $artifacts }
                 New-Item -ItemType Directory -Force -Path $artifacts | Out-Null
 
-                # 收集 NSIS 安装包 (exe) - 排除 Setup.exe
-                Get-ChildItem -Path $env:BUILD_DIR -Filter "$($env:PROCESS_NAME)_*.exe" -File -ErrorAction SilentlyContinue |
-                    Where-Object { $_.Name -ne 'Setup.exe' } |
-                    Copy-Item -Destination $artifacts -Force
+                # Collect only this build's installer and verify the actual archive input.
+                $installerName = "$($env:PROCESS_NAME)_$($env:APP_VERSION)_$($env:VERSION_EXTRA).exe"
+                $installerPath = Join-Path $env:BUILD_DIR $installerName
+                Copy-Item -LiteralPath $installerPath -Destination $artifacts -Force
+                $archivedInstaller = Join-Path $artifacts $installerName
+                $installerSignature = Get-AuthenticodeSignature -FilePath $archivedInstaller
+                if ($installerSignature.Status.ToString() -ne "Valid") {
+                    throw "Refusing to archive installer: signature=$($installerSignature.Status), path=$archivedInstaller"
+                }
+                $installerHash = (Get-FileHash -LiteralPath $archivedInstaller -Algorithm SHA256).Hash
+                Write-Host "Verified installer before archive: signature=Valid, SHA256=$installerHash, path=$archivedInstaller"
 
                 # 收集 ZIP 包
                 Get-ChildItem -Path $env:BUILD_DIR -Filter "$($env:PROCESS_NAME)_*.zip" -File -ErrorAction SilentlyContinue |
@@ -671,53 +822,57 @@ cmake --build %BUILD_DIR% --target squirrel-package --config %BUILD_TYPE% -- -m
                     }
                 }
 
-                # ========== 打包 PDB 调试符号 ==========
-                $srcReleaseDir = Join-Path $env:WORKSPACE "$($env:BUILD_DIR)\\src\\Release"
-                if (Test-Path $srcReleaseDir) {
-                    $pdbFiles = Get-ChildItem -Path $srcReleaseDir -Filter "*.pdb" -File -ErrorAction SilentlyContinue
-                    if ($pdbFiles -and $pdbFiles.Count -gt 0) {
-                        $pdbZipName = "$($env:PROCESS_NAME)_$($env:APP_VERSION)_$($env:VERSION_EXTRA).pdb.zip"
-                        $pdbZip = Join-Path $artifacts $pdbZipName
-                        Write-Host "Creating PDB archive: $pdbZipName ($($pdbFiles.Count) files)"
-                        Compress-Archive -Path $pdbFiles.FullName -DestinationPath $pdbZip -Force
-                    } else {
-                        Write-Host "No PDB files found in $srcReleaseDir"
-                    }
+                # ========== 打包签名前保存的原始 DLL/PDB ==========
+                $symbolInputDir = Join-Path $env:WORKSPACE "debug-artifacts\\windows-pre-sign"
+                if (-not (Test-Path $symbolInputDir)) {
+                    throw "Preserved debug input directory not found: $symbolInputDir"
                 }
 
-                # ========== 生成 Breakpad SYM 符号文件 ==========
-                $breakpadScript = Join-Path $env:WORKSPACE "scripts\\breakpad.py"
-                if ((Test-Path $breakpadScript) -and (Test-Path $srcReleaseDir)) {
-                    Write-Host "Generating Breakpad symbols..."
-                    $oldErrorAction = $ErrorActionPreference
-                    $ErrorActionPreference = "Continue"
-                    try {
-                        Push-Location $srcReleaseDir
-                        & python $breakpadScript 2>&1 | ForEach-Object { Write-Host $_ }
-                        Pop-Location
-                        
-                        # breakpad.py 在执行目录下生成 symbols/ 子目录
-                        $genSymbolsDir = Join-Path $srcReleaseDir "symbols"
-                        if (Test-Path $genSymbolsDir) {
-                            $symFiles = Get-ChildItem -Path $genSymbolsDir -Filter "*.sym" -File -Recurse -ErrorAction SilentlyContinue
-                            if ($symFiles -and $symFiles.Count -gt 0) {
-                                $symZipName = "$($env:PROCESS_NAME)_$($env:APP_VERSION)_$($env:VERSION_EXTRA).sym.zip"
-                                $symZip = Join-Path $artifacts $symZipName
-                                Write-Host "Creating SYM archive: $symZipName ($($symFiles.Count) files)"
-                                Compress-Archive -Path $symFiles.FullName -DestinationPath $symZip -Force
-                            } else {
-                                Write-Host "No SYM files generated in $genSymbolsDir"
-                            }
-                        } else {
-                            Write-Host "Symbols directory not found: $genSymbolsDir"
-                        }
-                    } catch {
-                        Write-Host "WARN: Failed to generate symbols: $_"
-                    } finally {
-                        $ErrorActionPreference = $oldErrorAction
-                    }
+                $pdbFiles = @(Get-ChildItem -Path $symbolInputDir -Filter "*.pdb" -File -ErrorAction SilentlyContinue)
+                $unsignedDll = Join-Path $symbolInputDir "CrealityPrint_Slicer.dll"
+                if ($pdbFiles.Count -eq 0) {
+                    throw "No preserved PDB files found in $symbolInputDir"
+                }
+                if (-not (Test-Path $unsignedDll -PathType Leaf)) {
+                    throw "Preserved pre-sign DLL not found: $unsignedDll"
+                }
+
+                # Revalidate immediately before archiving. This prevents a later stage from
+                # silently replacing or signing the preserved DLL.
+                $dllHashFile = Join-Path $symbolInputDir "CrealityPrint_Slicer.dll.sha256"
+                if (-not (Test-Path $dllHashFile -PathType Leaf)) {
+                    throw "Preserved DLL hash file not found: $dllHashFile"
+                }
+                $expectedDllHash = (Get-Content -Path $dllHashFile -Raw).Trim()
+                $actualDllHash = (Get-FileHash -Path $unsignedDll -Algorithm SHA256).Hash
+                if ($actualDllHash -ne $expectedDllHash) {
+                    throw "Preserved pre-sign DLL changed before archive: expected=$expectedDllHash, actual=$actualDllHash"
+                }
+                $unsignedDllSignature = Get-AuthenticodeSignature -FilePath $unsignedDll
+                if ($unsignedDllSignature.Status.ToString() -ne "NotSigned") {
+                    throw "Refusing to archive a signed DLL as a pre-sign input: status=$($unsignedDllSignature.Status), path=$unsignedDll"
+                }
+                Write-Host "Verified preserved DLL before archive: signature=NotSigned, SHA256=$actualDllHash"
+
+                $debugInputFiles = @($pdbFiles) + @(Get-Item $unsignedDll) + @(Get-Item $dllHashFile)
+                $pdbZipName = "$($env:PROCESS_NAME)_$($env:APP_VERSION)_$($env:VERSION_EXTRA).pdb.zip"
+                $pdbZip = Join-Path $artifacts $pdbZipName
+                Write-Host "Creating raw debug input archive: $pdbZipName ($($debugInputFiles.Count) files)"
+                $debugInputFiles | ForEach-Object {
+                    Write-Host ("  {0}  ({1:N2} MB)" -f $_.Name, ($_.Length / 1MB))
+                }
+                Compress-Archive -Path $debugInputFiles.FullName -DestinationPath $pdbZip -Force
+
+                # 如果签名前已成功生成 SYM，则照常归档；失败时保留上面的原始 DLL/PDB 后手。
+                $genSymbolsDir = Join-Path $symbolInputDir "symbols"
+                $symFiles = @(Get-ChildItem -Path $genSymbolsDir -Filter "*.sym" -File -Recurse -ErrorAction SilentlyContinue)
+                if ($symFiles.Count -gt 0) {
+                    $symZipName = "$($env:PROCESS_NAME)_$($env:APP_VERSION)_$($env:VERSION_EXTRA).sym.zip"
+                    $symZip = Join-Path $artifacts $symZipName
+                    Write-Host "Creating SYM archive: $symZipName ($($symFiles.Count) files)"
+                    Compress-Archive -Path $symFiles.FullName -DestinationPath $symZip -Force
                 } else {
-                    Write-Host "breakpad.py not found or no Release dir, skipping symbol generation"
+                    Write-Warning "No SYM files were generated. The raw pre-sign DLL/PDB archive is available for offline symbol generation."
                 }
 
                 # 输出收集的制品清单

@@ -32,7 +32,21 @@ must be replaced by this static archive. The copy rule tracks both source files 
 
 The macOS selector uses `CMAKE_OSX_ARCHITECTURES` when set, to support separate target builds
 from a different host architecture. Build arm64 and x86_64 dependencies separately; this
-artifact set does not contain a universal archive, Windows ARM64, or Linux ARM64 libraries.
+build #6 artifact set does not contain a universal archive or Windows ARM64 libraries.
+
+Linux ARM64 was added from [CR_Close_library build #9](http://172.20.180.14:8081/job/CR_Close_library/9/artifact/artifacts/linux-arm64/cr_close_library/)
+(`SUCCESS`, source revision `5218a346d1aad579a087da5a15e4a93f330750e6`).
+Both exported headers match the repository headers after normalizing line endings.
+The Linux selectors accept `arm64` and `aarch64` and install the following archives:
+
+| Repository library path | SHA-256 |
+| --- | --- |
+| `deps/CR_CLOSED/CR_FILLTENSOR/cr_FillTensor/lib/linux/arm64/libcr_FillTensor_library.a` | `fdaf3624d43eb19c0ecfb93cfcb7efbef1f46edf1fcc05220f0b3c2e9969689d` |
+| `deps/CR_KM_RECIPE/cr_km_recipe/lib/linux/arm64/libcr_km_recipe.a` | `b666fb71edab2e2915207429f5eb9738eec4ec808799c6d2f77a3c720b48b51a` |
+
+The ARM64 archives were checked for AArch64 ELF objects. CMake selection and copy
+rules were checked for both Linux architecture names, including installed SHA-256
+identity. Native Linux ARM64 application linking and execution remain unverified.
 
 Validation performed on Windows: archive machine formats, all four platform selection/copy
 rules, SHA-256 identity after installation, and native Windows static linking and execution.

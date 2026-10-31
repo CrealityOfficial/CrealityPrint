@@ -1,10 +1,12 @@
 #include "../GCode.hpp"
+#include "../GCodeReader.hpp"
 #include "CoolingBuffer.hpp"
 #include "libslic3r/Geometry/ArcWelder.hpp"
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/log/trivial.hpp>
 #include <iostream>
+#include <iterator>
 #include <float.h>
 #include <limits>
 #include <numeric>
@@ -61,6 +63,78 @@ static double overhang_fan_min_region_length(double width)
 static double overhang_fan_gap_merge_length(double width)
 {
     return std::max(2.0, 4.0 * width);
+}
+
+enum class LayerStartFan { Normal, Overhang, SupportInterface };
+constexpr unsigned int automatic_fan_marker_types =
+    CoolingLine::TYPE_OVERHANG_FAN_START | CoolingLine::TYPE_OVERHANG_FAN_END |
+    CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START | CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_END;
+
+// Only defer the layer's normal fan command across known layer preparation moves.
+// Read raw lines as extrusion moves may be folded into an earlier speed-setting line.
+static LayerStartFan layer_start_fan(const std::string& gcode, const std::vector<const CoolingLine*>& lines,
+                                     const std::unordered_set<const CoolingLine*>& disabled_markers, bool relative_e,
+                                     bool overhang_fan_control, bool support_interface_fan_control)
+{
+    const auto first_start = std::find_if(lines.begin(), lines.end(), [&](const CoolingLine* line) {
+        return (overhang_fan_control && (line->type & CoolingLine::TYPE_OVERHANG_FAN_START) && disabled_markers.count(line) == 0) ||
+               (support_interface_fan_control && (line->type & CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START));
+    });
+    if (first_start == lines.end())
+        return LayerStartFan::Normal;
+
+    // An adjacent end/start sequence is resolved as one transition by the writer.
+    auto transition_start = first_start;
+    while (transition_start != lines.begin()) {
+        const CoolingLine* previous = *std::prev(transition_start);
+        if (previous->line_end != (*transition_start)->line_start || !(previous->type & automatic_fan_marker_types))
+            break;
+        --transition_start;
+    }
+
+    bool safe_to_defer = true;
+    bool known_e = relative_e;
+    float absolute_e = 0.f;
+    float retracted = 0.f;
+    GCodeReader reader;
+    reader.parse_buffer(gcode.substr(0, (*transition_start)->line_start), [&](GCodeReader& reader, const GCodeReader::GCodeLine& line) {
+        const auto command = line.cmd();
+        if (command.empty()) {
+            // These markers may reapply fan settings or delimit custom operations.
+            const std::string& raw = line.raw();
+            if (raw.find(";_FORCE_") == std::string::npos && raw.find(";_SUPP_INTERFACE_FAN_END") == std::string::npos &&
+                raw.find(";_OVERHANG_FAN_END") == std::string::npos && raw.find("; custom gcode") == std::string::npos)
+                return;
+        } else if (command == "G0" || command == "G1") {
+            // Feedrate, travel, retract and unretract are allowed. Conservatively keep
+            // the normal fan before any coordinated extrusion, in either E mode.
+            if (!line.has_e())
+                return;
+            if (known_e && !line.has_x() && !line.has_y() && !line.has_z()) {
+                const float delta_e = relative_e ? line.e() : line.e() - absolute_e;
+                retracted -= delta_e;
+                absolute_e = line.e();
+                // An E-only purge is a boundary; only recover a preceding retract.
+                if (retracted >= -EPSILON)
+                    return;
+            }
+        } else if (command == "G92") {
+            if (line.has_e() && !line.has_x() && !line.has_y() && !line.has_z()) {
+                known_e = true;
+                absolute_e = line.e();
+                return;
+            }
+        } else if (command == "SET_VELOCITY_LIMIT" || command == "M204" || command == "M205" ||
+                   command == "EXCLUDE_OBJECT_START" || command == "EXCLUDE_OBJECT_END") {
+            return;
+        }
+        // Tool changes, fan commands, waits and unknown macros are boundaries.
+        safe_to_defer = false;
+        reader.quit_parsing();
+    });
+    if (!safe_to_defer)
+        return LayerStartFan::Normal;
+    return ((*first_start)->type & CoolingLine::TYPE_OVERHANG_FAN_START) ? LayerStartFan::Overhang : LayerStartFan::SupportInterface;
 }
 
 static std::unordered_set<const CoolingLine*> collect_disabled_overhang_fan_markers(const std::vector<const CoolingLine*>& lines)
@@ -584,7 +658,8 @@ std::string GCodeEditor::process_layer(std::string&&                        gcod
                                        std::vector<PerExtruderAdjustments>& per_extruder_adjustments,
                                        const std::vector<int>&              object_label,
                                        const bool                           flush,
-                                       const bool                           spiral_vase)
+                                       const bool                           spiral_vase,
+                                       float&                               layer_end_z)
 {
     m_zaa_interval.consume_gcode(gcode);
     if (flush)
@@ -613,6 +688,9 @@ std::string GCodeEditor::process_layer(std::string&&                        gcod
         // record parse gcode info to per_extruder_adjustments
         per_extruder_adjustments = this->parse_layer_gcode(m_gcode, m_current_pos, object_label, spiral_vase, layer_id > 0);
         out                      = m_gcode;
+        // This stage owns m_current_pos. Publish the final height with the
+        // parsed layer before a subsequent layer replaces the position vector.
+        layer_end_z = m_current_pos[AxisIdx::Z];
         m_gcode.clear();
     }
     return out;
@@ -1228,7 +1306,9 @@ std::string GCodeEditor::write_layer_gcode(
     // Total time of this layer after slow down, used to control the fan.
     float                                   layer_time,
     // Per extruder list of G-code lines and their cool down attributes.
-    std::vector<PerExtruderAdjustments>    &per_extruder_adjustments)
+    std::vector<PerExtruderAdjustments>    &per_extruder_adjustments,
+    // Final position captured by the parsing stage for this specific layer.
+    float                                   layer_end_z)
 {
     if (gcode.empty())
         return gcode;
@@ -1255,15 +1335,12 @@ std::string GCodeEditor::write_layer_gcode(
     int  supp_interface_fan_speed = 0;
 
 #define EXTRUDER_CONFIG(OPT) m_config.OPT.get_at(m_current_extruder)
-    //limit for height
-    bool limit_height_fan = true;
+    const bool limit_height_fan = layer_end_z >= EXTRUDER_CONFIG(cool_cds_fan_start_at_height);
 
     bool need_set_cds_fan = false;
-    if (m_current_pos.size() > 2)
-    {
-        limit_height_fan = m_current_pos[2] >= EXTRUDER_CONFIG(cool_cds_fan_start_at_height);
-    }
-    auto change_extruder_set_fan = [ this, layer_id, layer_time, &new_gcode, &overhang_fan_control, &overhang_fan_speed, &supp_interface_fan_control, &supp_interface_fan_speed,&limit_height_fan](bool immediately_apply, bool force_apply) {
+    auto change_extruder_set_fan = [this, layer_id, layer_time, &new_gcode, &overhang_fan_control, &overhang_fan_speed,
+                                   &supp_interface_fan_control, &supp_interface_fan_speed, &limit_height_fan,
+                                   &gcode, &lines, &disabled_overhang_fan_markers](bool immediately_apply, bool force_apply, bool check_layer_start = false) {
 
         float fan_min_speed = EXTRUDER_CONFIG(fan_min_speed);
         float fan_speed_new = EXTRUDER_CONFIG(reduce_fan_stop_start_freq) ? fan_min_speed : 0;
@@ -1317,7 +1394,15 @@ std::string GCodeEditor::write_layer_gcode(
             supp_interface_fan_control= false;
             supp_interface_fan_speed   = 0;
         }
-        if (fan_speed_new != m_fan_speed) {
+        const LayerStartFan initial_fan = check_layer_start ?
+            layer_start_fan(gcode, lines, disabled_overhang_fan_markers, m_config.use_relative_e_distances.value,
+                            overhang_fan_control, supp_interface_fan_control) : LayerStartFan::Normal;
+        const bool defer_part_fan = initial_fan != LayerStartFan::Normal;
+        if (defer_part_fan) {
+            // Keep the normal target for leaving the special region without changing the applied speed.
+            // The existing marker handler owns the override value, priority and output position.
+            m_fan_speed = fan_speed_new;
+        } else if (fan_speed_new != m_fan_speed) {
             m_fan_speed = fan_speed_new;
             m_current_fan_speed = fan_speed_new;
             if (immediately_apply)
@@ -1326,7 +1411,7 @@ std::string GCodeEditor::write_layer_gcode(
             m_current_fan_speed = m_fan_speed;
             new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_fan_speed);
         }
-        if (m_fan_speed != m_current_fan_speed)
+        if (!defer_part_fan && m_fan_speed != m_current_fan_speed)
         {
             m_current_fan_speed = m_fan_speed;
             new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor,m_fan_speed);
@@ -1351,7 +1436,7 @@ std::string GCodeEditor::write_layer_gcode(
 
     const char         *pos               = gcode.c_str();
     int                 current_feedrate  = 0;
-    change_extruder_set_fan(true, false);
+    change_extruder_set_fan(true, false, true);
 
     // Orca: Reduce set fan commands by deferring the GCodeWriter::set_fan calls. Inspired by SuperSlicer
     // define fan_speed_change_requests and initialize it with all possible types fan speed change requests
@@ -1363,7 +1448,8 @@ std::string GCodeEditor::write_layer_gcode(
     bool force_fan_on_next_toolchange = false;
     bool have_type_overhang = false;
     const CoolingLine* line_waiting_for_split = nullptr;
-    for (const CoolingLine *line : lines) {
+    for (auto line_it = lines.begin(); line_it != lines.end(); ++line_it) {
+        const CoolingLine *line = *line_it;
         const char *line_start  = gcode.c_str() + line->line_start;
         const char *line_end    = gcode.c_str() + line->line_end;
         if (line_start > pos) {
@@ -1597,7 +1683,12 @@ std::string GCodeEditor::write_layer_gcode(
             }
         }
 
-        if (need_set_fan) {
+        // Adjacent automatic fan markers belong to the same path transition. Resolve
+        // their combined state before emitting, without crossing any G-code command.
+        const auto next_line = std::next(line_it);
+        const bool next_is_fan_marker = next_line != lines.end() && line->line_end == (*next_line)->line_start &&
+            ((*next_line)->type & automatic_fan_marker_types);
+        if (need_set_fan && (!next_is_fan_marker || fan_speed_change_requests[CoolingLine::TYPE_FORCE_RESUME_FAN])) {
             if (fan_speed_change_requests[CoolingLine::TYPE_FORCE_RESUME_FAN] && m_current_fan_speed != -1)
             {
                 new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_current_fan_speed);
@@ -1616,8 +1707,10 @@ std::string GCodeEditor::write_layer_gcode(
                 new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_fan_speed);
                 m_current_fan_speed = m_fan_speed;
             }
-            else
+            else {
                 new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_fan_speed);
+                m_current_fan_speed = m_fan_speed;
+            }
             need_set_fan = false;
         }
         pos = line_end;

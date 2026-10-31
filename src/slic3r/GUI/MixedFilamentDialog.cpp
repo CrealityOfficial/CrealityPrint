@@ -20,6 +20,7 @@
 #include <wx/display.h>
 
 #include "libslic3r/Utils.hpp"
+#include "libslic3r/ColorDecomposeKM.hpp"
 #include "libslic3r/filament_mixer.h"
 #include "libslic3r/MixedFilament.hpp"
 #include "I18N.hpp"
@@ -123,8 +124,20 @@ static size_t mixed_filament_max_visible_items(wxWindow* window)
     return static_cast<size_t>(std::clamp(work_height_dip / 75, 6, 15));
 }
 
+// Blend via the spectral K-M engine when EVERY component color matches a
+// measured base-color spectrum (official Hyper PLA base colors), so the
+// preview agrees with the K-M-based color-decompose recommendation;
+// arbitrary colors fall back to the polynomial mixer (filament_mixer).
 static wxColour blend_colors(const wxColour& a, const wxColour& b, double ratio_a)
 {
+    const std::string hex_a = a.GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
+    const std::string hex_b = b.GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
+    const int wa = static_cast<int>(std::lround(ratio_a * 10000));
+    const std::string mixed =
+        Slic3r::BaseColorSpectra::blend_color_multi_spectrum_first({hex_a, hex_b}, {wa, 10000 - wa});
+    if (!mixed.empty())
+        return wxColour(mixed);
+
     unsigned char r, g, bl;
     Slic3r::filament_mixer_lerp(a.Red(), a.Green(), a.Blue(),
                                 b.Red(), b.Green(), b.Blue(),
@@ -137,14 +150,15 @@ static wxColour blend_n_colors(const std::vector<wxColour>& cols, const std::vec
 {
     std::vector<std::string> hex_colors;
     std::vector<int> int_weights;
-    for (size_t i = 0; i < cols.size() && i < weights.size(); ++i) {
+    const size_t n = std::min(cols.size(), weights.size());
+    for (size_t i = 0; i < n; ++i) {
         hex_colors.push_back(cols[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString());
         // Scale double weights (e.g. 0.5) to int (5000) for blend_color_multi;
         // only relative magnitude matters.
         int_weights.push_back(static_cast<int>(std::lround(weights[i] * 10000)));
     }
-    std::string hex = Slic3r::blend_color_multi(hex_colors, int_weights);
-    return wxColour(hex);
+    const std::string hex = Slic3r::BaseColorSpectra::blend_color_multi_spectrum_first(hex_colors, int_weights);
+    return wxColour(hex.empty() ? "#000000" : hex);
 }
 
 // ---- Constructors ----
@@ -1180,14 +1194,30 @@ wxBoxSizer* MixedFilamentDialog::create_triangle_picker(wxWindow* parent)
                     tri_barycentric(p, v0, v1, v2, w0, w1, w2);
                     unsigned char mr, mg, mb;
                     if (w0 + w1 > 1e-6) {
-                        float t01 = static_cast<float>(w1 / (w0 + w1));
-                        Slic3r::filament_mixer_lerp(c0.Red(), c0.Green(), c0.Blue(),
-                                                    c1.Red(), c1.Green(), c1.Blue(),
-                                                    t01, &mr, &mg, &mb);
-                        float t2 = static_cast<float>(w2);
-                        Slic3r::filament_mixer_lerp(mr, mg, mb,
-                                                    c2.Red(), c2.Green(), c2.Blue(),
-                                                    t2, &mr, &mg, &mb);
+                        // Spectral K-M when all three corners match measured
+                        // base-color spectra, polynomial pairwise lerp
+                        // otherwise (see blend_colors).
+                        const std::string h0 = c0.GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
+                        const std::string h1 = c1.GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
+                        const std::string h2 = c2.GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
+                        const std::string mixed = Slic3r::BaseColorSpectra::blend_color_multi_spectrum_first(
+                            {h0, h1, h2},
+                            {static_cast<int>(std::lround(w0 * 1000)),
+                             static_cast<int>(std::lround(w1 * 1000)),
+                             static_cast<int>(std::lround(w2 * 1000))});
+                        if (!mixed.empty()) {
+                            const wxColour c(mixed);
+                            mr = c.Red(); mg = c.Green(); mb = c.Blue();
+                        } else {
+                            float t01 = static_cast<float>(w1 / (w0 + w1));
+                            Slic3r::filament_mixer_lerp(c0.Red(), c0.Green(), c0.Blue(),
+                                                        c1.Red(), c1.Green(), c1.Blue(),
+                                                        t01, &mr, &mg, &mb);
+                            float t2 = static_cast<float>(w2);
+                            Slic3r::filament_mixer_lerp(mr, mg, mb,
+                                                        c2.Red(), c2.Green(), c2.Blue(),
+                                                        t2, &mr, &mg, &mb);
+                        }
                     } else {
                         mr = c2.Red(); mg = c2.Green(); mb = c2.Blue();
                     }
@@ -1339,9 +1369,14 @@ wxBoxSizer* MixedFilamentDialog::create_gradient_section(wxWindow* parent)
     m_curve_editor = new GradientCurveEditor(parent, comp_colour(0), comp_colour(1));
     if (!m_result.gradient_curve.empty())
         m_curve_editor->set_points(m_result.gradient_curve);
-    else
+    else {
         m_curve_editor->reset_to_linear((m_result.gradient_direction == 0) ? 0.9 : 0.1,
                                         (m_result.gradient_direction == 0) ? 0.1 : 0.9);
+        // The seed above happens before the change handler is bound, so copy it
+        // into the result explicitly. Otherwise a project saved with an empty
+        // curve loses its direction and the backend falls back to A->B.
+        m_result.gradient_curve = m_curve_editor->get_points();
+    }
     m_curve_editor->Bind(wxEVT_GRADIENT_CURVE_CHANGED,
                          [this](wxCommandEvent&) { on_gradient_curve_changed(); });
     m_curve_sizer->Add(m_curve_editor, 0, wxEXPAND | wxTOP, FromDIP(4));

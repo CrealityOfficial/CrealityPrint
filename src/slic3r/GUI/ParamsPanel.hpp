@@ -156,6 +156,7 @@ class ParamsPanel : public wxPanel
         bool m_tips_arror_blink{false};
         wxStaticText* m_title_view { nullptr };
         SwitchButton* m_mode_view { nullptr };
+        Button* m_parameter_diff_button { nullptr };
         HoverBorderBox* m_mode_view_box { nullptr };
         //wxBitmapButton* m_search_button { nullptr };
         wxStaticLine* m_staticline_print { nullptr };

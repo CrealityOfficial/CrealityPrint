@@ -333,6 +333,7 @@ bool Check3mfVendor::doSelectPrinterPreset()
                 }
             }
         }
+        recalc_flushing_volumes(*wxGetApp().preset_bundle);
         // Project-only settings (for example mixed filament definitions) do not
         // modify the process preset. Use the same comparison as the preset editor.
         preset_bundle.prints.update_dirty();

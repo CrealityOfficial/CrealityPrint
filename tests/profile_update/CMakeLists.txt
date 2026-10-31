@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.15)
+project(profile_update_tests LANGUAGES C CXX)
+enable_testing()
+
+find_package(Boost REQUIRED)
+add_executable(profile_update_tests profile_update_tests.cpp ../../src/semver/semver.c)
+target_compile_features(profile_update_tests PRIVATE cxx_std_17)
+target_include_directories(profile_update_tests PRIVATE ../../src ${Boost_INCLUDE_DIRS})
+if(MSVC)
+    target_compile_options(profile_update_tests PRIVATE /utf-8)
+endif()
+add_test(NAME profile_update_tests COMMAND profile_update_tests)

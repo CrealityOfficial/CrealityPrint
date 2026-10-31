@@ -45,7 +45,8 @@ endif ()
 if(APPLE)
     set(_wx_patch_command ${CMAKE_COMMAND}
         -Dwx_SOURCE_DIR=<SOURCE_DIR>
-        -Dwx_PATCH_FILE=${CMAKE_CURRENT_LIST_DIR}/0002-enable-ime-for-macos-glcanvas.patch
+        -Dwx_IME_PATCH_FILE=${CMAKE_CURRENT_LIST_DIR}/0002-enable-ime-for-macos-glcanvas.patch
+        -Dwx_COCOA_INIT_PATCH_FILE=${CMAKE_CURRENT_LIST_DIR}/0003-macos-dont-initialize-cocoa-early-for-gui-apps.patch
         -P ${CMAKE_CURRENT_LIST_DIR}/apply-macos-ime-patch.cmake)
 endif()
 

@@ -473,6 +473,7 @@ enum class BedTemperatureMode { UseMaxTemperature, UseFirstMaterial };
 // BBS
 enum LayerSeq {
     flsAuto, 
+    flsGraySafe,
     flsCutomize
 };
 
@@ -1257,6 +1258,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionPercent,              top_bottom_infill_wall_overlap))
     ((ConfigOptionFloatsNullable,       sparse_infill_speed))
     ((ConfigOptionPercent, skeleton_infill_density))
+    ((ConfigOptionPercent, minimum_skeleton_infill_density))
     ((ConfigOptionPercent, skin_infill_density))
     ((ConfigOptionFloat, infill_lock_depth))
     ((ConfigOptionFloat, skin_infill_depth))
@@ -1468,6 +1470,7 @@ PRINT_CONFIG_CLASS_DEFINE(
 
     ((ConfigOptionFloat,               max_volumetric_extrusion_rate_slope))
     ((ConfigOptionFloat,               max_volumetric_extrusion_rate_slope_segment_length))
+    ((ConfigOptionBool,                extrusion_rate_smoothing_external_perimeter_only))
     
     ((ConfigOptionPercents,            retract_before_wipe))
     ((ConfigOptionFloats,              retraction_length))
@@ -1491,6 +1494,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                manual_filament_change))
     ((ConfigOptionBool,                single_extruder_multi_material_priming))
     ((ConfigOptionBool,                wipe_tower_no_sparse_layers))
+    ((ConfigOptionInt,                 wipe_tower_extra_interlayer_wipe_layers))
     ((ConfigOptionString,              change_filament_gcode))
     ((ConfigOptionString,              change_extrusion_role_gcode))
     ((ConfigOptionFloatsNullable,      travel_speed))
@@ -1654,6 +1658,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloats,             nozzle_diameter))
     ((ConfigOptionBool,               reduce_infill_retraction))
     ((ConfigOptionBool,               ooze_prevention))
+    ((ConfigOptionBool,               wait_for_temperature_after_toolchange))
     ((ConfigOptionString,             filename_format))
     ((ConfigOptionStrings,            post_process))
     ((ConfigOptionString,             printer_model))
@@ -1710,6 +1715,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionPercent,            wipe_tower_extra_spacing))
     ((ConfigOptionEnum<PrimeTowerStartIroningType>, prime_tower_start_ironing))
     ((ConfigOptionFloat,              prime_tower_start_offset))
+    ((ConfigOptionBool,               prime_tower_toolchange_at_start))
     ((ConfigOptionFloat,              prime_tower_corner_rib_length))
     ((ConfigOptionFloat,              wipe_tower_max_purge_speed))
     ((ConfigOptionInt,                wipe_tower_filament))
@@ -1721,6 +1727,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionInt,                bottom_fill_flush_layers))
     ((ConfigOptionInt,                top_fill_flush_layers))
     ((ConfigOptionFloatOrPercent, skeleton_flush_slowdown_speed))
+    ((ConfigOptionFloat,          no_prime_tower_retract_restart_extra))
     ((ConfigOptionBool,               flush_into_solid_skeleton))
     ((ConfigOptionFloat,              flush_multiplier))
     ((ConfigOptionFloat,              z_offset))

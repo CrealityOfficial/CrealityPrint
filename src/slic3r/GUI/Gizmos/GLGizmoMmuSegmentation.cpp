@@ -404,8 +404,6 @@ void GLGizmoMmuSegmentation::on_render_input_window(float x, float y, float bott
     const float approx_height = m_imgui->scaled(22.0f);
     y = std::min(y, bottom_limit - approx_height);
     GizmoImguiSetNextWIndowPos(x, y, ImGuiCond_Always, 0.0f, 0.0f, force_update_pos);
-    m_imgui_start_pos[0] = x;
-    m_imgui_start_pos[1] = y;
     wchar_t old_tool = m_current_tool;
 
     // BBS
@@ -808,6 +806,10 @@ void GLGizmoMmuSegmentation::on_render_input_window(float x, float y, float bott
         m_parent.set_as_dirty();
     }
     ImGui::PopStyleVar(2);
+    // Use the actual window position, which may have changed after dragging.
+    const ImVec2 window_pos = ImGui::GetWindowPos();
+    m_imgui_start_pos[0] = window_pos.x;
+    m_imgui_start_pos[1] = window_pos.y;
     m_imgui_end_pos[0] = m_imgui_start_pos[0] + ImGui::GetWindowWidth();
     m_imgui_end_pos[1] = m_imgui_start_pos[1] + ImGui::GetWindowHeight();
     GizmoImguiEnd();

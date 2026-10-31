@@ -1,8 +1,22 @@
 #include "ColorDecomposeKM.hpp"
 
+#include "Utils.hpp"
+#include "filament_mixer.h"
+
+#include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/nowide/fstream.hpp>
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace Slic3r {
 
@@ -326,5 +340,236 @@ std::string km_blend_color_multi_hex(const std::vector<std::string>& hex_colors,
     }
     return km_blend_color_multi_with_spectra(hex_colors, spectra, weights);
 }
+
+// ---------------------------------------------------------------------------
+// BaseColorSpectra: read-side lookup for the measured base-color reflectance
+// spectra consumed by the K-M mixing engine. Declared in ColorDecomposeKM.hpp;
+// kept in this translation unit so the lookup feeds the K-M engine without a
+// separate build-system entry.
+// ---------------------------------------------------------------------------
+
+namespace BaseColorSpectra {
+namespace {
+
+using Json = nlohmann::json;
+
+// Per-channel tolerance (in 8-bit sRGB units) for matching a filament color
+// against an official_hex. official_hex values are recomputed from the
+// measured spectrum (D65/2deg -> sRGB), so vendor-provided preset colors can
+// differ by a rounding step or two; 3 per channel covers that while the
+// eight base colors stay far enough apart to never cross-match.
+constexpr int kColorMatchTolerance = 3;
+
+struct SpectrumEntry
+{
+    std::string         hex;       // normalized uppercase "#RRGGBB"
+    ReflectanceSpectrum spectrum;
+};
+
+struct SpectrumIndex
+{
+    // Key: normalized hex color. Matching is color-only on purpose: the
+    // cache holds the official product-line spectra and any filament whose
+    // color equals an official base color reuses that measurement.
+    std::unordered_map<std::string, ReflectanceSpectrum> exact;
+    // Kept in file order for the tolerant fallback scan.
+    std::vector<SpectrumEntry> ordered;
+};
+
+std::mutex& index_mutex()
+{
+    static std::mutex mutex;
+    return mutex;
+}
+
+bool          g_index_loaded = false;
+bool          g_index_load_attempted = false;
+SpectrumIndex g_index;
+
+boost::filesystem::path cache_path()
+{
+    return boost::filesystem::path(data_dir()) / "filament_mixing" / "base_color_spectra.json";
+}
+
+boost::filesystem::path bundled_path()
+{
+    return boost::filesystem::path(resources_dir()) / "filament_mixing" / "base_color_spectra.json";
+}
+
+// Normalize "#rrggbb..." (any case, optional alpha) to uppercase "#RRGGBB".
+bool normalize_hex(const std::string& in, std::string& out)
+{
+    if (in.size() < 7 || in.front() != '#')
+        return false;
+    out.clear();
+    out.reserve(7);
+    out.push_back('#');
+    for (size_t i = 1; i < 7; ++i) {
+        const unsigned char c = static_cast<unsigned char>(in[i]);
+        if (!std::isxdigit(c))
+            return false;
+        out.push_back(static_cast<char>(std::toupper(c)));
+    }
+    return true;
+}
+
+bool hex_to_rgb_u8(const std::string& hex7, unsigned char rgb[3])
+{
+    unsigned r = 0, g = 0, b = 0;
+    if (std::sscanf(hex7.c_str(), "#%02x%02x%02x", &r, &g, &b) != 3)
+        return false;
+    rgb[0] = static_cast<unsigned char>(r);
+    rgb[1] = static_cast<unsigned char>(g);
+    rgb[2] = static_cast<unsigned char>(b);
+    return true;
+}
+
+bool read_index_from(const boost::filesystem::path& path, SpectrumIndex& index)
+{
+    boost::nowide::ifstream stream(path.string());
+    if (!stream)
+        return false;
+
+    Json root;
+    try {
+        stream >> root;
+    } catch (const std::exception&) {
+        return false;
+    }
+
+    if (!root.is_object() || !root.contains("entries") || !root["entries"].is_array())
+        return false;
+
+    for (const Json& entry : root["entries"]) {
+        if (!entry.is_object() || !entry.contains("spectrum") || !entry["spectrum"].is_array())
+            continue;
+        const auto& spectrum_json = entry["spectrum"];
+        if (spectrum_json.size() != KM_SPECTRUM_POINTS)
+            continue;
+
+        std::string hex;
+        if (!entry.contains("official_hex") || !entry["official_hex"].is_string() ||
+            !normalize_hex(entry["official_hex"].get<std::string>(), hex))
+            continue;
+
+        // The "material" field (product line, e.g. "Hyper PLA") is parsed
+        // for forward compatibility but not used: lookup matches color only.
+
+        ReflectanceSpectrum spectrum{};
+        bool valid = true;
+        for (size_t i = 0; i < spectrum.size(); ++i) {
+            const Json& value = spectrum_json[i];
+            if (!value.is_number()) {
+                valid = false;
+                break;
+            }
+            const double number = value.get<double>();
+            if (!std::isfinite(number) || number < 0.0 || number > 100.0) {
+                valid = false;
+                break;
+            }
+            spectrum[i] = number;
+        }
+        if (!valid)
+            continue;
+
+        index.exact.emplace(hex, spectrum);
+        index.ordered.push_back(SpectrumEntry{hex, spectrum});
+    }
+
+    return !index.ordered.empty();
+}
+
+// Loads (once) the spectrum index from the data-dir cache, falling back to
+// the bundled resource. Must be called with index_mutex() held.
+bool ensure_index_locked()
+{
+    if (g_index_loaded)
+        return true;
+    if (g_index_load_attempted)
+        return false;
+    g_index_load_attempted = true;
+
+    SpectrumIndex index;
+    if (!read_index_from(cache_path(), index) && !read_index_from(bundled_path(), index)) {
+        BOOST_LOG_TRIVIAL(warning) << "BaseColorSpectra: no usable base_color_spectra.json; "
+                                   << "mixed-color preview falls back to the polynomial mixer";
+        return false;
+    }
+
+    g_index = std::move(index);
+    g_index_loaded = true;
+    return true;
+}
+
+} // namespace
+
+bool lookup_spectrum_by_color(const std::string& color_hex,
+                              ReflectanceSpectrum& out)
+{
+    std::string key;
+    if (!normalize_hex(color_hex, key))
+        return false;
+
+    std::lock_guard<std::mutex> lock(index_mutex());
+    if (!ensure_index_locked())
+        return false;
+
+    const auto it = g_index.exact.find(key);
+    if (it != g_index.exact.end()) {
+        out = it->second;
+        return true;
+    }
+
+    // Tolerant scan: official_hex values are recomputed from the measured
+    // spectrum, so vendor-provided preset colors can differ by a rounding
+    // step or two.
+    unsigned char want[3];
+    if (!hex_to_rgb_u8(key, want))
+        return false;
+    for (const SpectrumEntry& e : g_index.ordered) {
+        unsigned char have[3];
+        if (!hex_to_rgb_u8(e.hex, have))
+            continue;
+        if (std::abs(int(want[0]) - int(have[0])) <= kColorMatchTolerance &&
+            std::abs(int(want[1]) - int(have[1])) <= kColorMatchTolerance &&
+            std::abs(int(want[2]) - int(have[2])) <= kColorMatchTolerance) {
+            out = e.spectrum;
+            return true;
+        }
+    }
+    return false;
+}
+
+void invalidate()
+{
+    std::lock_guard<std::mutex> lock(index_mutex());
+    g_index_loaded = false;
+    g_index_load_attempted = false;
+    g_index = SpectrumIndex{};
+}
+
+std::string blend_color_multi_spectrum_first(const std::vector<std::string>& hex_colors,
+                                             const std::vector<int>&        weights)
+{
+    // Degenerate inputs keep the polynomial mixer's existing behavior
+    // (including its "#000000" / single-color conventions).
+    if (hex_colors.size() != weights.size() || hex_colors.size() < 2)
+        return blend_color_multi(hex_colors, weights);
+
+    std::vector<ReflectanceSpectrum> spectra;
+    spectra.reserve(hex_colors.size());
+    for (size_t i = 0; i < hex_colors.size(); ++i) {
+        ReflectanceSpectrum spectrum{};
+        if (!lookup_spectrum_by_color(hex_colors[i], spectrum))
+            return blend_color_multi(hex_colors, weights);
+        spectra.push_back(spectrum);
+    }
+
+    const std::string mixed = km_blend_color_multi_with_spectra(hex_colors, spectra, weights);
+    return mixed.empty() ? blend_color_multi(hex_colors, weights) : mixed;
+}
+
+} // namespace BaseColorSpectra
 
 } // namespace Slic3r

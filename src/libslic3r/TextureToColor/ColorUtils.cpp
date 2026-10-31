@@ -648,46 +648,46 @@ double calc_rgb_color_difference_by_ciede2000_srgb01(const ColorDouble& rgb1, co
 // Working-space distance function type: inputs are two colors in the same space (RGB-double or Lab)
 using WorkingDistFunc = double (*)(const ColorDouble&, const ColorDouble&);
 
-// Farthest Point Sampling (FPS) initialization algorithm.
-// The first center is the point nearest to the global centroid; subsequent centers are the points farthest from the existing set.
-static std::vector<ColorDouble> farthest_point_sampling_init(const std::vector<ColorDouble>& working_colors, std::size_t k, WorkingDistFunc dist_func) {
-    std::vector<ColorDouble> centers(k);
-
-    // 1. Compute the global centroid and pick the nearest point as the first center
-    ColorDouble centroid = {0.0, 0.0, 0.0};
-    for (const auto& c : working_colors) {
-        centroid[0] += c[0];
-        centroid[1] += c[1];
-        centroid[2] += c[2];
+// Incrementally extend a Farthest Point Sampling (FPS) sequence. Every prefix is
+// identical to initializing that K independently, which lets adaptive search
+// reuse work across its K probes without changing clustering results.
+static void extend_farthest_point_sampling(const std::vector<ColorDouble>& working_colors, std::size_t k, WorkingDistFunc dist_func,
+                                           std::vector<ColorDouble>& centers, std::vector<double>& min_distances) {
+    if (working_colors.empty() || k == 0 || centers.size() >= k) {
+        return;
     }
-    const auto n = static_cast<double>(working_colors.size());
-    centroid[0] /= n;
-    centroid[1] /= n;
-    centroid[2] /= n;
 
-    double best_dist = std::numeric_limits<double>::max();
-    std::size_t first_idx = 0;
-    for (std::size_t i = 0; i < working_colors.size(); ++i) {
-        double d = dist_func(working_colors[i], centroid);
-        if (d < best_dist) {
-            best_dist = d;
-            first_idx = i;
+    if (centers.empty()) {
+        ColorDouble centroid = {0.0, 0.0, 0.0};
+        for (const auto& c : working_colors) {
+            centroid[0] += c[0];
+            centroid[1] += c[1];
+            centroid[2] += c[2];
         }
+        const auto n = static_cast<double>(working_colors.size());
+        centroid[0] /= n;
+        centroid[1] /= n;
+        centroid[2] /= n;
+
+        double best_dist = std::numeric_limits<double>::max();
+        std::size_t first_idx = 0;
+        for (std::size_t i = 0; i < working_colors.size(); ++i) {
+            const double d = dist_func(working_colors[i], centroid);
+            if (d < best_dist) {
+                best_dist = d;
+                first_idx = i;
+            }
+        }
+        centers.push_back(working_colors[first_idx]);
+        min_distances.assign(working_colors.size(), std::numeric_limits<double>::max());
     }
-    centers[0] = working_colors[first_idx];
 
-    // Minimum distance from each point to the already-selected center set
-    std::vector<double> min_distances(working_colors.size(), std::numeric_limits<double>::max());
-
-    // 2. Greedily select the remaining K-1 centers: pick the point with the largest min_distance each time
-    for (std::size_t i = 1; i < k; ++i) {
-        const ColorDouble& last_center = centers[i - 1];
-
-        // Update each point's minimum distance with the newly added center
+    while (centers.size() < k) {
+        const ColorDouble& last_center = centers.back();
         double farthest_dist = -1.0;
         std::size_t farthest_idx = 0;
         for (std::size_t c_idx = 0; c_idx < working_colors.size(); ++c_idx) {
-            double d = dist_func(working_colors[c_idx], last_center);
+            const double d = dist_func(working_colors[c_idx], last_center);
             if (d < min_distances[c_idx]) {
                 min_distances[c_idx] = d;
             }
@@ -696,10 +696,15 @@ static std::vector<ColorDouble> farthest_point_sampling_init(const std::vector<C
                 farthest_idx = c_idx;
             }
         }
-
-        centers[i] = working_colors[farthest_idx];
+        centers.push_back(working_colors[farthest_idx]);
     }
+}
 
+static std::vector<ColorDouble> farthest_point_sampling_init(const std::vector<ColorDouble>& working_colors, std::size_t k, WorkingDistFunc dist_func) {
+    std::vector<ColorDouble> centers;
+    centers.reserve(k);
+    std::vector<double> min_distances;
+    extend_farthest_point_sampling(working_colors, k, dist_func, centers, min_distances);
     return centers;
 }
 
@@ -908,8 +913,21 @@ bool is_closed(const TriMesh& bbs_mesh) {
 }
 
 static bool smooth_region_labels(TriMesh& tri_mesh, std::vector<std::size_t>& face_labels, const SmoothParameters& smooth_parameters) {
+    using Clock = std::chrono::steady_clock;
+    const auto total_started_at = Clock::now();
+    auto stage_started_at = total_started_at;
+    auto log_stage = [&](const char* stage) {
+        const auto now = Clock::now();
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] smooth_region stage=" << stage
+                                   << " elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(now - stage_started_at).count()
+                                   << " faces=" << face_labels.size();
+        stage_started_at = now;
+    };
+
     CGALMesh mesh;
     cgalutils::convert_trimesh_to_cgal(tri_mesh, mesh);
+    log_stage("trimesh_to_cgal");
 
     if (mesh.number_of_faces() != face_labels.size()) {
         BOOST_LOG_TRIVIAL(warning) << "Face count does not match label count";
@@ -920,14 +938,20 @@ static bool smooth_region_labels(TriMesh& tri_mesh, std::vector<std::size_t>& fa
         // Topological smoothing: reassign face labels.
         smooth_region_topo_boundary(mesh, face_labels);
     }
+    log_stage("topological_smoothing");
 
     if (smooth_parameters.smooth_weight > EPSILON) {
         // Geometric smoothing: smooth polylines and project back onto the original mesh.
         smooth_region_geom_boundary(mesh, face_labels, smooth_parameters);
     }
+    log_stage("geometric_smoothing");
 
     tri_mesh = cgalutils::cgal_to_trimesh(mesh);
+    log_stage("cgal_to_trimesh");
 
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] smooth_region stage=total elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                               << " faces=" << face_labels.size();
     return true;
 }
 
@@ -979,13 +1003,30 @@ double calc_rgb_color_difference_by_squared_rgb(const RGB& c1, const RGB& c2) {
 
 // K-Means core: run FPS initialization + assign/update iterations in working space, return cluster centers
 static std::vector<ColorDouble> kmeans_core(const std::vector<ColorDouble>& working_colors, std::size_t k, std::size_t max_iter, WorkingDistFunc dist_func,
-                                            const std::function<bool()>& cancel_cb = nullptr) {
-    std::vector<ColorDouble> centers = farthest_point_sampling_init(working_colors, k, dist_func);
+                                            const std::function<bool()>& cancel_cb = nullptr,
+                                            const std::vector<ColorDouble>* initial_centers = nullptr) {
+    using Clock = std::chrono::steady_clock;
+    const auto total_started_at = Clock::now();
+    const auto init_started_at = Clock::now();
+    std::vector<ColorDouble> centers;
+    const bool use_cached_fps = initial_centers != nullptr && initial_centers->size() >= k;
+    if (use_cached_fps) {
+        centers.assign(initial_centers->begin(), initial_centers->begin() + k);
+    } else {
+        centers = farthest_point_sampling_init(working_colors, k, dist_func);
+    }
+    const double init_ms = std::chrono::duration<double, std::milli>(Clock::now() - init_started_at).count();
     std::vector<std::size_t> assignments(working_colors.size());
+    double assignment_ms = 0.0;
+    double update_ms = 0.0;
+    std::size_t iterations = 0;
+    bool converged = false;
 
     for (std::size_t iter = 0; iter < max_iter; ++iter) {
+        ++iterations;
         if (cancel_cb && cancel_cb()) return centers;
         std::atomic<bool> changed(false);
+        const auto assignment_started_at = Clock::now();
 
         tbb::parallel_for(tbb::blocked_range<std::size_t>(0, working_colors.size()), [&](const tbb::blocked_range<size_t>& range) {
             for (std::size_t i = range.begin(); i < range.end(); ++i) {
@@ -1006,11 +1047,14 @@ static std::vector<ColorDouble> kmeans_core(const std::vector<ColorDouble>& work
                 }
             }
         });
+        assignment_ms += std::chrono::duration<double, std::milli>(Clock::now() - assignment_started_at).count();
 
         if (!changed.load()) {
+            converged = true;
             break;
         }
 
+        const auto update_started_at = Clock::now();
         std::vector<ColorDouble> new_centers(k, {0.0, 0.0, 0.0});
         std::vector<std::size_t> counts(k, 0);
 
@@ -1029,13 +1073,11 @@ static std::vector<ColorDouble> kmeans_core(const std::vector<ColorDouble>& work
                 for (std::size_t p = 0; p < working_colors.size(); ++p) {
                     double nearest = std::numeric_limits<double>::max();
                     for (std::size_t c = 0; c < k; ++c) {
-                        if (c == i || counts[c] == 0) {
+                        if (c == i || counts[c] == 0)
                             continue;
-                        }
                         double d = dist_func(working_colors[p], centers[c]);
-                        if (d < nearest) {
+                        if (d < nearest)
                             nearest = d;
-                        }
                     }
                     if (nearest > max_min_dist) {
                         max_min_dist = nearest;
@@ -1049,11 +1091,22 @@ static std::vector<ColorDouble> kmeans_core(const std::vector<ColorDouble>& work
                 centers[i][2] = new_centers[i][2] / counts[i];
             }
         }
+        update_ms += std::chrono::duration<double, std::milli>(Clock::now() - update_started_at).count();
     }
 
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] kmeans_core stage=total"
+                               << " elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                               << " init_ms=" << init_ms
+                               << " init_source=" << (use_cached_fps ? "cached_fps" : "fresh_fps")
+                               << " assignment_ms=" << assignment_ms
+                               << " update_ms=" << update_ms
+                               << " points=" << working_colors.size()
+                               << " k=" << k
+                               << " iterations=" << iterations
+                               << " converged=" << converged;
     return centers;
 }
-
 // K-Means clustering algorithm
 std::vector<Color> cluster_k_means(const std::vector<Color>& colors, const ClusterParameters& cluster_parameters) {
     std::size_t k = cluster_parameters.cluster_k;
@@ -1237,6 +1290,8 @@ struct ColorPCA {
 }
 
 std::vector<Color> cluster_adaptive(const std::vector<Color>& colors, const ClusterParameters& cluster_parameters) {
+    using Clock = std::chrono::steady_clock;
+    const auto total_started_at = Clock::now();
     if (colors.empty()) {
         return {};
     }
@@ -1249,14 +1304,18 @@ std::vector<Color> cluster_adaptive(const std::vector<Color>& colors, const Clus
     // ==========================================
     // 1. Deduplicate + convert to working space
     // ==========================================
+    const auto preprocess_started_at = Clock::now();
     std::vector<Color> unique_colors = colors;
     std::sort(unique_colors.begin(), unique_colors.end());
     auto last = std::unique(unique_colors.begin(), unique_colors.end());
     unique_colors.erase(last, unique_colors.end());
 
-    BOOST_LOG_TRIVIAL(debug) << "cluster_adaptive: colors=" << colors.size()
-                             << " unique=" << unique_colors.size()
-                             << " max_color_distance=" << max_color_distance;
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] cluster_adaptive stage=preprocess elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(Clock::now() - preprocess_started_at).count()
+                               << " colors=" << colors.size()
+                               << " unique_colors=" << unique_colors.size()
+                               << " max_color_distance=" << max_color_distance
+                               << " max_k=" << cluster_parameters.max_cluster_k;
 
     if (unique_colors.size() <= 1) {
         return unique_colors;
@@ -1272,11 +1331,14 @@ std::vector<Color> cluster_adaptive(const std::vector<Color>& colors, const Clus
     }
 
     // ==========================================
-    // 2. Binary search k: find the smallest k where P99 radius <= max_color_distance
+    // 2. Cost-aware search for the smallest k where P99 radius <= max_color_distance.
+    // K-means cost grows roughly linearly with k, so probe 1, 2, 4, ... first,
+    // then binary-search only the final bracket instead of starting at max_k / 2.
     // ==========================================
-    const std::size_t max_k = cluster_parameters.max_cluster_k;
-    std::size_t lo = 1;
-    std::size_t hi = std::min<std::size_t>(max_k, unique_colors.size());
+    const std::size_t max_k = std::min<std::size_t>(cluster_parameters.max_cluster_k, unique_colors.size());
+    if (max_k == 0) {
+        return {};
+    }
     std::size_t best_k = 0;
     std::vector<ColorDouble> best_centers;
 
@@ -1305,17 +1367,71 @@ std::vector<Color> cluster_adaptive(const std::vector<Color>& colors, const Clus
     };
 
     const auto& cancel_cb = cluster_parameters.cancel_callback;
+    std::size_t search_attempts = 0;
+    std::size_t cumulative_k = 0;
+    std::vector<ColorDouble> cached_fps_centers;
+    std::vector<double> cached_fps_min_distances;
 
-    while (lo <= hi) {
-        if (cancel_cb && cancel_cb()) return {};
-        std::size_t mid = lo + (hi - lo) / 2;
-        auto centers = kmeans_core(working_colors, mid, max_iter, working_dist_func, cancel_cb);
-        if (cancel_cb && cancel_cb()) return {};
+    auto evaluate_k = [&](std::size_t k, const char* phase, std::vector<ColorDouble>& centers) -> bool {
+        if (cancel_cb && cancel_cb()) return false;
+        ++search_attempts;
+        cumulative_k += k;
+        const auto fps_started_at = Clock::now();
+        extend_farthest_point_sampling(working_colors, k, working_dist_func, cached_fps_centers, cached_fps_min_distances);
+        const double fps_extend_ms = std::chrono::duration<double, std::milli>(Clock::now() - fps_started_at).count();
+        const auto kmeans_started_at = Clock::now();
+        centers = kmeans_core(working_colors, k, max_iter, working_dist_func, cancel_cb, &cached_fps_centers);
+        const double kmeans_ms = std::chrono::duration<double, std::milli>(Clock::now() - kmeans_started_at).count();
+        if (cancel_cb && cancel_cb()) return false;
+        const auto radius_started_at = Clock::now();
         double max_radius = calc_max_radius(centers);
+        const double radius_ms = std::chrono::duration<double, std::milli>(Clock::now() - radius_started_at).count();
 
-        BOOST_LOG_TRIVIAL(debug) << "cluster_adaptive binary search: k=" << mid << " max_radius=" << max_radius;
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] cluster_adaptive stage=search_attempt"
+                                   << " attempt=" << search_attempts
+                                   << " phase=" << phase
+                                   << " k=" << k
+                                   << " fps_extend_ms=" << fps_extend_ms
+                                   << " fps_cached_k=" << cached_fps_centers.size()
+                                   << " kmeans_ms=" << kmeans_ms
+                                   << " radius_ms=" << radius_ms
+                                   << " max_radius=" << max_radius
+                                   << " unique_colors=" << unique_colors.size();
+        return max_radius <= max_color_distance;
+    };
 
-        if (max_radius <= max_color_distance) {
+    std::size_t lower_failed_k = 0;
+    std::size_t probe_k = 1;
+    while (true) {
+        std::vector<ColorDouble> centers;
+        const bool accepted = evaluate_k(probe_k, "bracket", centers);
+        if (cancel_cb && cancel_cb()) return {};
+        if (accepted) {
+            best_k = probe_k;
+            best_centers = std::move(centers);
+            break;
+        }
+
+        lower_failed_k = probe_k;
+        if (probe_k == max_k) {
+            best_k = max_k;
+            best_centers = std::move(centers);
+            BOOST_LOG_TRIVIAL(warning) << "cluster_adaptive: search found no k satisfying max_radius<="
+                                       << max_color_distance << ", fallback to k=" << best_k;
+            break;
+        }
+
+        probe_k = probe_k > max_k / 2 ? max_k : probe_k * 2;
+    }
+
+    std::size_t lo = lower_failed_k + 1;
+    std::size_t hi = best_k > 0 ? best_k - 1 : 0;
+    while (lo <= hi) {
+        const std::size_t mid = lo + (hi - lo) / 2;
+        std::vector<ColorDouble> centers;
+        const bool accepted = evaluate_k(mid, "refine", centers);
+        if (cancel_cb && cancel_cb()) return {};
+        if (accepted) {
             best_k = mid;
             best_centers = std::move(centers);
             hi = mid - 1;
@@ -1324,14 +1440,13 @@ std::vector<Color> cluster_adaptive(const std::vector<Color>& colors, const Clus
         }
     }
 
-    if (best_k == 0) {
-        best_k = std::min<std::size_t>(max_k, unique_colors.size());
-        best_centers = kmeans_core(working_colors, best_k, max_iter, working_dist_func, cancel_cb);
-        BOOST_LOG_TRIVIAL(warning) << "cluster_adaptive: binary search found no k satisfying max_radius<="
-                                   << max_color_distance << ", fallback to k=" << best_k;
-    }
-
-    BOOST_LOG_TRIVIAL(debug) << "cluster_adaptive: best_k=" << best_k;
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] cluster_adaptive stage=search_complete"
+                               << " elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                               << " attempts=" << search_attempts
+                               << " cumulative_k=" << cumulative_k
+                               << " best_k=" << best_k
+                               << " unique_colors=" << unique_colors.size();
 
     // ==========================================
     // 3. Convert centers back to RGB
@@ -1346,6 +1461,12 @@ std::vector<Color> cluster_adaptive(const std::vector<Color>& colors, const Clus
         }
     }
 
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] cluster_adaptive stage=total elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                               << " attempts=" << search_attempts
+                               << " cumulative_k=" << cumulative_k
+                               << " best_k=" << best_k
+                               << " unique_colors=" << unique_colors.size();
     return result;
 }
 

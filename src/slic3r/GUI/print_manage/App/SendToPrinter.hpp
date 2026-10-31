@@ -70,6 +70,7 @@ public:
 
 private:
     void bind_events();
+    void clear_cloud_device_refresh_target();
     void SendAPIKey();
     std::string get_plate_data_on_show();
     std::string get_onlygcode_plate_data_on_show();

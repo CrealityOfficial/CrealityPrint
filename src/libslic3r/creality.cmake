@@ -12,6 +12,8 @@ list(APPEND lisbslic3r_sources
         FDM/PolysUlities.cpp
         FDM/NoWipeTowerMaterialChange.hpp
         FDM/NoWipeTowerMaterialChange.cpp
+        FDM/NoWipeTowerPrintStart.hpp
+        FDM/NoWipeTowerPrintStart.cpp
         Fill/Tower/FillLayerFilamentWipePacking.hpp
         Fill/Tower/FillLayerFilamentWipePacking.cpp
         Fill/NoWipeTowerFlushIntoSkeleton.hpp

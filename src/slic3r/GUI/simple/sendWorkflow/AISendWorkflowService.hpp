@@ -2,6 +2,7 @@
 #define slic3r_AISendWorkflowService_hpp_
 
 #include "nlohmann/json.hpp"
+#include "libslic3r/AIRecommendation.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -75,6 +76,10 @@ private:
         bool                         last_start_print = false;
         bool                         cloud_workflow_active = false;
         std::string                  print_target_address;
+        // Exact ID written into the G-code for this send, independent of AI task IDs.
+        std::string                  gcode_task_id;
+        // Immutable metrics of the actual file, copied before either transport starts.
+        AIRecommendationMetrics      recommendation_metrics;
         bool                         mapping_sync_retry_active = false;
         std::uint64_t                mapping_sync_retry_token = 0;
         std::unordered_map<int, std::string> draft_selection_tokens;

@@ -1715,6 +1715,18 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             print_diff.emplace_back(sub_key);
         }
     }
+    // These plate-level sequence choices are dynamic-only config keys: they are
+    // not members of PrintConfig, so print_config_diffs() cannot see them.
+    // Add them explicitly to the print diff so changing Gray safe invalidates
+    // the tool-ordering and slicing stages.
+    for (const char *sequence_choice_key : {"first_layer_sequence_choice", "other_layers_sequence_choice"}) {
+        const ConfigOption *new_choice = new_full_config.option(sequence_choice_key, false);
+        const ConfigOption *old_choice = m_full_print_config.option(sequence_choice_key, false);
+        const bool changed = (new_choice == nullptr) != (old_choice == nullptr) ||
+            (new_choice != nullptr && old_choice != nullptr && *new_choice != *old_choice);
+        if (changed && std::find(print_diff.begin(), print_diff.end(), sequence_choice_key) == print_diff.end())
+            print_diff.emplace_back(sequence_choice_key);
+    }
     // Collect changes to object and region configs.
     t_config_option_keys object_diff      = m_default_object_config.diff(new_full_config);
     t_config_option_keys region_diff      = m_default_region_config.diff(new_full_config);

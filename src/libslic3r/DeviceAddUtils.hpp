@@ -23,6 +23,91 @@ inline std::string normalize_nozzles(const nlohmann::json& value)
     return result;
 }
 
+inline bool nozzle_list_contains(const std::string& list, const std::string& nozzle)
+{
+    size_t begin = 0;
+    while (begin <= list.size()) {
+        const size_t end = list.find(';', begin);
+        if (list.substr(begin, end == std::string::npos ? end : end - begin) == nozzle)
+            return true;
+        if (end == std::string::npos)
+            break;
+        begin = end + 1;
+    }
+    return false;
+}
+
+// Saving the device-add selection rebuilds the enabled vendor map. Keep the
+// active system printer selectable even when its parameter package appeared
+// after the device-add page took its profile snapshot.
+inline bool ensure_active_nozzle_selected(nlohmann::json& profile_models, const std::string& vendor,
+                                          const std::string& model, const std::string& nozzle)
+{
+    if (!profile_models.is_array() || vendor.empty() || model.empty() || nozzle.empty())
+        return false;
+    for (auto& profile : profile_models) {
+        if (!profile.is_object() || profile.value("vendor", std::string()) != vendor ||
+            profile.value("model", std::string()) != model)
+            continue;
+
+        const std::string supported = normalize_nozzles(profile.value("nozzle_diameter", nlohmann::json()));
+        if (!nozzle_list_contains(supported, nozzle))
+            return false;
+        std::string selected = normalize_nozzles(profile.value("nozzle_selected", nlohmann::json()));
+        if (nozzle_list_contains(selected, nozzle))
+            return false;
+        if (!selected.empty())
+            selected += ';';
+        profile["nozzle_selected"] = selected + nozzle;
+        return true;
+    }
+    return false;
+}
+
+// Device-add computes the installed filament set from the selected printers.
+// Merge the active system preset into that selection before the computation so
+// a newly downloaded nozzle variant keeps both its printer and its materials.
+inline bool ensure_printer_nozzle_selected(nlohmann::json& selections, const nlohmann::json& profile_models,
+                                           const std::string& vendor, const std::string& model,
+                                           const std::string& nozzle)
+{
+    if ((!selections.is_array() && !selections.is_object()) || !profile_models.is_array() ||
+        vendor.empty() || model.empty() || nozzle.empty())
+        return false;
+
+    bool supported = false;
+    for (const auto& profile : profile_models) {
+        if (profile.is_object() && profile.value("vendor", std::string()) == vendor &&
+            profile.value("model", std::string()) == model &&
+            nozzle_list_contains(normalize_nozzles(profile.value("nozzle_diameter", nlohmann::json())), nozzle)) {
+            supported = true;
+            break;
+        }
+    }
+    if (!supported)
+        return false;
+
+    for (auto& selected : selections) {
+        if (!selected.is_object() || selected.value("vendor", std::string()) != vendor ||
+            selected.value("model", std::string()) != model)
+            continue;
+        std::string nozzles = normalize_nozzles(selected.value("nozzle_diameter", nlohmann::json()));
+        if (nozzle_list_contains(nozzles, nozzle))
+            return false;
+        if (!nozzles.empty())
+            nozzles += ';';
+        selected["nozzle_diameter"] = nozzles + nozzle;
+        return true;
+    }
+
+    nlohmann::json selected = {{"vendor", vendor}, {"model", model}, {"nozzle_diameter", nozzle}};
+    if (selections.is_array())
+        selections.push_back(std::move(selected));
+    else
+        selections["active:" + vendor + ":" + model] = std::move(selected);
+    return true;
+}
+
 inline std::string catalog_model_name(const nlohmann::json& catalog, const std::string& internal_name)
 {
     const auto printers = catalog.find("printerList");

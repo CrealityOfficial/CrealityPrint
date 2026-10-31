@@ -513,8 +513,17 @@ bool OptionsGroup::activate(std::function<void()> throw_if_canceled/* = [](){}*/
             if (title.IsEmpty()) {
                 stl->Hide();
             } else {
-			    sizer->Add(stl, 0, wxEXPAND);
-			    sizer->AddSpacer(5);
+                if (m_header_widget) {
+                    wxBoxSizer* header_sizer = new wxBoxSizer(wxHORIZONTAL);
+                    header_sizer->Add(stl, 0, wxEXPAND);
+                    if (wxSizer* header_widget = m_header_widget(m_parent))
+                        header_sizer->Add(header_widget, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 6);
+                    header_sizer->Add(new ::StaticLine(m_parent), 1, wxEXPAND | wxLEFT, 6);
+                    sizer->Add(header_sizer, 0, wxEXPAND);
+                } else {
+                    sizer->Add(stl, 0, wxEXPAND);
+                }
+                sizer->AddSpacer(5);
             }
 			this->stb = stl;
 		}
@@ -685,6 +694,8 @@ Option ConfigOptionsGroup::get_option(const std::string& opt_key, int opt_index 
 
 void ConfigOptionsGroup::on_change_OG(const t_config_option_key& opt_id, const boost::any& value)
 {
+    if (m_on_before_change && m_on_before_change(opt_id, value))
+        return;
 	if (!m_opt_map.empty())
 	{
 		auto it = m_opt_map.find(opt_id);
@@ -973,7 +984,6 @@ void ConfigOptionsGroup::refresh_overhang_layout()
                         continue;
                     const auto& key = speed.get_options().front().opt_id;
                     Option option = get_option(key, nozzle.first);
-                    option.toggle_visible = key != "overhang_totally_speed" || classic;
                     option.opt.gui_type = ConfigOptionDef::GUIType::undefined;
                     line.append_option(option);
                 }
@@ -1046,12 +1056,8 @@ void ConfigOptionsGroup::update_overhang_visibility()
         any_enabled |= show;
         const std::string id = m_overhang_layout.empty() ? "overhang_1_4_speed" :
             "overhang_1_4_speed#" + std::to_string(nozzle.first);
-        if (Line* line = get_line(id)) {
+        if (Line* line = get_line(id))
             line->toggle_visible = show;
-            const std::string total_id = m_overhang_layout.empty() ? "overhang_totally_speed" :
-                "overhang_totally_speed#" + std::to_string(nozzle.first);
-            line->set_option_visible(total_id, classic);
-        }
     }
     for (const char* key : {"overhang_speed_classic", "slowdown_for_curled_perimeters",
                             "smooth_speed_discontinuity_area", "smooth_coefficient"}) {

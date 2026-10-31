@@ -69,6 +69,36 @@ void MCPChatPanel::RegisterAllHandlers()
 {
     using namespace Bridge;
 
+    // Same theme request/reply used by Device Manager and Send to Printer.
+    RegisterHandler("is_dark_theme", [this](const json&) {
+        SendCommandToJS("is_dark_theme", wxGetApp().dark_mode());
+    });
+
+    RegisterHandler("parameter_diff_ready", [this](const json&) {
+        if (!m_parameter_diff_only) return;
+        m_js_ready = true;
+        NotifyThemeChanged();
+        NotifyGatewayUser();
+        if (!m_pending_parameter_diff.empty()) {
+            m_has_pending_parameter_diff = false;
+            SendCommandToJS("open_parameter_diff", m_pending_parameter_diff);
+            m_pending_parameter_diff.erase("entry_click");
+        }
+    });
+
+    // This read-only action does not need plate validation or a scene refresh.
+    RegisterHandler(ActionID::GET_PARAMETER_DIFFERENCES, [this](const json& data) {
+        CallAfter([this, data]() {
+            json result = SlicerBridge::Instance().Execute(ActionID::GET_PARAMETER_DIFFERENCES, data);
+            result["request_id"] = data.value("request_id", std::string());
+            SendCommandToJS("parameter_differences", result);
+        });
+    });
+    RegisterHandler("close_parameter_diff", [this](const json&) {
+        if (m_parameter_diff_only)
+            MCPParameterDiffWindow::Hide();
+    });
+
     // All slicer actions delegate to the bridge
     for (const auto& spec : ToolCalls::GetBridgeToolRouteSpecs()) {
         if (!spec.register_handler)
@@ -97,6 +127,7 @@ void MCPChatPanel::RegisterAllHandlers()
     RegisterHandler(ActionID::SET_OBJECT_COLOR,  [this](const json& d) { ExecuteBridgeAction(ActionID::SET_OBJECT_COLOR, d); });
     RegisterHandler(ActionID::SELECT_PRESET,     [this](const json& d) { ExecuteBridgeAction(ActionID::SELECT_PRESET, d); });
     RegisterHandler(ActionID::IMPORT_MODEL,      [this](const json& d) { ExecuteBridgeAction(ActionID::IMPORT_MODEL, d); });
+    RegisterHandler(ActionID::IMPORT_GENERATED_MODEL, [this](const json& d) { ExecuteBridgeAction(ActionID::IMPORT_GENERATED_MODEL, d); });
     RegisterHandler(ActionID::START_SLICE,       [this](const json& d) { StartSliceRequest(d.value("request_id", std::string()), d, false); });
     RegisterHandler("run_slice",               [this](const json& d) { StartSliceRequest(d.value("request_id", std::string()), d, false); });
     RegisterHandler(ActionID::SEND_TO_PRINTER,   [this](const json& d) { ExecuteBridgeAction(ActionID::SEND_TO_PRINTER, d); });

@@ -13,7 +13,12 @@ endif ()
 set(_opencv_bundled_image_args "")
 set(_opencv_image_deps "")
 set(_opencv_build_jpeg ON)
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if (FLATPAK)
+    # Use the SDK image codecs, as the shared wxWidgets build does. Flatpak
+    # skips these dependency builds when the SDK provides them, so static
+    # archives under DESTDIR are not available.
+    set(_opencv_build_jpeg OFF)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Keep OpenCV's static image codecs on the dependency prefix. Otherwise its
     # exported target records host library paths and adds runtime dependencies.
     # Share JPEG with wxWidgets: OpenCV's bundled ABI 62 can otherwise override

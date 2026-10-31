@@ -206,7 +206,7 @@ public:
     int ShowModal() override;
     void on_dpi_changed(const wxRect& suggested_rect) override;
 
-    Slic3r::PaintedMesh               get_painted_mesh() const;
+    Slic3r::PaintedMesh               take_painted_mesh();
     std::vector<Slic3r::FilamentMatch> get_matches() const;
     bool                               was_skipped() const { return m_skipped; }
     bool                               fallback_to_geometry_only() const { return m_fallback_to_geometry_only; }
@@ -334,6 +334,7 @@ private:
     int                                m_auto_mix_font_point_size = 10;
 
     Slic3r::PaintedMesh               m_painted;
+    Slic3r::TexturePaintingCache      m_painting_cache;
     std::vector<Slic3r::FilamentMatch> m_current_matches;
 
     std::unique_ptr<std::thread>       m_worker;

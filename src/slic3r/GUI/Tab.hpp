@@ -35,6 +35,7 @@
 #include "Event.hpp"
 #include "wxExtensions.hpp"
 #include "ConfigManipulation.hpp"
+#include "PrimeTowerOptions.hpp"
 #include "OptionsGroup.hpp"
 #include "libslic3r/Preset.hpp"
 //BBS: GUI refactor
@@ -292,6 +293,9 @@ protected:
     m_highlighter;
 
 	DynamicPrintConfig 	m_cache_config;
+    LinkedOptionBackup m_no_wipe_printer_backup;
+    std::string m_no_wipe_printer_name;
+    std::string m_no_wipe_process_name;
 
 
 	bool				m_page_switch_running = false;
@@ -505,6 +509,8 @@ public:
 
 private:
     wxSizer* create_limit_mess_enable_widget(const std::string& title, wxWindow* parent);
+    bool on_prime_tower_user_change(const std::string& opt_key, const boost::any& value);
+    bool m_handling_prime_tower_change = false;
     wxSizer* create_flush_into_skeleton_widget(wxWindow* parent);
     bool     flush_into_skeleton_button_enabled() const;
     void     update_flush_into_skeleton_button_state();

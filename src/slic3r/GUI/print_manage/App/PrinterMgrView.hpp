@@ -80,6 +80,7 @@ namespace Slic3r {
             void on_switch_to_device_page();
             void forward_init_device_cmd_to_printer_list();
             void request_refresh_all_device();
+            void set_send_page_cloud_device(const std::string& address);
             int load_machine_preset_data();
             int getFileListFromLanDevice(const std::string strIp);
             int deleteFileListFromLanDevice(const std::string strIp, const std::string strName);

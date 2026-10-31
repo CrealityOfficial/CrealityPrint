@@ -608,7 +608,7 @@ bool CalibUtils::calib_flowrate(int pass, const CalibInfo &calib_info, wxString 
     return true;
 }
 
-void CalibUtils::calib_pa_pattern(const CalibInfo &calib_info, Model& model)
+bool CalibUtils::calib_pa_pattern(const CalibInfo &calib_info, Model& model, wxString &error_message)
 {
     DynamicPrintConfig& print_config    = calib_info.print_prest->config;
     DynamicPrintConfig& filament_config = calib_info.filament_prest->config;
@@ -655,14 +655,22 @@ void CalibUtils::calib_pa_pattern(const CalibInfo &calib_info, Model& model)
     CalibPressureAdvancePattern pa_pattern(calib_info.params, full_config, true, model, plate_origin);
 
     Pointfs bedfs         = full_config.opt<ConfigOptionPoints>("printable_area")->values;
-    double  current_width = bedfs[2].x() - bedfs[0].x();
-    double  current_depth = bedfs[2].y() - bedfs[0].y();
+    const BoundingBoxf printable_bbox = get_extents(bedfs);
+    double  current_width = printable_bbox.size().x();
+    double  current_depth = printable_bbox.size().y();
+    constexpr int max_pa_pattern_count = 21;
+    const int pattern_count = static_cast<int>(std::ceil((calib_info.params.end - calib_info.params.start) / calib_info.params.step)) + 1;
+    if (pattern_count > max_pa_pattern_count || pa_pattern.print_size_x() > current_width || pa_pattern.print_size_y() > current_depth) {
+        error_message = _L("The V-shape calibration pattern does not fit in the printable area. Please reduce the PA range or increase the PA step.");
+        return false;
+    }
     Vec3d   half_pattern_size = Vec3d(pa_pattern.print_size_x() / 2, pa_pattern.print_size_y() / 2, 0);
     Vec3d   offset            = Vec3d(current_width / 2, current_depth / 2, 0) - half_pattern_size;
     pa_pattern.set_start_offset(offset);
 
     pa_pattern.generate_custom_gcodes(full_config, true, model, plate_origin);
     model.calib_pa_pattern = std::make_unique<CalibPressureAdvancePattern>(pa_pattern);
+    return true;
 }
 
 bool CalibUtils::calib_generic_PA(const CalibInfo &calib_info, wxString &error_message)
@@ -680,8 +688,8 @@ bool CalibUtils::calib_generic_PA(const CalibInfo &calib_info, wxString &error_m
 
     read_model_from_file(input_file, model);
 
-    if (params.mode == CalibMode::Calib_PA_Pattern)
-        calib_pa_pattern(calib_info, model);
+    if (params.mode == CalibMode::Calib_PA_Pattern && !calib_pa_pattern(calib_info, model, error_message))
+        return false;
 
     DynamicPrintConfig print_config    = calib_info.print_prest->config;
     DynamicPrintConfig filament_config = calib_info.filament_prest->config;

@@ -40,7 +40,8 @@ public:
     MCPChatPanel(wxWindow* parent,
                  wxWindowID id = wxID_ANY,
                  const wxPoint& pos = wxDefaultPosition,
-                 const wxSize& size = wxDefaultSize);
+                 const wxSize& size = wxDefaultSize,
+                 bool parameter_diff_only = false);
     virtual ~MCPChatPanel();
 
     void SendAgentEvent(const std::string& event_name, const nlohmann::json& data);
@@ -66,6 +67,8 @@ public:
                                       bool success,
                                       const std::string& message,
                                       const nlohmann::json& details = nlohmann::json::object());
+    void OpenParameterDiffPanel(const nlohmann::json& data);
+    void NotifyParameterDiffClosed();
 
 private:
     void InitWebView();
@@ -183,6 +186,9 @@ private:
 
 private:
     wxWebView*    m_browser      = nullptr;
+    bool          m_parameter_diff_only = false;
+    bool          m_has_pending_parameter_diff = false;
+    nlohmann::json m_pending_parameter_diff = nlohmann::json::object();
     wxTimer       m_scene_update_timer;
     wxTimer       m_scheduled_refresh_timer;
     bool          m_page_loaded  = false;
@@ -249,6 +255,22 @@ private:
     std::unordered_map<std::string, PendingAsyncToolCall> m_pending_async_tool_calls;
 };
 
+class MCPParameterDiffWindow : public DPIFrame
+{
+public:
+    static bool Show(wxWindow* anchor, const nlohmann::json& data);
+    static void Hide();
+    static void DestroyForGUIRecreate();
+    static void NotifyThemeChanged();
+private:
+    MCPParameterDiffWindow(wxWindow* anchor);
+    ~MCPParameterDiffWindow() override { if (s_instance == this) s_instance = nullptr; }
+    void PositionToAnchor(wxWindow* anchor);
+    void on_dpi_changed(const wxRect& suggested_rect) override;
+    MCPChatPanel* m_panel = nullptr;
+    static MCPParameterDiffWindow* s_instance;
+};
+
 class MCPChatWindow : public DPIFrame
 {
 public:
@@ -284,6 +306,7 @@ void RegisterEmbeddedAIChatPanel(MCPChatPanel* panel);
 void UnregisterEmbeddedAIChatPanel(MCPChatPanel* panel);
 MCPChatPanel* GetEmbeddedAIChatPanel();
 MCPChatPanel* GetActiveAIChatPanel();
+bool OpenActiveAIParameterDiffPanel(wxWindow* anchor, const nlohmann::json& data);
 bool OpenActiveAISendWorkflowCardFromScene();
 bool OpenActiveAISliceWorkflowFromScene();
 bool ShowProAISliceAssistantWithEmbeddedSession();

@@ -1667,8 +1667,13 @@ void copy_directory_recursively(const boost::filesystem::path &source, const boo
     BOOST_LOG_TRIVIAL(info) << Slic3r::format("copy_directory_recursively %1% -> %2%", source, target);
     std::string error_message;
 
-    if (boost::filesystem::exists(target))
-        boost::filesystem::remove_all(target);
+    // Cleanup is best-effort; existing files can still be overwritten below.
+    boost::system::error_code remove_ec;
+    boost::filesystem::remove_all(target, remove_ec);
+    if (remove_ec)
+        BOOST_LOG_TRIVIAL(warning) << "Failed to remove directory " << target
+                                   << ": " << remove_ec.message() << " (" << remove_ec.value()
+                                   << "); continuing with overwrite copy";
     boost::filesystem::create_directories(target);
     for (auto &dir_entry : boost::filesystem::directory_iterator(source))
     {

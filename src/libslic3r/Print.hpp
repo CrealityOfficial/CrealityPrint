@@ -543,6 +543,7 @@ public:
     void         set_shared_object(PrintObject *object);
     void         clear_shared_object();
     void         copy_layers_from_shared_object();
+    void         copy_sliced_layers_and_perimeters(const PrintObject& source);
     void         copy_layers_overhang_from_shared_object();
 
     // BBS: Boundingbox of the first layer
@@ -894,7 +895,7 @@ public:
 
     // Exports G-code into a file name based on the path_template, returns the file path of the generated G-code file.
     // If preview_data is not null, the preview_data is filled in for the G-code visualization (not used by the command line Slic3r).
-    std::string         export_gcode(const std::string& path_template, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb = nullptr);
+    std::string         export_gcode(const std::string& path_template, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb = nullptr, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb = nullptr);
     //return 0 means successful
     int                 export_cached_data(const std::string& dir_path, bool with_space=false);
     int                 load_cached_data(const std::string& directory);
@@ -990,10 +991,15 @@ public:
     bool                        has_wipe_tower() const;
     // 1-based physical filament for the Creality tower; 0 keeps automatic selection.
     int                         creality_wipe_tower_filament() const;
+    // Estimate from an explicit configuration without changing the slicing cache.
+    static double               estimate_wipe_tower_depth(const PrintConfig& config, size_t filaments_cnt);
     const WipeTowerData&        wipe_tower_data(size_t filaments_cnt = 0) const;
     const ToolOrdering& 		tool_ordering() const { return m_tool_ordering; }
 
     bool                        enable_timelapse_print() const;
+    // Smooth timelapse may use a camera tower while material changes still
+    // use the no-prime-tower fill flush path.
+    bool                        needs_timelapse_tower() const;
 
 	std::string                 output_filename(const std::string &filename_base = std::string()) const override;
 

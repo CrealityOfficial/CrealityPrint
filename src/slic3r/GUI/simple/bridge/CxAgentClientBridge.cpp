@@ -389,6 +389,7 @@ CxAgentClientBridge::Json CxAgentClientBridge::BuildCapabilitiesPayload() const
     static const std::vector<std::pair<std::string, std::string>> tool_action_map = {
         {"get_project_context", ActionID::GET_SLICER_STATE},
         {"get_current_slice_params", ActionID::GET_EDITED_CONFIG},
+        {"get_project_3mf_context", ActionID::GET_PROJECT_3MF_CONTEXT},
         {"list_presets", ActionID::GET_PRESETS},
         {"list_printers", ActionID::LIST_PRINTERS},
         {"get_config_schema", ActionID::GET_CONFIG_OPTIONS},
@@ -400,6 +401,7 @@ CxAgentClientBridge::Json CxAgentClientBridge::BuildCapabilitiesPayload() const
         {"delete_model", ActionID::DELETE_MODEL},
         {"clone_model", ActionID::CLONE_MODEL},
         {"import_model", ActionID::IMPORT_MODEL},
+        {"import_generated_model", ActionID::IMPORT_GENERATED_MODEL},
         {"recommend_model", ActionID::RECOMMEND_MODEL},
         {"import_model_from_search", "import_model_from_search"},
         {"open_model_library", "open_model_library"},

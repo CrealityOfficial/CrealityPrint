@@ -6,6 +6,8 @@
 #include "GUI_App.hpp"
 #include "BaseColorSpectraCache.hpp"
 #include "OfficialMaterialColorCache.hpp"
+#include "ProfileUpdatePolicy.hpp"
+#include "ProfilePackageIO.hpp"
 #include "slic3r/Utils/Http.hpp"
 #include <nlohmann/json.hpp>
 #include "GUI_Init.hpp"
@@ -261,6 +263,9 @@ static AppUpdateProgressDialog* g_update_progress_dlg = nullptr;
 static bool g_update_ready_dialog_showing = false;
 static std::atomic<bool> g_async_material_list_update_running { false };
 static std::atomic<bool> g_async_machine_list_refresh_running { false };
+static std::atomic<bool> g_async_begin_guide_refresh_running { false };
+// Accessed only on the UI thread; duplicate guide requests share completion.
+static std::vector<std::string> g_begin_guide_refresh_sequences;
 static std::atomic<bool> g_app_exiting { false };
 
 using PresetNameReplacements = std::vector<std::pair<std::string, std::string>>;
@@ -3582,18 +3587,23 @@ void GUI_App::init_app_config()
             root = wxFileName::GetHomeDir() + wxS("/.config");
         set_data_dir((root + "/" + GetAppName()).ToUTF8().data());
 #endif
-        DataMigration::Options migration;
-        migration.target = std::filesystem::u8path(Slic3r::data_dir());
-        migration.resources = std::filesystem::u8path(resources_dir());
-        migration.data_version = CREALITYPRINT_DATA_VERSION;
-        migration.application_version = CREALITYPRINT_VERSION;
-        migration.alpha = boost::algorithm::icontains(std::string(PROJECT_VERSION_EXTRA), "alpha");
-        migration.validate_preset = DataMigration::validate_preset_readonly;
         try {
+            DataMigration::Options migration;
+            migration.target = std::filesystem::u8path(Slic3r::data_dir());
+            migration.resources = std::filesystem::u8path(resources_dir());
+            migration.data_version = CREALITYPRINT_DATA_VERSION;
+            migration.application_version = CREALITYPRINT_VERSION;
+            migration.alpha = boost::algorithm::icontains(std::string(PROJECT_VERSION_EXTRA), "alpha");
+            migration.validate_preset = DataMigration::validate_preset_readonly;
             DataMigration::initialize(migration);
         } catch (const std::exception& error) {
-            // Include filesystem/permission failures in the non-interactive migration error path.
-            throw DataMigration::Error(error.what());
+            // The migration engine preserves legacy user data when the transaction fails.
+            // Continue silently and initialize the application configuration normally.
+            BOOST_LOG_TRIVIAL(warning) << "Skipping data directory migration; continuing startup in "
+                                       << Slic3r::data_dir() << ": " << error.what();
+        } catch (...) {
+            BOOST_LOG_TRIVIAL(warning) << "Skipping data directory migration after an unknown error; continuing startup in "
+                                       << Slic3r::data_dir();
         }
         fs::create_directories(fs::path(Slic3r::data_dir()) / "log");
         chdir(encode_path((Slic3r::data_dir() + "/log").c_str()).c_str());
@@ -4181,18 +4191,20 @@ bool GUI_App::isAlpha()
     return is_alpha;
 }
 
+// Strips a trailing "#<n>" extruder index (e.g. "nozzle_volume#2") so lookups
+// hit the base key for any extruder, not just #0/#1.
+std::string GUI_App::strip_extruder_index_suffix(const std::string& key)
+{
+    size_t pos = key.find_last_of('#');
+    if (pos != std::string::npos && pos + 1 < key.size() &&
+        key.find_first_not_of("0123456789", pos + 1) == std::string::npos)
+        return key.substr(0, pos);
+    return key;
+}
+
 bool GUI_App::isDevelopParams(const std::string key)
 {
-    std::string processed_key = key;
-    size_t pos = processed_key.find("#0");
-    if (pos != std::string::npos) {
-        processed_key.erase(pos, 2);
-    }
-
-    pos = processed_key.find("#1");
-    if (pos != std::string::npos) {
-        processed_key.erase(pos, 2);
-    }
+    std::string processed_key = strip_extruder_index_suffix(key);
 
     auto it = wxGetApp().m_DevelopParamslist.find(processed_key);
     if (it != wxGetApp().m_DevelopParamslist.end())
@@ -4204,16 +4216,7 @@ bool GUI_App::isDevelopParams(const std::string key)
 
 std::string GUI_App::getDevelopParamsType(const std::string key)
 {
-    std::string processed_key = key;
-    size_t pos = processed_key.find("#0");
-    if (pos != std::string::npos) {
-        processed_key.erase(pos, 2);
-    }
-
-    pos = processed_key.find("#1");
-    if (pos != std::string::npos) {
-        processed_key.erase(pos, 2);
-    }
+    std::string processed_key = strip_extruder_index_suffix(key);
 
     auto it = wxGetApp().m_DevelopParamslist.find(processed_key);
     if (it != wxGetApp().m_DevelopParamslist.end())
@@ -5353,6 +5356,8 @@ void  GUI_App::track_event(const std::string& event, const std::string& data)
             js["device_id"]      = system_id;
             js["client_id"]      = system_id;
             js["user_id"]        = wxGetApp().get_user().userId;
+            if (!js.contains("user_account_id"))
+                js["user_account_id"] = js["user_id"];
             final_data = js.dump();
         }
     } catch (...) {
@@ -6730,18 +6735,18 @@ void GUI_App::refresh_machine_list_for_region()
         g_async_machine_list_refresh_running = false;
     }).detach();
 }
-bool GUI_App::check_machine_list()
+bool GUI_App::check_machine_list(bool* machine_list_updated)
 {
+    if (machine_list_updated)
+        *machine_list_updated = false;
 #ifdef WIN32    
     if(single_instance_checker()->IsAnotherRunning())
     {
         return false;
     }
 #endif
-    bool result = false;
+    json remote_printers = json::array();
     bool machine_list_downloaded = false;
-    auto printer_list_file = fs::path(data_dir()).append("system").append("Creality").append("machineList.json").string();
-    //boost::filesystem::remove(printer_list_file);
     std::string base_url              = get_cloud_api_url();
                         auto        preupload_profile_url = "/api/cxy/v2/slice/profile/official/printerList";
                         std::map<std::string, std::string> extra_headers = get_extra_header();
@@ -6763,9 +6768,11 @@ bool GUI_App::check_machine_list()
                                     }
                                     try{
                                         json j = json::parse(body);
+                                        if (j.value("code", -1) != 0)
+                                            return false;
                                         json printer_list = j["result"];
                                         json list = printer_list["printerList"];
-                                        if(list.empty()){
+                                        if(!list.is_array()){
                                             return false;
                                         }
                                         auto out_printer_list_file = fs::path(data_dir()).append("system")
@@ -6777,6 +6784,7 @@ bool GUI_App::check_machine_list()
                                         c << std::setw(4) << printer_list << std::endl;
                                         c.close();
                                         machine_list_downloaded = !c.fail();
+                                        remote_printers = std::move(list);
                                         return true;
                                     }catch(...){
                                         return false;
@@ -6788,6 +6796,9 @@ bool GUI_App::check_machine_list()
     // keeps the add-printer navigation tree in sync with what was just written.
     if (machine_list_downloaded)
         ProfileFamilyLoader::get_instance()->reload_machine_list();
+
+    if (machine_list_updated)
+        *machine_list_updated = machine_list_downloaded;
 
     //download material list
      auto material_list_file = fs::path(data_dir()).append("system").append("Creality").append("materialList.json").string();
@@ -6828,57 +6839,26 @@ bool GUI_App::check_machine_list()
     //检测是否有需要自己更新参数包
     std::vector<json> printer_version_list;
     
-    if(!boost::filesystem::exists(printer_list_file)||!boost::filesystem::exists(material_list_file))
+    // Keep cached catalogs for offline browsing, but only a fresh successful
+    // response authorizes automatic package installation for this account/region.
+    if (!machine_list_downloaded || !boost::filesystem::exists(material_list_file))
         return false;
-    try 
+    try
     {
-        std::string contents;
-        boost::nowide::ifstream t(printer_list_file);
-        std::stringstream buffer;
-        buffer << t.rdbuf();
-        contents=buffer.str();
-        json jLocal = json::parse(contents);
-        json pmodels = jLocal["printerList"];
-        std::map<std::string, size_t> queued_multi_extruder_profiles;
-        for (const auto& printer : pmodels)
-        {
-            std::string name = printer["name"].get<std::string>();
-            const json& nozzle_diameters = printer["nozzleDiameter"];
-            std::string nozzleDiameter = nozzle_diameters[0].get<std::string>();
-            const std::string printer_int_name = printer.value("printerIntName", std::string());
-            const bool omit_nozzle_from_name = nozzle_diameters.size() > 1 &&
-                printer_int_name != "Sermoon D3 Pro" && name != "Creality Sermoon D3 Pro";
-            std::string printer_model;
-            if(name.find("Creality") != std::string::npos||name.find("SPARKX") != std::string::npos){
-                printer_model = name;
-            }else{
-                printer_model = "Creality " + name;
-            }
-            const std::string machine_name = omit_nozzle_from_name ? printer_model :
-                (boost::format("%1% %2% nozzle") % printer_model % nozzleDiameter).str();
-            boost::filesystem::path filePath = boost::filesystem::path(data_dir()).append("system").append("Creality").append("machine").append(machine_name + ".json");
-            if (!boost::filesystem::exists(filePath))
-            {
-                if (!omit_nozzle_from_name) {
-                    printer_version_list.push_back(printer);
-                    continue;
-                }
-
-                const auto queued = queued_multi_extruder_profiles.find(machine_name);
-                if (queued == queued_multi_extruder_profiles.end()) {
-                    queued_multi_extruder_profiles.emplace(machine_name, printer_version_list.size());
-                    printer_version_list.push_back(printer);
-                } else {
-                    const std::string queued_nozzle =
-                        printer_version_list[queued->second]["nozzleDiameter"][0].get<std::string>();
-                    if (queued_nozzle != "0.4" && nozzleDiameter == "0.4")
-                        printer_version_list[queued->second] = printer;
-                }
+        const auto added_printers = nsUpdateParams::getAddedPrinterNames();
+        const auto machine_dir = fs::path(data_dir()) / "system" / "Creality" / "machine";
+        for (const auto& entry : ProfileUpdatePolicy::select_automatic_packages(remote_printers, added_printers)) {
+            if (ProfileUpdatePolicy::needs_install(fs::exists(machine_dir / (entry.first + ".json")),
+                                                   entry.second.value("showVersion", std::string()))) {
+                BOOST_LOG_TRIVIAL(info) << "check_machine_list: installing missing printer " << entry.first
+                                        << ", available=" << entry.second.value("showVersion", std::string());
+                printer_version_list.push_back(entry.second);
             }
         }
         json j;
         j["command"] = "update_preset_params";
         j["data"] = printer_version_list;
+        j["_automatic_update"] = true;
         if(printer_version_list.empty()){
             return true;
         }
@@ -6892,9 +6872,75 @@ bool GUI_App::check_machine_list()
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(",  load local machine list failed, %1%.") % e.what();
     }
 
-    return true;
+    return false;
 }
 std::mutex mtx;
+class ProfileInstallTransaction
+{
+public:
+    ProfileInstallTransaction()
+        : m_backup_root(fs::temp_directory_path() / fs::unique_path("creality-profile-backup-%%%%-%%%%-%%%%"))
+    {
+        fs::create_directories(m_backup_root);
+    }
+
+    ~ProfileInstallTransaction()
+    {
+        try {
+            if (!m_committed) {
+                for (auto it = m_entries.rbegin(); it != m_entries.rend(); ++it) {
+                    const fs::path& target = it->second.target;
+                    if (it->second.existed) {
+                        fs::create_directories(target.parent_path());
+                        fs::copy_file(it->second.backup, target, fs::copy_option::overwrite_if_exists);
+                    } else if (fs::exists(target)) {
+                        fs::remove(target);
+                    }
+                }
+                BOOST_LOG_TRIVIAL(warning) << "Parameter package installation rolled back, files="
+                                           << m_entries.size();
+            }
+            if (fs::exists(m_backup_root))
+                fs::remove_all(m_backup_root);
+        } catch (const std::exception& error) {
+            BOOST_LOG_TRIVIAL(error) << "Failed to roll back parameter package installation: " << error.what();
+        }
+    }
+
+    void track(const fs::path& target)
+    {
+        const std::string key = target.string();
+        if (m_entries.find(key) != m_entries.end())
+            return;
+        Entry entry;
+        entry.target = target;
+        entry.existed = fs::exists(target);
+        if (entry.existed) {
+            entry.backup = m_backup_root / std::to_string(m_entries.size());
+            fs::copy_file(target, entry.backup);
+        }
+        m_entries.emplace(key, std::move(entry));
+    }
+
+    void commit()
+    {
+        m_committed = true;
+        if (fs::exists(m_backup_root))
+            fs::remove_all(m_backup_root);
+    }
+
+private:
+    struct Entry
+    {
+        fs::path target;
+        fs::path backup;
+        bool existed {false};
+    };
+
+    fs::path m_backup_root;
+    std::map<std::string, Entry> m_entries;
+    bool m_committed {false};
+};
 
 static std::vector<std::string> update_package_nozzle_diameters(const pt::ptree& printer)
 {
@@ -7195,7 +7241,7 @@ static void normalize_multi_extruder_filament_variants(json& filament_data)
     }
 }
 
-bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& materials_json)
+bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& materials_json, bool& profiles_changed, ProfileInstallTransaction& transaction, bool update_cover = true)
 {
         std::string printer_model  = update_package_printer_model(v);
         std::string showVersion = v.get_child("showVersion").data();
@@ -7208,7 +7254,26 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
         {
             return false;
         }
-        bool bHasUpdateMachine = false;        
+        // Record each committed file, including changes made before a later
+        // entry fails. Partial updates must still be reflected by the UI.
+        auto write_profile = [&](const std::string& path, const json& content) {
+            if (ProfilePackageIO::matches(std::filesystem::u8path(path), content))
+                return;
+            transaction.track(fs::path(path));
+            const std::string temporary = path + ".tmp";
+            {
+                boost::nowide::ofstream output;
+                output.exceptions(std::ios::failbit | std::ios::badbit);
+                output.open(temporary, std::ios::out | std::ios::trunc);
+                output << std::setw(4) << content << std::endl;
+                output.close();
+            }
+            const auto error = Slic3r::rename_file(temporary, path);
+            if (error)
+                throw std::system_error(error, "Cannot replace parameter profile");
+            profiles_changed = true;
+        };
+        bool machine_installed = false;
         auto        old_machine_name = tmp_path.stem().string();
         std::string nozzle           = nozzleDiameters.empty() ? "0.4" : nozzleDiameters[0];
         const std::string printer_int_name = v.get<std::string>("printerIntName", "");
@@ -7287,7 +7352,11 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
         };
         std::string default_materials = "";
         for (mz_uint i = 0; i < num_entries; ++i) {
-            if (mz_zip_reader_file_stat(&archive_in, i, &stat)) {
+            if (!mz_zip_reader_file_stat(&archive_in, i, &stat)) {
+                close_zip_reader(&archive_in);
+                return false;
+            }
+            {
                 try{
                     std::string name(stat.m_filename);
                     if (!boost::algorithm::iends_with(name, ".json")) {
@@ -7295,9 +7364,8 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                     }
                     std::vector<unsigned char> buffer_input(stat.m_uncomp_size);
                     std::replace(name.begin(), name.end(), '\\', '/');
-                    if (!mz_zip_reader_extract_to_mem(&archive_in, i, buffer_input.data(), buffer_input.size(), 0)) {
-                        continue;
-                    }
+                    if (!mz_zip_reader_extract_to_mem(&archive_in, i, buffer_input.data(), buffer_input.size(), 0))
+                        throw std::runtime_error("Failed to extract parameter package entry: " + name);
                     json json_in = json::parse(reinterpret_cast<const char*>(buffer_input.data()),
                                                     reinterpret_cast<const char*>(buffer_input.data() +
                                                                                     buffer_input.size()));
@@ -7383,15 +7451,12 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                                                                .append("machine")
                                                                                .append(printer_model + ".json")
                                                                                .string();
-                        if (!fs::exists(out_machine_model_json_file) &&
-                            fs::exists(legacy_machine_model_json_file)) {
-                            boost::nowide::ifstream legacy_file(legacy_machine_model_json_file);
-                            std::stringstream legacy_buffer;
-                            legacy_buffer << legacy_file.rdbuf();
-                            json legacy_json = json::parse(legacy_buffer.str());
-                            if (legacy_json.value("type", std::string()) == "machine_model")
-                                fs::rename(legacy_machine_model_json_file, out_machine_model_json_file);
-                        }
+                        transaction.track(fs::path(legacy_machine_model_json_file));
+                        transaction.track(fs::path(out_machine_model_json_file));
+                        if (ProfilePackageIO::migrate_machine_model(
+                                std::filesystem::u8path(legacy_machine_model_json_file),
+                                std::filesystem::u8path(out_machine_model_json_file)))
+                            profiles_changed = true;
                         if(!fs::exists(out_machine_model_json_file)){
                             json json_out;
                             json_out["type"] = "machine_model";
@@ -7411,16 +7476,15 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                             std::string new_printer_model = printer_model;
                             boost::replace_all(new_printer_model, " ", "_");
                             json_out["model_id"] = new_printer_model;
-                            boost::nowide::ofstream c;
-                            c.open(out_machine_model_json_file, std::ios::out | std::ios::trunc);
-                            c << std::setw(4) << json_out << std::endl;
-                            c.close();
+                            write_profile(out_machine_model_json_file, json_out);
                         }else{
                             std::string contents;
-                            boost::nowide::ifstream t(out_machine_model_json_file);
-                            std::stringstream buffer;
-                            buffer << t.rdbuf();
-                            contents=buffer.str();
+                            {
+                                boost::nowide::ifstream input(out_machine_model_json_file);
+                                std::stringstream buffer;
+                                buffer << input.rdbuf();
+                                contents = buffer.str();
+                            } // Close before replacing this file on Windows.
                             json json_in = json::parse(contents);
                             auto nozzles = json_in["nozzle_diameter"].get<std::string>();
                             std::vector<std::string> existing_nozzles;
@@ -7442,10 +7506,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                 }
                             }
 
-                            boost::nowide::ofstream c;
-                            c.open(out_machine_model_json_file, std::ios::out | std::ios::trunc);
-                            c << std::setw(4) << json_in << std::endl;
-                            c.close();
+                            write_profile(out_machine_model_json_file, json_in);
 
                         }
                         json new_model_elem;
@@ -7457,22 +7518,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                                             .append("machine")
                                                             .append(out_machine_name + ".json")
                                                             .string();
-                        if(!fs::exists(out_machine_json_file)){
-                            boost::nowide::ofstream c;
-                            c.open(out_machine_json_file, std::ios::out | std::ios::trunc);
-                            c << std::setw(4) << json_out << std::endl;
-                            c.close();
-                            bHasUpdateMachine = true;
-
-                        }else{
-                            auto out_machine_json_file_tmp = out_machine_json_file+".tmp";
-                            boost::nowide::ofstream c;
-                            c.open(out_machine_json_file_tmp, std::ios::out | std::ios::trunc);
-                            c << std::setw(4) << json_out << std::endl;
-                            c.close();
-                            fs::remove(out_machine_json_file);
-                            fs::rename(out_machine_json_file_tmp, out_machine_json_file);
-                        }
+                        write_profile(out_machine_json_file, json_out);
                         if (omit_nozzle_from_name) {
                             for (const std::string& legacy_nozzle : supported_nozzles) {
                                 const std::string legacy_name = printer_model + " " + legacy_nozzle + " nozzle";
@@ -7480,8 +7526,9 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                                                             .append("Creality")
                                                                             .append("machine")
                                                                             .append(legacy_name + ".json");
-                                if (fs::exists(legacy_machine_json_file))
-                                    fs::remove(legacy_machine_json_file);
+                                transaction.track(legacy_machine_json_file);
+                                if (fs::exists(legacy_machine_json_file) && fs::remove(legacy_machine_json_file))
+                                    profiles_changed = true;
                                 removeProfile("machine_list", legacy_name, "machine/" + legacy_name + ".json");
                             }
                         }
@@ -7489,6 +7536,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                         new_elem["name"] = out_machine_name;
                         new_elem["sub_path"] = "machine/" + out_machine_name + ".json";
                         updateProfile("machine_list", new_elem);
+                        machine_installed = true;
                     } else if (boost::algorithm::istarts_with(name, "Materials")) {
                         static std::set<std::string> array_keys = {"filament_type", "filament_vendor", "filament_start_gcode",
                                                     "filament_end_gcode"};
@@ -7594,8 +7642,9 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                                                   .append("Creality")
                                                                   .append("filament")
                                                                   .append(legacy_basename + ".json");
-                                if (fs::exists(old_filament_json_file))
-                                    fs::remove(old_filament_json_file);
+                                transaction.track(old_filament_json_file);
+                                if (fs::exists(old_filament_json_file) && fs::remove(old_filament_json_file))
+                                    profiles_changed = true;
                                 removeProfile("filament_list", legacy_basename,
                                               "filament/" + legacy_basename + ".json");
                             }
@@ -7606,20 +7655,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                                             .append("filament")
                                                             .append(basename + ".json")
                                                             .string();
-                        if(!fs::exists(out_filament_json_file)){
-                            boost::nowide::ofstream c;
-                            c.open(out_filament_json_file, std::ios::out | std::ios::trunc);
-                            c << std::setw(4) << json_out << std::endl;
-                            c.close();
-                        }else{
-                            auto out_filament_json_file_tmp = out_filament_json_file+".tmp";
-                            boost::nowide::ofstream c;
-                            c.open(out_filament_json_file_tmp, std::ios::out | std::ios::trunc);
-                            c << std::setw(4) << json_out << std::endl;
-                            c.close();
-                            fs::remove(out_filament_json_file);
-                            fs::rename(out_filament_json_file_tmp, out_filament_json_file);
-                        }
+                        write_profile(out_filament_json_file, json_out);
                         json new_elem;
                         new_elem["name"] = basename;
                         new_elem["sub_path"] = "filament/" + basename + ".json";
@@ -7644,6 +7680,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                         bool is_visible = has(basename);
                                         if (!is_visible) {
                                             app_config->set(section_name, basename, "true");
+                                            profiles_changed = true;
                                         }
                                     }
                                 }
@@ -7703,8 +7740,9 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                                                 .append("Creality")
                                                                 .append("process")
                                                                 .append(legacy_basename + ".json");
-                                if (fs::exists(old_process_json_file))
-                                    fs::remove(old_process_json_file);
+                                transaction.track(old_process_json_file);
+                                if (fs::exists(old_process_json_file) && fs::remove(old_process_json_file))
+                                    profiles_changed = true;
                                 removeProfile("process_list", legacy_basename,
                                               "process/" + legacy_basename + ".json");
                             }
@@ -7715,20 +7753,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                                                             .append("process")
                                                             .append(basename + ".json")
                                                             .string();
-                        if(!fs::exists(out_process_json_file)){
-                            boost::nowide::ofstream c;
-                            c.open(out_process_json_file, std::ios::out | std::ios::trunc);
-                            c << std::setw(4) << json_out << std::endl;
-                            c.close();
-                        }else{
-                            auto out_process_json_file_tmp = out_process_json_file+".tmp";
-                            boost::nowide::ofstream c;
-                            c.open(out_process_json_file_tmp, std::ios::out | std::ios::trunc);
-                            c << std::setw(4) << json_out << std::endl;
-                            c.close();
-                            fs::remove(out_process_json_file);
-                            fs::rename(out_process_json_file_tmp, out_process_json_file);
-                        }
+                        write_profile(out_process_json_file, json_out);
                         json new_elem;
                         new_elem["name"] = basename;
                         new_elem["sub_path"] = "process/" + basename + ".json";
@@ -7746,7 +7771,11 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
         if (!close_zip_reader(&archive_in)) {
             return false;
         }
-        sync_printer_cover("Creality", printer_model, thumbnail);
+        // An empty/truncated package must not advance the installation receipt.
+        if (!machine_installed)
+            return false;
+        if (update_cover)
+            sync_printer_cover("Creality", printer_model, thumbnail);
         std::lock_guard<std::mutex> lock(mtx);
 
 
@@ -7761,6 +7790,7 @@ bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& ma
                 for (auto& elem : cache_json["Creality"]) {
                     if (elem["name"] == printer_model && elem["nozzleDiameter"][0] == nozzleDiameters[0]) {
                         found = true;
+                        elem["nozzleDiameter"] = nozzleDiameters;
                         elem["showVersion"] = showVersion;
                         elem["updating"] = false;
                     }
@@ -7885,7 +7915,10 @@ static void apply_device_add_config_snapshot(json& profile_json,
 static DeviceAddPreparation prepare_device_add(json selected_printers,
                                                json profile_json,
                                                const AppConfig::VendorMap& enabled_vendors,
-                                               const std::map<std::string, std::string>& enabled_filaments)
+                                               const std::map<std::string, std::string>& enabled_filaments,
+                                               const std::string& active_vendor,
+                                               const std::string& active_model,
+                                               const std::string& active_nozzle)
 {
     DeviceAddPreparation result;
     apply_device_add_config_snapshot(profile_json, enabled_vendors, enabled_filaments);
@@ -7905,6 +7938,11 @@ static DeviceAddPreparation prepare_device_add(json selected_printers,
     const json system_catalog = load_catalog(fs::path(data_dir()) / "system" / "Creality" / "machineList.json");
     const json bundled_catalog = load_catalog(fs::path(resources_dir()) / "profiles" / "Creality" / "machineList.json");
     DeviceAddUtils::resolve_printer_selections(selected_printers, profile_json["model"], system_catalog, bundled_catalog);
+    if (DeviceAddUtils::ensure_printer_nozzle_selected(
+            selected_printers, profile_json["model"], active_vendor, active_model, active_nozzle)) {
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": included active printer in filament selection, vendor="
+                                << active_vendor << ", model=" << active_model << ", nozzle=" << active_nozzle;
+    }
 
     struct SelectedNozzle
     {
@@ -8652,9 +8690,13 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 return "";
             } else if (command_str.compare("update_preset_params") == 0) {
                 pt::ptree data_node = root.get_child("data");
+                const bool automatic_update = root.get<bool>("_automatic_update", false);
+                const fs::path profile_vendor_dir = fs::path(data_dir()).append("system").append("Creality");
+                ProfileInstallTransaction install_transaction;
+                const bool guide_downloaded = root.get<bool>("_begin_guide_downloaded", false);
                 auto filament_file = fs::path(data_dir()).append("system").append("Creality").append("materialList.json");
                 
-                if (!fs::exists(filament_file)) {
+                if (!guide_downloaded && !fs::exists(filament_file)) {
                     std::string base_url              = get_cloud_api_url();
                     auto        material_profile_url = "/api/cxy/v2/slice/profile/official/materialList";
                     Http http2 = Http::post(base_url + material_profile_url);
@@ -8662,7 +8704,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     j2["engineVersion"]  = "3.0.0";
                     j2["pageSize"] = 1000;
                     boost::uuids::uuid uuid = boost::uuids::random_generator()();
-                    http2.header("Content-Type", "application/json").header("__CXY_REQUESTID_", to_string(uuid)).set_post_body(j2.dump()).on_complete([=](std::string body, unsigned status) {
+                    http2.header("Content-Type", "application/json").header("__CXY_REQUESTID_", to_string(uuid)).set_post_body(j2.dump()).on_complete([=, &install_transaction](std::string body, unsigned status) {
                                     if(status!=200){
                                         return false;
                                     }
@@ -8673,6 +8715,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                                         }
                                         json list;
                                         list["materials"] = printer_list;
+                                        install_transaction.track(filament_file);
                                         boost::nowide::ofstream c;
                                         c.open(filament_file.string(), std::ios::out | std::ios::trunc);
                                         c << std::setw(4) << list << std::endl;
@@ -8680,7 +8723,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                                         return true;
                                 }).perform_sync();
                 }
-                if(true){
+                if (!guide_downloaded) {
                         std::string base_url              = get_cloud_api_url();
                         auto        preupload_profile_url = "/api/cxy/v2/slice/profile/official/printerList";
                         Http::set_extra_headers(get_extra_header());
@@ -8704,6 +8747,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                                                                          .append("Creality")
                                                                          .append("machineList.json")
                                                                          .string();
+                                        install_transaction.track(fs::path(out_printer_list_file));
                                         boost::nowide::ofstream c;
                                         c.open(out_printer_list_file, std::ios::out | std::ios::trunc);
                                         c << std::setw(4) << printer_list << std::endl;
@@ -8715,11 +8759,35 @@ std::string GUI_App::handle_web_request(std::string cmd)
                         
                     }
                 json profile_json;
+                bool profile_manifest_needs_recovery = false;
                 auto profile_file = fs::path(data_dir()).append("system").append("Creality.json");
                 if (fs::exists(profile_file)) {
-                    boost::nowide::ifstream ifs(profile_file.string());
-                    ifs >> profile_json;
-                    ifs.close();
+                    try {
+                        boost::nowide::ifstream ifs(profile_file.string());
+                        ifs >> profile_json;
+                    } catch (const nlohmann::json::exception& error) {
+                        BOOST_LOG_TRIVIAL(error) << "Failed to load installed Creality profile manifest "
+                                                 << profile_file.string() << ": " << error.what();
+                    }
+                }
+                if (!profile_json.is_object()) {
+                    const auto bundled_profile_file = fs::path(resources_dir()).append("profiles").append("Creality.json");
+                    try {
+                        boost::nowide::ifstream ifs(bundled_profile_file.string());
+                        ifs >> profile_json;
+                    } catch (const nlohmann::json::exception& error) {
+                        BOOST_LOG_TRIVIAL(error) << "Failed to load bundled Creality profile manifest "
+                                                 << bundled_profile_file.string() << ": " << error.what();
+                        return "";
+                    }
+                    if (!profile_json.is_object()) {
+                        BOOST_LOG_TRIVIAL(error) << "Bundled Creality profile manifest is not a JSON object: "
+                                                 << bundled_profile_file.string();
+                        return "";
+                    }
+                    profile_manifest_needs_recovery = true;
+                    BOOST_LOG_TRIVIAL(warning) << "Using bundled Creality profile manifest because the installed manifest "
+                                               << "is missing or invalid: " << profile_file.string();
                 }
                 auto cache_file = fs::path(data_dir()).append("system").append("Creality").append("profile_version.json");
                 json cache_json;
@@ -8743,33 +8811,51 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 const pt::ptree update_packages =
                     include_multi_extruder_update_candidates(data_node, machine_list_file);
                 //下载机器参数包               
-                try{
-                    CurlConnectionPool pool(3);
-                    for(const auto &v:update_packages)
-                    {
-                        std::string zipUrl      = v.second.get_child("zipUrl").data();
-                        int         start_pos = zipUrl.find_last_of("/");
-                        boost::filesystem::path tmp_path = boost::filesystem::path(boost::filesystem::temp_directory_path()).append(zipUrl.substr(start_pos + 1));
-                        pool.addDownload(zipUrl, tmp_path.string());
+                if (!guide_downloaded) {
+                    try {
+                        CurlConnectionPool pool(3);
+                        for(const auto &v:update_packages)
+                        {
+                            std::string zipUrl      = v.second.get_child("zipUrl").data();
+                            int         start_pos = zipUrl.find_last_of("/");
+                            boost::filesystem::path tmp_path = boost::filesystem::path(boost::filesystem::temp_directory_path()).append(zipUrl.substr(start_pos + 1));
+                            pool.addDownload(zipUrl, tmp_path.string());
+                        }
+
+                        pool.performDownloads();
+                    } catch (const std::exception& e) {
+                        std::cerr << "Error: " << e.what() << std::endl;
+                        return "";
                     }
-                    
-                    pool.performDownloads();
-                } catch (const std::exception& e) {
-                    std::cerr << "Error: " << e.what() << std::endl;
-                    return "";
                 }
-                std::vector<boost::thread> threads;
+                const json original_profile_json = profile_manifest_needs_recovery ? json() : profile_json;
+                const json original_cache_json = cache_json;
+                bool profiles_changed = false;
+                size_t installed_packages = 0;
                 const std::vector<pt::ptree> selected_packages = select_update_param_packages(update_packages);
                 std::set<std::string> updated_multi_extruder_models;
                 for(const pt::ptree& package : selected_packages)
                 {
-                    if (UpdateParamPackage(package,boost::ref(profile_json),boost::ref(cache_json),boost::ref(materials_json)) &&
-                        update_package_uses_bare_multi_extruder_name(package))
-                        updated_multi_extruder_models.insert(update_package_printer_model(package));
-                    //threads.emplace_back(UpdateParamPackage, v.second,boost::ref(profile_json),boost::ref(cache_json),boost::ref(materials_json));
+                    if (UpdateParamPackage(package, profile_json, cache_json, materials_json, profiles_changed, install_transaction, !guide_downloaded)) {
+                        ++installed_packages;
+                        if (update_package_uses_bare_multi_extruder_name(package))
+                            updated_multi_extruder_models.insert(update_package_printer_model(package));
+                    }
                 }
                 update_multi_extruder_package_alias_versions(cache_json, update_packages,
                                                               updated_multi_extruder_models);
+
+                if (installed_packages != selected_packages.size()) {
+                    BOOST_LOG_TRIVIAL(error) << "Parameter package update incomplete: installed="
+                                             << installed_packages << ", requested=" << selected_packages.size();
+                    return "";
+                }
+                std::string validation_error;
+                if (!ProfilePackageIO::validate_manifest(
+                        std::filesystem::u8path(profile_vendor_dir.string()), profile_json, &validation_error)) {
+                    BOOST_LOG_TRIVIAL(error) << "Parameter package validation failed: " << validation_error;
+                    return "";
+                }
 
                 // UpdateParamPackage removes selected archives. Remove the unselected
                 // aliases as well after inspecting their variant metadata.
@@ -8781,32 +8867,56 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 
                 
 
-                // 等待所有线程完成
-                //for (auto& thread : threads) {
-                //    thread.join();
-                //}
                 boost::nowide::ofstream c;
-                c.open(profile_file.string(), std::ios::out | std::ios::trunc);
-                c << std::setw(4) << profile_json << std::endl;
-                c.close();
-                c.open(cache_file.string(), std::ios::out | std::ios::trunc);
-                c << std::setw(4) << cache_json << std::endl;
-                c.close();
-                CallAfter([this] { 
-                if(!wxGetApp().preset_bundle->printers.get_edited_preset().is_dirty&&!wxGetApp().preset_bundle->filaments.get_edited_preset().is_dirty&&!wxGetApp().preset_bundle->prints.get_edited_preset().is_dirty)
-                {
-                    auto* app_config = GUI::wxGetApp().app_config;
-                    GUI::wxGetApp().preset_bundle->load_presets(*app_config,
-                                                                    ForwardCompatibilitySubstitutionRule::EnableSilentDisableSystem);
-                    GUI::wxGetApp().load_current_presets();
-                    GUI::wxGetApp().plater()->set_bed_shape();
+                // Do not advance version receipts if the installed profile index cannot be saved.
+                c.exceptions(std::ios::failbit | std::ios::badbit);
+                if (profile_json != original_profile_json) {
+                    install_transaction.track(profile_file);
+                    c.open(profile_file.string(), std::ios::out | std::ios::trunc);
+                    c << std::setw(4) << profile_json << std::endl;
+                    c.close();
+                    profiles_changed = true;
                 }
-                if (auto* plater = wxGetApp().plater()) {
-                    if (auto* canvas = plater->get_current_canvas3D())
-                        canvas->set_as_dirty();
-                    plater->Refresh();
+                if (cache_json != original_cache_json) {
+                    install_transaction.track(cache_file);
+                    c.open(cache_file.string(), std::ios::out | std::ios::trunc);
+                    c << std::setw(4) << cache_json << std::endl;
+                    c.close();
                 }
-                UpdateParams::getInstance().hasUpdateParams();
+                BOOST_LOG_TRIVIAL(info) << "Parameter package update: installed=" << installed_packages
+                                        << ", requested=" << selected_packages.size()
+                                        << ", profiles_changed=" << profiles_changed;
+                install_transaction.commit();
+                if (!profiles_changed) {
+                    BOOST_LOG_TRIVIAL(info) << "Parameter profiles unchanged; skipping preset reload and filament refresh";
+                    return "";
+                }
+                CallAfter([this, automatic_update] {
+                    if (m_is_closing || mainframe == nullptr || preset_bundle == nullptr)
+                        return;
+                    // Coalesce repainting of the process, printer and CFS panels.
+                    wxWindowUpdateLocker ui_locker(mainframe);
+                    if (!preset_bundle->printers.get_edited_preset().is_dirty &&
+                        !preset_bundle->filaments.get_edited_preset().is_dirty &&
+                        !preset_bundle->prints.get_edited_preset().is_dirty) {
+                        const auto started = std::chrono::steady_clock::now();
+                        preset_bundle->load_presets(*app_config,
+                            ForwardCompatibilitySubstitutionRule::EnableSilentDisableSystem);
+                        load_current_presets();
+                        plater()->set_bed_shape();
+                        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - started).count();
+                        BOOST_LOG_TRIVIAL(info) << "Parameter profile reload finished: elapsed_ms=" << elapsed;
+                    }
+                    if (auto* current_plater = plater()) {
+                        if (auto* canvas = current_plater->get_current_canvas3D())
+                            canvas->set_as_dirty();
+                        current_plater->Refresh();
+                    }
+                    // Updating unadded printers must not dismiss the pending
+                    // confirmation for printers already added by the user.
+                    if (!automatic_update)
+                        UpdateParams::getInstance().hasUpdateParams();
                 });
             } else if (command_str.compare("refresh_all_device") == 0) {
                 CallAfter([this] { 
@@ -8937,10 +9047,21 @@ std::string GUI_App::handle_web_request(std::string cmd)
                                                        app_config->get_section(AppConfig::SECTION_FILAMENTS) :
                                                        std::map<std::string, std::string>();
                     json selected_printers = printersData["selected_printers"];
+                    std::string active_vendor;
+                    std::string active_model;
+                    std::string active_nozzle;
+                    const Preset& active_printer = preset_bundle->printers.get_selected_preset();
+                    if (active_printer.is_system && active_printer.vendor != nullptr) {
+                        active_vendor = active_printer.vendor->id;
+                        active_model = active_printer.config.opt_string("printer_model");
+                        if (const auto* diameters = active_printer.config.option<ConfigOptionFloats>("nozzle_diameter");
+                            diameters != nullptr && !diameters->values.empty())
+                            active_nozzle = Slic3r::float_to_string_decimal_point(diameters->values.front());
+                    }
 
                     boost::thread prepare_thread = Slic3r::create_thread(
                         [this, selected_printers = std::move(selected_printers), enabled_vendors, enabled_filaments,
-                         request_sequence, send_result]() mutable {
+                         active_vendor, active_model, active_nozzle, request_sequence, send_result]() mutable {
                             try {
                                 ProfileFamilyLoader* loader = ProfileFamilyLoader::get_instance();
                                 loader->wait_until_loaded();
@@ -8950,7 +9071,8 @@ std::string GUI_App::handle_web_request(std::string cmd)
                                 loader->get_result(profile_json, machine_json, load_custom_from_bundle);
 
                                 DeviceAddPreparation prepared = prepare_device_add(std::move(selected_printers), std::move(profile_json),
-                                                                                  enabled_vendors, enabled_filaments);
+                                                                                  enabled_vendors, enabled_filaments,
+                                                                                  active_vendor, active_model, active_nozzle);
                                 if (!prepared.valid) {
                                     send_result(0);
                                     return;
@@ -9265,6 +9387,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 update_mode();
 
                 load_current_presets();
+                mainframe->update_side_preset_ui();
                 delete m_appconfig_new;
                 m_appconfig_new = nullptr;
 
@@ -9360,6 +9483,125 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 wxGetApp().CallAfter([this, strJS] { run_script(strJS.ToStdString()); });
             } else if (command_str.compare("get_machine_list") == 0) {
                 load_machine_preset_data();
+            } else if (command_str.compare("refresh_begin_guide_presets") == 0) {
+                const json request = json::parse(cmd);
+                const std::string region = request.at("region").get<std::string>();
+                const std::string request_sequence = request.value("sequence_id", std::string());
+                CallAfter([this, region, request_sequence] {
+                    if (g_app_exiting)
+                        return;
+                    g_begin_guide_refresh_sequences.push_back(request_sequence);
+                    auto send_result = [this](bool list_updated, bool cache_reloaded) {
+                        g_async_begin_guide_refresh_running = false;
+                        json response;
+                        response["command"] = "refresh_begin_guide_presets";
+                        response["data"]["list_updated"] = list_updated;
+                        response["data"]["cache_reloaded"] = cache_reloaded;
+                        auto sequences = std::move(g_begin_guide_refresh_sequences);
+                        g_begin_guide_refresh_sequences.clear();
+                        for (const auto& sequence : sequences) {
+                            response["sequence_id"] = sequence;
+                            run_script("handleStudioCmd(" + response.dump(-1, ' ', true) + ")");
+                        }
+                    };
+                    if (g_async_begin_guide_refresh_running.exchange(true)) {
+                        // Do not acknowledge readiness while another refresh is installing files.
+                        return;
+                    }
+                    app_config->set("region", region);
+                    update_publish_status();
+                    // Snapshot region-dependent app/agent state on the UI thread.
+                    const std::string base_url = get_cloud_api_url();
+                    const auto headers = get_extra_header();
+                    auto* loader = ProfileFamilyLoader::get_instance();
+                    std::thread([this, base_url, headers, loader, send_result] {
+                        bool list_updated = false;
+                        json packages = json::array();
+                        try {
+                            loader->wait_until_loaded();
+                            if (g_app_exiting) return;
+                            list_updated = MachineListDownloader::download_official_machine_list(base_url, headers, 2, 5);
+                            MaterialListDownloader::download_official_material_list(base_url, headers, 2, 5);
+                            if (g_app_exiting) return;
+                            const fs::path vendor_dir = fs::path(data_dir()) / "system" / "Creality";
+                            // As in check_machine_list(), install only missing machine presets.
+                            // Existing versions continue through the original update workflow.
+                            if (fs::exists(vendor_dir / "materialList.json")) {
+                                pt::ptree catalogue;
+                                pt::read_json((vendor_dir / "machineList.json").string(), catalogue);
+                                pt::ptree missing;
+                                for (const auto& item : catalogue.get_child("printerList")) {
+                                    const auto& printer = item.second;
+                                    const auto nozzles = update_package_nozzle_diameters(printer);
+                                    if (nozzles.empty()) continue;
+                                    const std::string model = update_package_printer_model(printer);
+                                    const std::string name = update_package_uses_bare_multi_extruder_name(printer) ?
+                                        model : model + " " + nozzles.front() + " nozzle";
+                                    if (!fs::exists(vendor_dir / "machine" / (name + ".json")))
+                                        missing.push_back(item);
+                                }
+                                const auto candidates = include_multi_extruder_update_candidates(missing, vendor_dir / "machineList.json");
+                                CurlConnectionPool pool(3);
+                                std::set<std::string> queued_urls;
+                                for (const auto& item : candidates) {
+                                    const auto& printer = item.second;
+                                    const std::string url = printer.get<std::string>("zipUrl", "");
+                                    const fs::path archive = downloaded_update_package_path(printer);
+                                    if (!archive.empty() && queued_urls.insert(url).second)
+                                        pool.addDownload(url, archive.string());
+                                    std::ostringstream buffer;
+                                    pt::write_json(buffer, printer, false);
+                                    packages.push_back(json::parse(buffer.str()));
+                                }
+                                if (!pool.performDownloads([] { return g_app_exiting.load(); }))
+                                    BOOST_LOG_TRIVIAL(warning) << "Begin guide: some preset packages were not downloaded";
+                                // Covers also perform HTTP requests. Fetch them here so
+                                // UpdateParamPackage does only local installation on the UI thread.
+                                for (const auto& item : candidates) {
+                                    if (g_app_exiting) return;
+                                    sync_printer_cover("Creality", update_package_printer_model(item.second),
+                                                       item.second.get<std::string>("thumbnail", ""));
+                                }
+                            }
+                        } catch (const std::exception& e) {
+                            BOOST_LOG_TRIVIAL(error) << "Begin guide preset download failed: " << e.what();
+                            packages = json::array();
+                        } catch (...) {
+                            BOOST_LOG_TRIVIAL(error) << "Begin guide preset download failed";
+                            packages = json::array();
+                        }
+                        if (g_app_exiting || wxTheApp == nullptr) return;
+                        wxTheApp->CallAfter([this, loader, list_updated, packages = std::move(packages), send_result] {
+                            if (g_app_exiting) return;
+                            // Installation touches app_config; keep it on the UI thread.
+                            // The internal marker skips all HTTP work in the existing handler.
+                            if (!packages.empty()) {
+                                json install;
+                                install["command"] = "update_preset_params";
+                                install["data"] = packages;
+                                install["_begin_guide_downloaded"] = true;
+                                install["_automatic_update"] = true;
+                                handle_web_request(install.dump());
+                            }
+                            std::thread([loader, list_updated, send_result] {
+                                bool cache_reloaded = false;
+                                try {
+                                    if (g_app_exiting) return;
+                                    loader->request_and_wait();
+                                    cache_reloaded = true;
+                                } catch (const std::exception& e) {
+                                    BOOST_LOG_TRIVIAL(error) << "Begin guide preset scan failed: " << e.what();
+                                } catch (...) {
+                                    BOOST_LOG_TRIVIAL(error) << "Begin guide preset scan failed";
+                                }
+                                if (g_app_exiting || wxTheApp == nullptr) return;
+                                wxTheApp->CallAfter([send_result, list_updated, cache_reloaded] {
+                                    if (!g_app_exiting) send_result(list_updated, cache_reloaded);
+                                });
+                            }).detach();
+                        });
+                    }).detach();
+                });
             } else if (command_str.compare("set_user_login_area") == 0) {
                 json        regionData = json::parse(strInput);
                 std::string region = regionData["region"];
@@ -10357,6 +10599,14 @@ void GUI_App::process_update_packages(const std::vector<PackageInfo>& updater_pa
     // Show progress dialog immediately when triggered by user
     if (by_user != 0 && show_tips) {
         CallAfter([this]() {
+            // A previous worker may still be unwinding after the user closed
+            // the dialog. Reopen the existing progress UI instead of resetting
+            // it and starting a second download attempt.
+            if (AppUpdater::getInstance().is_downloading()) {
+                if (g_update_progress_dlg)
+                    g_update_progress_dlg->Show();
+                return;
+            }
             if (!g_update_progress_dlg) {
                 g_update_progress_dlg = new AppUpdateProgressDialog(this->mainframe);
             }
@@ -10394,6 +10644,13 @@ void GUI_App::process_update_packages(const std::vector<PackageInfo>& updater_pa
                     g_update_progress_dlg->Hide();
                 }
             }, wxID_CANCEL);
+        }
+
+        if (AppUpdater::getInstance().is_downloading()) {
+            // Keep the existing worker and progress state. The caller may
+            // have reached this path after closing and reopening the dialog.
+            g_update_progress_dlg->Show();
+            return;
         }
         
         if (AppUpdater::getInstance().prepare_cached_hot_update(updater_packages, version, base_package_name, manual_url)) {
@@ -13029,6 +13286,82 @@ bool GUI_App::checked_tab(Tab* tab)
     return ret;
 }
 
+bool GUI_App::ensure_active_printer_filaments()
+{
+    if (app_config == nullptr || preset_bundle == nullptr)
+        return false;
+
+    const Preset& active_printer = preset_bundle->printers.get_selected_preset();
+    if (!active_printer.is_system || active_printer.vendor == nullptr)
+        return false;
+
+    const std::string model = active_printer.config.opt_string("printer_model");
+    const auto* diameters = active_printer.config.option<ConfigOptionFloats>("nozzle_diameter");
+    if (model.empty() || diameters == nullptr || diameters->values.empty())
+        return false;
+
+    const std::string nozzle = Slic3r::float_to_string_decimal_point(diameters->values.front());
+    bool repaired_variant = false;
+    if (!app_config->get_variant(active_printer.vendor->id, model, nozzle)) {
+        app_config->set_variant(active_printer.vendor->id, model, nozzle, true);
+        for (Preset& printer : preset_bundle->printers)
+            printer.set_visible_from_appconfig(*app_config);
+        repaired_variant = true;
+    }
+
+    const PresetWithVendorProfile active_with_vendor =
+        preset_bundle->printers.get_preset_with_vendor_profile(active_printer);
+    bool has_compatible_filament = false;
+    if (app_config->has_section(AppConfig::SECTION_FILAMENTS)) {
+        for (const auto& installed : app_config->get_section(AppConfig::SECTION_FILAMENTS)) {
+            if (installed.second.empty())
+                continue;
+            Preset* filament = preset_bundle->filaments.find_preset(installed.first, false, true);
+            if (filament != nullptr && is_compatible_with_printer(
+                    preset_bundle->filaments.get_preset_with_vendor_profile(*filament), active_with_vendor)) {
+                has_compatible_filament = true;
+                break;
+            }
+        }
+    }
+
+    size_t restored_filaments = 0;
+    if (!has_compatible_filament) {
+        for (const Preset& filament : preset_bundle->filaments) {
+            if (filament.is_system && filament.vendor != nullptr && is_compatible_with_printer(
+                    preset_bundle->filaments.get_preset_with_vendor_profile(filament), active_with_vendor)) {
+                app_config->set(AppConfig::SECTION_FILAMENTS, filament.name, "true");
+                ++restored_filaments;
+            }
+        }
+        if (restored_filaments == 0) {
+            const auto* defaults = active_printer.config.option<ConfigOptionStrings>("default_filament_profile");
+            if (defaults != nullptr) {
+                for (const std::string& name : defaults->values) {
+                    if (preset_bundle->filaments.find_preset(name, false, true) != nullptr) {
+                        app_config->set(AppConfig::SECTION_FILAMENTS, name, "true");
+                        ++restored_filaments;
+                    }
+                }
+            }
+        }
+        if (restored_filaments > 0) {
+            for (Preset& filament : preset_bundle->filaments)
+                filament.set_visible_from_appconfig(*app_config);
+        }
+    }
+
+    if (!repaired_variant && restored_filaments == 0)
+        return false;
+
+    app_config->save();
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": repaired active printer configuration, vendor="
+                            << active_printer.vendor->id << ", model=" << model
+                            << ", nozzle=" << nozzle << ", variant=" << repaired_variant
+                            << ", filaments=" << restored_filaments;
+    return true;
+}
+
 // Update UI / Tabs to reflect changes in the currently loaded presets
 //BBS: add preset combo box re-activate logic
 void GUI_App::load_current_presets(bool active_preset_combox/*= false*/, bool check_printer_presets_ /*= true*/)
@@ -13037,6 +13370,11 @@ void GUI_App::load_current_presets(bool active_preset_combox/*= false*/, bool ch
     // and create physical printer from it, if any exists
     if (check_printer_presets_)
         check_printer_presets();
+
+    // Online parameter packages may add the active nozzle after AppConfig was
+    // created. Restore it before the preset tabs rebuild their combo boxes.
+    if (ensure_active_printer_filaments())
+        preset_bundle->update_compatible(PresetSelectCompatibleType::Always);
 
     PrinterTechnology printer_technology = preset_bundle->printers.get_edited_preset().printer_technology();
 	this->plater()->set_printer_technology(printer_technology);
@@ -13057,6 +13395,7 @@ void GUI_App::load_current_presets(bool active_preset_combox/*= false*/, bool ch
 		if (tab->supports_printer_technology(printer_technology)) {
             tab->request_page_tree_rebuild();
         }
+
 }
 
 static std::mutex mutex_delete_cache_presets;
@@ -13138,7 +13477,15 @@ void GUI_App::MacOpenURL(const wxString& url)
 {
     if (url.empty())
         return;
-    start_download(boost::nowide::narrow(url));
+
+    const std::string url_utf8 = boost::nowide::narrow(url);
+    if (!m_post_initialized || plater_ == nullptr) {
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": queue URL until GUI initialization completes";
+        init_params->input_files.emplace_back(url_utf8);
+        return;
+    }
+
+    start_download(url_utf8);
 }
 
 // wxWidgets override to get an event on open files.
@@ -13392,6 +13739,21 @@ void GUI_App::SaveProfile(json profileJson)
     if (!m_appconfig_new)
         return;
 
+    const Preset& active_printer = preset_bundle->printers.get_selected_preset();
+    if (active_printer.is_system && active_printer.vendor != nullptr) {
+        const std::string model = active_printer.config.opt_string("printer_model");
+        if (const auto* diameters = active_printer.config.option<ConfigOptionFloats>("nozzle_diameter");
+            diameters != nullptr && !diameters->values.empty()) {
+            const std::string nozzle = Slic3r::float_to_string_decimal_point(diameters->values.front());
+            if (DeviceAddUtils::ensure_active_nozzle_selected(
+                    profileJson["model"], active_printer.vendor->id, model, nozzle)) {
+                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": kept active printer variant, vendor="
+                                        << active_printer.vendor->id << ", model=" << model
+                                        << ", nozzle=" << nozzle;
+            }
+        }
+    }
+
     app_config->set(std::string("firstguide"), "finish", "1");
 
     app_config->save();
@@ -13466,7 +13828,7 @@ bool GUI_App::apply_config(AppConfig* app_config, AppConfig* app_config_new, Pre
     for (const auto& it : enabled_vendors) {
         if (it.second.size() > 0) {
             auto vendor_file = vendor_dir / (it.first + ".json");
-            if (!fs::exists(vendor_file)) {
+            if (!fs::exists(vendor_file) || get_version_from_json(vendor_file.string()) == Semver()) {
                 install_bundles.emplace_back(it.first);
             }
         }

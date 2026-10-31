@@ -363,6 +363,9 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
     //    }
     //}
 
+    const auto *hilbert = dynamic_cast<const FillHilbertCurve *>(this);
+    const auto check_cancel = [hilbert] { if (hilbert) hilbert->throw_if_canceled(); };
+    check_cancel();
     Polylines      polylines;
     ThickPolylines thick_polylines;
     try {
@@ -382,6 +385,7 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
      }
      outfile_input.close();*/
 
+    check_cancel();
     //-----output------stTop
     long long aaarree = surface->expolygon.contour.area();
     float     sclae_width = params.flow.width() / 0.45f;
@@ -405,6 +409,7 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
 
         Polylines polyline_baseline;
         for (int z = 0; z < polylines.size(); z++) {
+            check_cancel();
             rot_points.push_back(std::vector<std::pair<double, double>>());
             polyline_baseline.push_back(Polyline());
             for (int i = 0; i < polylines[z].points.size(); i++) {
@@ -1475,6 +1480,7 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
         std::vector<std::vector<int>> path_demo;
         path_demo.push_back(std::vector<int>() = {0});
         while (1) {
+            check_cancel();
             std::vector<int> save_poly;
             std::vector<int> pi_c;
             for (int i = 0; i < poly_vec.size(); i++) {
@@ -1626,6 +1632,7 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
         std::vector<std::vector<int>> path_demo1;
         std::vector<bool>             mark_path_demo(path_demo.size(), false);
         for (int i = 0; i < path_demo.size(); i++) {
+            check_cancel();
             for (int n = 0; n < path_demo[i].size(); n++) {
                 for (int j = 0; j < path_demo.size(); j++) {
                     if (i != j && !mark_path_demo[j]) {
@@ -2008,6 +2015,7 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
     }
 
 outdoor:
+    check_cancel();
     if (!polylines.empty() || !thick_polylines.empty()) {
         // calculate actual flow from spacing (which might have been adjusted by the infill
         // pattern generator)
@@ -2049,7 +2057,9 @@ outdoor:
 // Orca: Dedicated function to calculate gap fill lines for the provided surface, according to the print object parameters
 // and append them to the out ExtrusionEntityCollection.
 void Fill::_create_gap_fill(const Surface* surface, const FillParams& params, ExtrusionEntityCollection* out){
-    if (!params.enable_gap_fill)
+    // Neither sparse infill nor bridges append gap paths below. Avoid the
+    // expensive coverage/offset work for those surfaces altogether.
+    if (!params.enable_gap_fill || params.density < 1 || is_bridge(params.extrusion_role))
         return;
 
     
@@ -2061,9 +2071,19 @@ void Fill::_create_gap_fill(const Surface* surface, const FillParams& params, Ex
         (surface->surface_type == stInternalSolid && this->print_object_config->gap_fill_target.value != gftEverywhere))
         return;
     
+    const auto *hilbert = dynamic_cast<const FillHilbertCurve *>(this);
+    const auto check_cancel = [hilbert] { if (hilbert) hilbert->throw_if_canceled(); };
+    check_cancel();
     Flow new_flow = params.flow;
     ExPolygons unextruded_areas;
-    unextruded_areas = diff_ex(this->no_overlap_expolygons, union_ex(out->polygons_covered_by_spacing(10)));
+    Polygons covered;
+    for (const ExtrusionEntity *entity : out->entities) {
+        check_cancel();
+        entity->polygons_covered_by_spacing(covered, 10);
+    }
+    check_cancel();
+    unextruded_areas = diff_ex(this->no_overlap_expolygons, union_ex(covered));
+    check_cancel();
     ExPolygons gapfill_areas = union_ex(unextruded_areas);
     if (!this->no_overlap_expolygons.empty())
         gapfill_areas = intersection_ex(gapfill_areas, this->no_overlap_expolygons);
@@ -2071,9 +2091,17 @@ void Fill::_create_gap_fill(const Surface* surface, const FillParams& params, Ex
     if (gapfill_areas.size() > 0 && params.density >= 1) {
         double min = 0.2 * new_flow.scaled_spacing() * (1 - INSET_OVERLAP_TOLERANCE);
         double max = 2. * new_flow.scaled_spacing();
+        if (hilbert) {
+            const double bead_width = new_flow.nozzle_diameter() > 0 ?
+                std::min(new_flow.width(), new_flow.nozzle_diameter()) : new_flow.width();
+            Hilbert::filter_corner_gaps(gapfill_areas, this->no_overlap_expolygons,
+                                        bead_width, hilbert->cancel_callback());
+        }
+        check_cancel();
         ExPolygons gaps_ex = diff_ex(
                                      opening_ex(gapfill_areas, float(min / 2.)),
                                      offset2_ex(gapfill_areas, -float(max / 2.), float(max / 2. + ClipperSafetyOffset)));
+        check_cancel();
         //BBS: sort the gap_ex to avoid mess travel
         Points ordering_points;
         ordering_points.reserve(gaps_ex.size());
@@ -2087,6 +2115,7 @@ void Fill::_create_gap_fill(const Surface* surface, const FillParams& params, Ex
         
         ThickPolylines polylines;
         for (ExPolygon& ex : gaps_ex_sorted) {
+            check_cancel();
             //BBS: Use DP simplify to avoid duplicated points and accelerate medial-axis calculation as well.
             ex.douglas_peucker(SCALED_RESOLUTION * 0.1);
 
@@ -2100,6 +2129,7 @@ void Fill::_create_gap_fill(const Surface* surface, const FillParams& params, Ex
             // ex.medial_axis(min, max, &polylines);
         }
         
+        check_cancel();
         if (!polylines.empty() && !is_bridge(params.extrusion_role)) {
             polylines.erase(std::remove_if(polylines.begin(), polylines.end(),
                                            [&](const ThickPolyline& p) {

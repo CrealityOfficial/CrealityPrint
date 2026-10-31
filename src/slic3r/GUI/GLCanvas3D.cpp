@@ -3,6 +3,7 @@
 #include "GLCanvas3D.hpp"
 
 #include <igl/unproject.h>
+#include <unordered_map>
 
 #include "libslic3r/BuildVolume.hpp"
 #include "libslic3r/ClipperUtils.hpp"
@@ -26,6 +27,7 @@
 #include "UITour.hpp"
 #include "Tab.hpp"
 #include "GUI_Preview.hpp"
+#include "GCodeRenderer/PreviewLayerRange.hpp"
 #include "OpenGLManager.hpp"
 #include "LinuxDisplayBackend.hpp"
 #include "Plater.hpp"
@@ -2278,7 +2280,22 @@ void GLCanvas3D::render(bool only_init)
         camera.requires_zoom_to_volumes = false;
     }
 
-    camera.apply_projection(_max_bounding_box(true, true, true));
+    BoundingBoxf3 projection_box = _max_bounding_box(true, true, true);
+    // Preview copies are not yet part of the scene volumes. Include their
+    // actual bounds before computing the camera's near and far clipping planes.
+    const bool has_clone_preview =
+        (m_gizmos.is_running() && m_gizmos.get_current_type() == GLGizmosManager::Clone) ||
+        (m_canvas_type == CanvasView3D &&
+         (m_extra_render_callbacks[static_cast<size_t>(ERenderEvent::ObjectCloneOptions)] ||
+          (m_extra_render_callbacks[static_cast<size_t>(ERenderEvent::FillBedOptions)] && get_arrange_settings().checkerboard_layout)));
+    if (has_clone_preview) {
+        for (unsigned int volume_idx : m_selection.get_volume_idxs()) {
+            const BoundingBoxf3 preview_box = m_volumes.volumes[volume_idx]->clone_preview_bounding_box();
+            if (preview_box.defined)
+                projection_box.merge(preview_box);
+        }
+    }
+    camera.apply_projection(projection_box);
 
     const std::array<int, 4>& viewport    = camera.get_viewport();
     OpenGLManager&            ogl_manager = wxGetApp().get_opengl_manager();
@@ -2784,6 +2801,34 @@ void GLCanvas3D::mirror_selection(Axis axis)
 // 3) SLA support meshes for their respective ModelObjects / ModelInstances
 // 4) Wipe tower preview
 // 5) Out of bed collision status & message overlay (texture)
+static bool wipe_tower_preview_config_matches(const DynamicPrintConfig& current, const DynamicPrintConfig& sliced)
+{
+    // Inactive plates may keep valid results until their next background apply.
+    // Compare shape inputs, not backend-derived values such as retraction overrides.
+    static const std::set<std::string> shape_keys {
+        "printer_model", "printable_area", "bed_exclude_area", "nozzle_diameter",
+        "enable_prime_tower", "single_extruder_multi_material", "purge_in_prime_tower",
+        "prime_volume", "timelapse_type", "layer_height", "initial_layer_print_height",
+        "filament_diameter", "filament_flow_ratio", "filament_shrink", "filament_shrinkage_compensation_z",
+        "filament_minimal_purge_on_wipe_tower", "filament_adhesiveness_category", "filament_type",
+        "filament_ramming_parameters", "enable_filament_ramming", "wiping_volumes_extruders",
+        "print_sequence", "first_layer_print_sequence", "other_layers_print_sequence", "other_layers_print_sequence_nums",
+        "bottom_fill_flush_layers", "top_fill_flush_layers", "enable_mixed_color_sublayer", "mixed_filament_definitions"
+    };
+    for (const auto& key : current.keys()) {
+        // Positions are applied when loading the mesh; other plates' positions do not change its shape.
+        if (key == "wipe_tower_x" || key == "wipe_tower_y")
+            continue;
+        if (shape_keys.count(key) == 0 && !boost::starts_with(key, "prime_tower_") &&
+            !boost::starts_with(key, "wipe_tower_") && !boost::starts_with(key, "flush_"))
+            continue;
+        const ConfigOption* old_option = sliced.option(key);
+        if (old_option == nullptr || *old_option != *current.option(key))
+            return false;
+    }
+    return true;
+}
+
 void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_refresh)
 {
     if (m_canvas == nullptr || m_config == nullptr || m_model == nullptr)
@@ -3264,25 +3309,31 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
     // BBS
     if (printer_technology == ptFFF && m_config->has("filament_colour") && (m_canvas_type != ECanvasType::CanvasAssembleView)) {
         // Should the wipe tower be visualized ?
-        unsigned int filaments_count = (unsigned int) dynamic_cast<const ConfigOptionStrings*>(m_config->option("filament_colour"))
-                                           ->values.size();
+        const DynamicPrintConfig preview_config = wxGetApp().preset_bundle->full_config();
+        const unsigned int filaments_count =
+            static_cast<unsigned int>(preview_config.option<ConfigOptionStrings>("filament_colour")->values.size());
 
-        bool wt = dynamic_cast<const ConfigOptionBool*>(m_config->option("enable_prime_tower"))->value;
-        auto co = dynamic_cast<const ConfigOptionEnum<PrintSequence>*>(m_config->option<ConfigOptionEnum<PrintSequence>>("print_sequence"));
+        const bool wt = preview_config.opt_bool("enable_prime_tower");
+        const auto co = preview_config.option<ConfigOptionEnum<PrintSequence>>("print_sequence");
+        const bool background_update_pending = wxGetApp().plater()->is_background_process_update_scheduled();
 
-        const DynamicPrintConfig& dconfig           = wxGetApp().preset_bundle->prints.get_edited_preset().config;
-        auto                      timelapse_type    = dconfig.option<ConfigOptionEnum<TimelapseType>>("timelapse_type");
-        bool                      timelapse_enabled = timelapse_type ? (timelapse_type->value == TimelapseType::tlSmooth) : false;
-        const Print*              print             = m_process->fff_print();
-
-        bool purge_in_prime_tower      = print->config().purge_in_prime_tower;
-        bool proj_purge_in_prime_tower = dynamic_cast<const ConfigOptionBool*>(
-                                             wxGetApp().preset_bundle->printers.get_edited_preset().config.option("purge_in_prime_tower"))
-                                             ->value;
-        if (wt && (purge_in_prime_tower == proj_purge_in_prime_tower)) {
+        // An unsynchronized Print must not hide the estimate for the current project.
+        if (wt) {
             for (int plate_id = 0; plate_id < n_plates; plate_id++) {
                 // If print ByObject and there is only one object in the plate, the wipe tower is allowed to be generated.
                 PartPlate* part_plate = ppl.get_plate(plate_id);
+                if (part_plate->printable_instance_size() == 0)
+                    continue;
+
+                // Match slicing's configuration merge, including this plate's overrides.
+                DynamicPrintConfig plate_config = preview_config;
+                plate_config.apply(*part_plate->config());
+                PrintConfig preview_print_config;
+                preview_print_config.apply(plate_config, true);
+                if (!preview_print_config.enable_prime_tower.value)
+                    continue;
+                const bool timelapse_enabled = preview_print_config.timelapse_type.value == TimelapseType::tlSmooth;
+
                 if (part_plate->get_print_seq() == PrintSequence::ByObject ||
                     (part_plate->get_print_seq() == PrintSequence::ByDefault && co != nullptr && co->value == PrintSequence::ByObject)) {
                     if (ppl.get_plate(plate_id)->printable_instance_size() != 1)
@@ -3331,26 +3382,28 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                 DynamicPrintConfig& proj_cfg = wxGetApp().preset_bundle->project_config;
                 float               x        = dynamic_cast<const ConfigOptionFloats*>(proj_cfg.option("wipe_tower_x"))->get_at(plate_id);
                 float               y        = dynamic_cast<const ConfigOptionFloats*>(proj_cfg.option("wipe_tower_y"))->get_at(plate_id);
-                float               w        = dynamic_cast<const ConfigOptionFloat*>(m_config->option("prime_tower_width"))->value;
-                int                 a        = dynamic_cast<const ConfigOptionFloat*>(m_config->option("wipe_tower_rotation_angle"))->value;
+                float               w        = preview_print_config.prime_tower_width.value;
+                int                 a        = preview_print_config.wipe_tower_rotation_angle.value;
                 a                            = std::abs(a % 360);
-                float tower_brim_width       = dynamic_cast<const ConfigOptionFloat*>(m_config->option("prime_tower_brim_width"))->value;
-                // BBS
-                // float v = dynamic_cast<const ConfigOptionFloat*>(m_config->option("prime_volume"))->value;
-                Vec3d plate_origin = ppl.get_plate(plate_id)->get_origin();
+                float tower_brim_width       = preview_print_config.prime_tower_brim_width.value;
+                Vec3d plate_origin = part_plate->get_origin();
 
-                const Print*              current_print   = part_plate->fff_print();
-                const auto&               wipe_tower_data = print->wipe_tower_data(current_plate_filaments_count);
-                float                     brim_width      = wipe_tower_data.brim_width;
-                const DynamicPrintConfig& print_cfg       = wxGetApp().preset_bundle->prints.get_edited_preset().config;
-                double                    wipe_vol        = dynamic_cast<const ConfigOptionFloat*>(m_config->option("prime_volume"))->value;
-                Vec3d wipe_tower_size = ppl.get_plate(plate_id)->estimate_wipe_tower_size(print_cfg, w, wipe_tower_data.depth, wipe_vol, current_plate_filaments_count);
+                const Print* current_print = part_plate->fff_print();
+                // Only reuse a mesh from this plate's valid, synchronized slicing result.
+                const bool use_real_wipe_tower =
+                    current_print != nullptr && part_plate->is_slice_result_valid() && !background_update_pending &&
+                    current_print->is_step_done(psWipeTower) &&
+                    wipe_tower_preview_config_matches(plate_config, current_print->full_print_config()) &&
+                    current_print->wipe_tower_data().wipe_tower_mesh_data.has_value();
 
                 BoundingBoxf3 plate_bbox = wxGetApp().plater()->get_partplate_list().get_plate(plate_id)->get_bounding_box();
                 coordf_t      plate_bbox_x_max_local_coord = plate_bbox.max(0) - plate_origin(0);
                 coordf_t      plate_bbox_y_max_local_coord = plate_bbox.max(1) - plate_origin(1);
 
-                if (!current_print->is_step_done(psWipeTower) || !current_print->wipe_tower_data().wipe_tower_mesh_data) {
+                if (!use_real_wipe_tower) {
+                    const double depth = Print::estimate_wipe_tower_depth(preview_print_config, current_plate_filaments_count);
+                    const Vec3d wipe_tower_size = part_plate->estimate_wipe_tower_size(
+                        plate_config, w, depth, preview_print_config.prime_volume.value, current_plate_filaments_count);
                     const float margin            = 15.f;
                     float       width             = std::max(tower_brim_width, 0.f);
                     BoundingBox plate_bbox2d      = BoundingBox(scaled(Vec2f(0.f, 0.f)),
@@ -3376,8 +3429,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                                                                                       y + plate_origin(1), (float) wipe_tower_size(0),
                                                                                       (float) wipe_tower_size(1),
                                                                                       (float) wipe_tower_size(2), a,
-                                                                                      /*!print->is_step_done(psWipeTower)*/ true,
-                                                                                      brim_width);
+                                                                                      true, tower_brim_width);
                     int volume_idx_wipe_tower_old = volume_idxs_wipe_tower_old[plate_id];
                     if (volume_idx_wipe_tower_old != -1)
                         map_glvolume_old_to_new[volume_idx_wipe_tower_old] = volume_idx_wipe_tower_new;
@@ -3537,7 +3589,7 @@ void GLCanvas3D::load_shells(const Print& print, bool force_previewing)
 
 void GLCanvas3D::set_shell_transparence(float alpha) { m_gcode_viewer.set_shell_transparency(alpha); }
 // BBS: add only gcode mode
-void GLCanvas3D::load_gcode_preview(const GCodeProcessorResult&     gcode_result,
+bool GLCanvas3D::load_gcode_preview(const GCodeProcessorResult&     gcode_result,
                                     const std::vector<std::string>& str_tool_colors,
                                     bool                            only_gcode)
 {
@@ -3562,6 +3614,7 @@ void GLCanvas3D::load_gcode_preview(const GCodeProcessorResult&     gcode_result
     // BBS: init is called in GLCanvas3D.render()
     // when load gcode directly, it is too late
     m_gcode_viewer.init(wxGetApp().get_mode(), wxGetApp().preset_bundle, true);
+    const unsigned int result_id = gcode_result.id;
     m_gcode_viewer.load(gcode_result, *this->fff_print(), wxGetApp().plater()->build_volume(), exclude_bounding_box, wxGetApp().get_mode(),
                         only_gcode);
 
@@ -3578,14 +3631,18 @@ void GLCanvas3D::load_gcode_preview(const GCodeProcessorResult&     gcode_result
     }
 #endif
     // 判断gcode结果是否有效，m_gcode_viewer.load会处理事件循环，导致m_gcode_viewer的m_gcode_result被析构
-    if (!m_gcode_viewer.is_gcode_result_valid()) {
+    // The event loop inside load() can reset the result or switch plates. Check
+    // ownership before dereferencing the original reference again.
+    if (partplate_list.get_current_slice_result() != &gcode_result ||
+        !m_gcode_viewer.is_gcode_result_valid() ||
+        gcode_result.id != result_id || gcode_result.moves.empty()) {
         set_as_dirty();
         request_extra_frame();
-        return;
+        return false;
     }
     // 尝试修复m_gcode_viewer被析构导致闪退的问题
     if (!m_gcode_viewer.get_moves_slider())
-        return;
+        return false;
     m_gcode_viewer.get_moves_slider()->SetHigherValue(m_gcode_viewer.get_moves_slider()->GetMaxValue());
 
     if (wxGetApp().is_editor()) {
@@ -3610,6 +3667,7 @@ void GLCanvas3D::load_gcode_preview(const GCodeProcessorResult&     gcode_result
     request_extra_frame();
 
     BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " end";
+    return true;
 }
 
 void GLCanvas3D::refresh_gcode_preview_render_paths()
@@ -8170,8 +8228,17 @@ void GLCanvas3D::render_thumbnail_internal(ThumbnailData&            thumbnail_d
 {
     // BBS modify visible calc function
     int           plate_idx          = thumbnail_params.plate_id;
-    PartPlate*    plate              = partplate_list.get_plate(plate_idx);
-    BoundingBoxf3 plate_build_volume = plate->get_build_volume();
+    PartPlate*    plate = plate_idx >= 0 ? partplate_list.get_plate(plate_idx) : nullptr;
+    BoundingBoxf3 plate_build_volume;
+    if (plate) {
+        plate_build_volume = plate->get_build_volume();
+    } else {
+        // Global recommendation captures all included instances in one scene.
+        for (const GLVolume* volume : volumes.volumes)
+            if (volume->printable && !volume->is_modifier)
+                plate_build_volume.merge(volume->transformed_bounding_box());
+    }
+    if (!plate_build_volume.defined) return;
     plate_build_volume.min(0) -= Slic3r::BuildVolume::SceneEpsilon;
     plate_build_volume.min(1) -= Slic3r::BuildVolume::SceneEpsilon;
     plate_build_volume.min(2) -= Slic3r::BuildVolume::SceneEpsilon;
@@ -8195,8 +8262,6 @@ void GLCanvas3D::render_thumbnail_internal(ThumbnailData&            thumbnail_d
                 contained = true;
             }
             ret &= contained;
-        } else {
-            ret &= (!v.shader_outside_printer_detection_enabled || !v.is_outside);
         }
         return ret;
     };
@@ -8204,11 +8269,84 @@ void GLCanvas3D::render_thumbnail_internal(ThumbnailData&            thumbnail_d
     static ColorRGBA curr_color;
 
     GLVolumePtrs visible_volumes;
+    std::unordered_map<const GLVolume*, size_t> pick_ids_by_volume;
+    const bool filter_to_sliced_instances = !thumbnail_params.plate_object_instances.empty();
+    std::unordered_map<size_t, size_t> loaded_id_to_labeled_id;
+    std::unordered_map<size_t, size_t> labeled_ids;
+    for (const PlateObjectBitmapInstance& instance : thumbnail_params.plate_object_instances) {
+        labeled_ids.emplace(instance.labeled_id, instance.labeled_id);
+        if (instance.loaded_id > 0)
+            loaded_id_to_labeled_id.emplace(instance.loaded_id, instance.labeled_id);
+    }
+
+    auto resolve_sliced_labeled_id = [&](const GLVolume& volume, size_t& labeled_id) {
+        if (!filter_to_sliced_instances) {
+            labeled_id = volume.model_object_ID;
+            return true;
+        }
+
+        const GLVolume::CompositeID& composite_id = volume.composite_id;
+        for (const PlateObjectBitmapInstance& sliced_instance : thumbnail_params.plate_object_instances) {
+            if (sliced_instance.object_index == composite_id.object_id &&
+                sliced_instance.instance_index == composite_id.instance_id) {
+                labeled_id = sliced_instance.labeled_id;
+                return true;
+            }
+        }
+
+        if (composite_id.object_id >= 0 && composite_id.instance_id >= 0 &&
+            static_cast<size_t>(composite_id.object_id) < model_objects.size()) {
+            const ModelObject* model_object = model_objects[composite_id.object_id];
+            if (model_object != nullptr && static_cast<size_t>(composite_id.instance_id) < model_object->instances.size()) {
+                const ModelInstance* model_instance = model_object->instances[composite_id.instance_id];
+                if (model_instance != nullptr) {
+                    if (model_instance->loaded_id > 0) {
+                        auto loaded_it = loaded_id_to_labeled_id.find(model_instance->loaded_id);
+                        if (loaded_it != loaded_id_to_labeled_id.end()) {
+                            labeled_id = loaded_it->second;
+                            return true;
+                        }
+                    }
+
+                    const Transform3d gui_transformation = model_instance->get_transformation().get_matrix();
+                    for (const PlateObjectBitmapInstance& sliced_instance : thumbnail_params.plate_object_instances) {
+                        if (!sliced_instance.object_name.empty() && model_object->name != sliced_instance.object_name)
+                            continue;
+                        bool same_transformation = true;
+                        for (size_t row = 0; row < 4 && same_transformation; ++row) {
+                            for (size_t col = 0; col < 4; ++col) {
+                                if (std::abs(gui_transformation(row, col) - sliced_instance.transformation[row * 4 + col]) > 1e-6) {
+                                    same_transformation = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (same_transformation) {
+                            labeled_id = sliced_instance.labeled_id;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        auto labeled_it = labeled_ids.find(volume.model_object_ID);
+        if (labeled_it != labeled_ids.end()) {
+            labeled_id = labeled_it->second;
+            return true;
+        }
+        return false;
+    };
 
     for (GLVolume* vol : volumes.volumes) {
         if (!vol->is_modifier && !vol->is_wipe_tower && (!thumbnail_params.parts_only || vol->composite_id.volume_id >= 0)) {
-            if (is_visible(*vol)) {
+            const bool volume_is_visible = is_visible(*vol);
+            size_t sliced_labeled_id = 0;
+            const bool matched = volume_is_visible && resolve_sliced_labeled_id(*vol, sliced_labeled_id);
+            if (matched) {
                 visible_volumes.emplace_back(vol);
+                if (filter_to_sliced_instances)
+                    pick_ids_by_volume.emplace(vol, sliced_labeled_id);
             }
         }
     }
@@ -8306,7 +8444,8 @@ void GLCanvas3D::render_thumbnail_internal(ThumbnailData&            thumbnail_d
             // we reserve color = (0,0,0) for occluders (as the printbed)
             // so we shift volumes' id by 1 to get the proper color
             // BBS: remove the bed picking logic
-            unsigned int id = vol->model_object_ID;
+            auto pick_id_it = pick_ids_by_volume.find(vol);
+            unsigned int id = static_cast<unsigned int>(pick_id_it != pick_ids_by_volume.end() ? pick_id_it->second : vol->model_object_ID);
             // unsigned int id = 1 + volume.second.first;
             unsigned int r = (id & (0x000000FF << 0)) >> 0;
             unsigned int g = (id & (0x000000FF << 8)) >> 8;
@@ -8320,11 +8459,14 @@ void GLCanvas3D::render_thumbnail_internal(ThumbnailData&            thumbnail_d
             shader->set_uniform("uniform_color", curr_color);*/
 
             const bool is_active           = vol->is_active;
+            const bool is_picking          = vol->picking;
             vol->is_active                 = true;
+            vol->picking                   = true;
             const Transform3d model_matrix = vol->world_matrix();
             shader->set_uniform("view_model_matrix", view_matrix * model_matrix);
             shader->set_uniform("projection_matrix", projection_matrix);
             vol->simple_render(shader, model_objects, extruder_colors);
+            vol->picking   = is_picking;
             vol->is_active = is_active;
         }
 
@@ -8342,7 +8484,8 @@ void GLCanvas3D::render_thumbnail_internal(ThumbnailData&            thumbnail_d
 
         // Creality: add layer color
         Model& model = wxGetApp().plater()->model();
-        auto   info  = model.plates_custom_gcodes[thumbnail_params.plate_id];
+        auto info = thumbnail_params.plate_id >= 0 ? model.plates_custom_gcodes[thumbnail_params.plate_id]
+                                                  : decltype(model.plates_custom_gcodes)::mapped_type{};
         if (!info.gcodes.empty()) {
             const Slic3r::DynamicPrintConfig* config = &wxGetApp().preset_bundle->project_config;
             if (config->has("filament_colour")) {
@@ -11233,9 +11376,11 @@ void GLCanvas3D::_render_slice_control() const
 
 void GLCanvas3D::_render_gcode(int canvas_width, int canvas_height)
 {
+    // Shells remain visible after the plate is invalidated. Only toolpaths and
+    // slider updates require a successfully loaded G-code result.
+    m_gcode_viewer.render(canvas_width, canvas_height);
     if (!m_gcode_viewer.get_loaded())
         return;
-    m_gcode_viewer.render(canvas_width, canvas_height);
     IMSlider* layers_slider = m_gcode_viewer.get_layers_slider();
     IMSlider* moves_slider  = m_gcode_viewer.get_moves_slider();
 
@@ -13614,11 +13759,15 @@ void GLCanvas3D::_set_warning_notification_if_needed(EWarning warning)
     } else {
         if (wxGetApp().is_editor()) {
             if (current_printer_technology() != ptSLA) {
-                unsigned int max_z_layer = m_gcode_viewer.get_layers_z_range().back();
-                if (warning == EWarning::ToolHeightOutside) // check if max z_layer height exceed max print height
-                    show = m_gcode_viewer.has_data() &&
-                           ((m_gcode_viewer.get_layers_zs()[max_z_layer] - m_gcode_viewer.get_max_print_height() >= 1e-6) &&
-                            m_gcode_viewer.get_max_print_height() >= 1e-6 && !wxGetApp().preset_bundle->machine_is_belt());
+                if (warning == EWarning::ToolHeightOutside) { // check if max z_layer height exceeds max print height
+                    if (m_gcode_viewer.has_data()) {
+                        const auto layers_z = m_gcode_viewer.get_layers_zs();
+                        const auto range = clamp_preview_layer_range(m_gcode_viewer.get_layers_z_range(), layers_z.size());
+                        const double max_print_height = m_gcode_viewer.get_max_print_height();
+                        show = range && layers_z[range->back()] - max_print_height >= 1e-6 &&
+                               max_print_height >= 1e-6 && !wxGetApp().preset_bundle->machine_is_belt();
+                    }
+                }
                 else if (warning == EWarning::ToolpathOutside) { // check if max x,y coords exceed bed area
                     const bool has_data            = m_gcode_viewer.has_data();
                     const bool outside_by_fallback = has_data &&

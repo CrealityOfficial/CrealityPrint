@@ -24,6 +24,7 @@
 
 #include "FillRectilinear.hpp"
 #include "FillAIInfill.hpp"
+#include "NoWipeTowerSkinLoop.hpp"
 
 // #define SLIC3R_DEBUG
 // #define INFILL_DEBUG_OUTPUT
@@ -4987,7 +4988,7 @@ void FillLockedZag::fill_surface_locked_zag(const Surface*                      
 
     std::unique_ptr<Fill> skeleton_f = std::unique_ptr<Fill>(Fill::new_from_type(this->skeleton_pattern));
     skeleton_f->copy_fill_data(static_cast<Fill*>(this));
-    if (params.solid_skeleton_wipe_path)
+    if ((this->print_config != nullptr && this->print_config->flush_into_solid_skeleton.value) || params.solid_skeleton_wipe_path)
         // LockedZag adds another 90 degrees for its skeleton. A 90-degree
         // base angle therefore produces horizontal X-axis wiping lines.
         skeleton_f->angle = float(M_PI / 2.);
@@ -5029,22 +5030,60 @@ void FillLockedZag::fill_surface_locked_zag(const Surface*                      
     skin_params.solid_skeleton_wipe_path = false;
     skin_params.solid_skeleton_start_corner = 0;
     skin_f->copy_fill_data(static_cast<Fill*>(this));
+    const bool relocate_skin_loops = params.skin_inside_out && this->skin_pattern == ipConcentric;
+    const double skin_loop_clipping = skin_f->loop_clipping;
+    if (relocate_skin_loops)
+        skin_f->loop_clipping = 0.;
     if (this->skeleton_pattern != ipCrossZag)
         zig_params.horiz_move = 0;
     while (skin_density != this->lock_param.skin_density_params.end()) {
         ExPolygons region_exp = union_safety_offset_ex(skin_density->second);
-        ExPolygons exps       = intersection_ex(region_exp, skin_expas);
+        const bool inside_out = params.skin_inside_out && this->skin_pattern == ipConcentric;
+        // Generate concentric offsets from the model boundary, then retain only
+        // the skin band. Filling the annulus itself grows loops from both edges.
+        ExPolygons exps = intersection_ex(region_exp, inside_out ? ExPolygons{surface->expolygon} : skin_expas);
         skin_params.density   = skin_density->first;
         for (ExPolygon& exp : exps) {
             cross_surface.expolygon       = exp;
             Polylines cross_polylines_out = skin_f->fill_surface(&cross_surface, skin_params);
+            if (inside_out) {
+                std::reverse(cross_polylines_out.begin(), cross_polylines_out.end());
+                for (const Polyline& ring : cross_polylines_out) {
+                    // Move the gap only on a complete ring in a single flow region.
+                    Polylines band_lines = intersection_pl(Polylines{ring}, skin_expas);
+                    if (band_lines.empty())
+                        continue;
+                    std::vector<std::pair<Polylines, Flow>> ring_flows;
+                    generate_for_different_flow(this->lock_param.skin_flow_params, band_lines, ring_flows);
+                    ring_flows.erase(std::remove_if(ring_flows.begin(), ring_flows.end(),
+                        [](const auto& entry) { return entry.first.empty(); }), ring_flows.end());
+                    if (ring.points.size() >= 4 && ring.first_point() == ring.last_point() &&
+                        ring.length() > skin_loop_clipping && ring_flows.size() == 1 &&
+                        ring_flows.front().first.size() == 1 &&
+                        ring_flows.front().first.front().first_point() == ring_flows.front().first.front().last_point() &&
+                        std::abs(ring_flows.front().first.front().length() - ring.length()) < scaled<double>(0.001)) {
+                        // Keep the source winding and vertices, not the clipper ordering.
+                        skin_polyline.emplace_back(Polylines{ring}, ring_flows.front().second);
+                    } else {
+                        // Keep source-side clipping on genuine open fragments.
+                        Polyline clipped_ring = ring;
+                        clipped_ring.clip_end(skin_loop_clipping);
+                        if (clipped_ring.is_valid())
+                            generate_for_different_flow(this->lock_param.skin_flow_params,
+                                intersection_pl(Polylines{clipped_ring}, skin_expas), skin_polyline);
+                    }
+                }
+                continue;
+            }
             skin_lines.insert(skin_lines.end(), cross_polylines_out.begin(), cross_polylines_out.end());
         }
         skin_density++;
     }
 
-    // skin lines -> skin_polyline (erSkinInfill, can absorb the first flush segment when flush-into-infill is off)
-    generate_for_different_flow(this->lock_param.skin_flow_params, skin_lines, skin_polyline);
+    // Concentric no-tower skin was emitted ring-by-ring above to retain its order.
+    // Other skin patterns keep their existing flow-region grouping.
+    if (!relocate_skin_loops)
+        generate_for_different_flow(this->lock_param.skin_flow_params, skin_lines, skin_polyline);
 }
 
 void FillLockedZag::fill_surface_extrusion(const Surface* surface, const FillParams& params, ExtrusionEntitiesPtr& out)
@@ -5058,11 +5097,11 @@ void FillLockedZag::fill_surface_extrusion(const Surface* surface, const FillPar
     } catch (InfillFailedException&) {}
 
     // skin paths: output as a separate ExtrusionEntityCollection (erSkinInfill)
-    // printed BEFORE skeleton so flush/color-change happens between skin and skeleton
+    // GCode schedules these after the skeleton and walls; concentric rings retain their offset order.
     if (!skin_polyline.empty()) {
         ExtrusionEntityCollection* eec_skin = nullptr;
         out.push_back(eec_skin = new ExtrusionEntityCollection());
-        eec_skin->no_sort   = this->no_sort();
+        eec_skin->no_sort = this->no_sort() || (params.skin_inside_out && this->skin_pattern == ipConcentric);
         size_t idx_skin = eec_skin->entities.size();
         for (std::pair<Polylines, Flow>& poly_with_flow : skin_polyline) {
             double flow_mm3_per_mm = poly_with_flow.second.mm3_per_mm();
@@ -5072,8 +5111,15 @@ void FillLockedZag::fill_surface_extrusion(const Surface* surface, const FillPar
                 flow_mm3_per_mm = new_flow.mm3_per_mm();
                 flow_width      = new_flow.width();
             }
-            extrusion_entities_append_paths(eec_skin->entities, std::move(poly_with_flow.first), erSkinInfill, flow_mm3_per_mm,
-                                            float(flow_width), poly_with_flow.second.height());
+            for (Polyline& line : poly_with_flow.first) {
+                if (params.skin_inside_out && this->skin_pattern == ipConcentric &&
+                    line.points.size() >= 4 && line.first_point() == line.last_point() && line.length() > this->loop_clipping)
+                    eec_skin->entities.push_back(new NoWipeTowerSkinLoop(line, this->loop_clipping,
+                        flow_mm3_per_mm, float(flow_width), poly_with_flow.second.height()));
+                else
+                    extrusion_entities_append_paths(eec_skin->entities, Polylines{std::move(line)}, erSkinInfill,
+                        flow_mm3_per_mm, float(flow_width), poly_with_flow.second.height());
+            }
         }
         if (!params.can_reverse) {
             for (size_t i = idx_skin; i < eec_skin->entities.size(); i++)

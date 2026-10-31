@@ -238,6 +238,9 @@ bool initialize()
             BOOST_LOG_TRIVIAL(info) << "Base color spectrum cache initialized from resources";
         }
         activate_cache_root();
+        // The read-side index (BaseColorSpectra) caches the file contents;
+        // reload it so previews pick up the seeded/validated spectra.
+        BaseColorSpectra::invalidate();
         return true;
     } catch (const std::exception& e) {
         // Keep the original resources root installed by CrealityPrint.cpp.
@@ -251,9 +254,21 @@ bool update_from_material_cache(const nlohmann::json& material_cache)
     try {
         const Json updated = convert(material_cache);
         std::lock_guard<std::mutex> lock(cache_mutex());
+        bool unchanged = false;
+        try {
+            unchanged = read_validated(cache_path()) == updated;
+        } catch (const std::exception&) {
+            // Replace missing or invalid local data with the validated response.
+        }
+        if (unchanged) {
+            BOOST_LOG_TRIVIAL(info) << "Base color spectrum cache unchanged; skipping cache write";
+            return true;
+        }
         write_atomic(updated, cache_path());
         activate_cache_root();
         BOOST_LOG_TRIVIAL(info) << "Base color spectrum cache updated from official material list";
+        // Refresh the read-side index used by the mixed-color preview.
+        BaseColorSpectra::invalidate();
         return true;
     } catch (const std::exception& e) {
         BOOST_LOG_TRIVIAL(warning) << "Keeping previous base color spectrum cache: " << e.what();

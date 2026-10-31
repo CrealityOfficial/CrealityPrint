@@ -3,6 +3,8 @@
 #include <stdexcept>
 
 using nlohmann::json;
+using Slic3r::DeviceAddUtils::ensure_active_nozzle_selected;
+using Slic3r::DeviceAddUtils::ensure_printer_nozzle_selected;
 using Slic3r::DeviceAddUtils::resolve_printer_selections;
 
 static void require(bool condition, const char* message)
@@ -62,6 +64,37 @@ int main()
         json unmatched = json::array({{{"model", "UNKNOWN"}, {"vendor", "Creality"}}});
         resolve_printer_selections(unmatched, profiles, json(), json());
         require(!unmatched[0].contains("nozzle_diameter"), "missing catalogues must be safe");
+
+        json active_profiles = json::array({
+            {{"model", "SPARKX i8"}, {"vendor", "Creality"}, {"nozzle_diameter", "0.8;0.6;0.2;0.4"},
+             {"nozzle_selected", "0.2;0.6;0.8"}}
+        });
+        require(ensure_active_nozzle_selected(active_profiles, "Creality", "SPARKX i8", "0.4"),
+                "active system nozzle must be restored");
+        require(active_profiles[0]["nozzle_selected"] == "0.2;0.6;0.8;0.4",
+                "restored active nozzle must be persisted");
+        require(!ensure_active_nozzle_selected(active_profiles, "Creality", "SPARKX i8", "0.4"),
+                "active nozzle merge must be idempotent");
+        require(!ensure_active_nozzle_selected(active_profiles, "Creality", "SPARKX i8", "1.0"),
+                "unsupported active nozzle must not be invented");
+
+        json selected_printers = {
+            {"i8", {{"model", "SPARKX i8"}, {"vendor", "Creality"}, {"nozzle_diameter", "0.2;0.6;0.8"}}}
+        };
+        require(ensure_printer_nozzle_selected(selected_printers, active_profiles, "Creality", "SPARKX i8", "0.4"),
+                "active nozzle must enter the device-add material calculation");
+        require(selected_printers["i8"]["nozzle_diameter"] == "0.2;0.6;0.8;0.4",
+                "active nozzle must be merged into an existing selection");
+        require(!ensure_printer_nozzle_selected(selected_printers, active_profiles, "Creality", "SPARKX i8", "0.4"),
+                "selected printer merge must be idempotent");
+
+        json empty_selection = json::array();
+        require(ensure_printer_nozzle_selected(empty_selection, active_profiles, "Creality", "SPARKX i8", "0.4"),
+                "active printer must be restored when the web selection omitted it");
+        require(empty_selection.size() == 1 && empty_selection[0]["nozzle_diameter"] == "0.4",
+                "restored active printer must carry its nozzle");
+        require(!ensure_printer_nozzle_selected(empty_selection, active_profiles, "Creality", "SPARKX i8", "1.0"),
+                "unsupported printer selection must not be invented");
         std::cout << "Device-add nozzle regression checks passed\n";
         return 0;
     } catch (const std::exception& error) {

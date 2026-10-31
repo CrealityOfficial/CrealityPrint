@@ -18,9 +18,13 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <condition_variable>
 #include <exception>
+#include <functional>
+#include <limits>
 #include <string>
 #include <thread>
 
@@ -246,9 +250,353 @@ bool is_windows10()
 // Progress function, to be called regularly to update the progress.
 typedef std::function<void (const char * /* message */, unsigned /* progress */)> ProgressFn;
 
-void fix_model_by_win10_sdk(const std::string &path_src, const std::string &path_dst, ProgressFn on_progress, ThrowOnCancelFn throw_on_cancel)
+static bool try_extract_repaired_mesh(
+    ABI::Windows::Graphics::Printing3D::IPrinting3DModel* model,
+    ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Graphics::Printing3D::Printing3DMesh*>* meshes,
+    unsigned num_meshes,
+    indexed_triangle_set& output,
+    uint64_t trace_id)
 {
-    const uint64_t trace_id = (uint64_t)std::chrono::steady_clock::now().time_since_epoch().count();
+    using namespace ABI::Windows::Graphics::Printing3D;
+    using Clock = std::chrono::steady_clock;
+    const auto started_at = Clock::now();
+
+    Printing3DModelUnit model_unit{};
+    const HRESULT unit_hr = model ? model->get_Unit(&model_unit) : E_POINTER;
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=repaired_model_metadata"
+                               << " mesh_count=" << num_meshes
+                               << " unit_hr=" << static_cast<unsigned>(unit_hr)
+                               << " unit=" << static_cast<int>(model_unit)
+                               << " trace_id=" << trace_id;
+
+    Microsoft::WRL::ComPtr<IPrinting3DMesh> repaired_mesh;
+    const HRESULT mesh_hr = num_meshes == 1 && meshes ? meshes->GetAt(0, repaired_mesh.GetAddressOf()) : E_INVALIDARG;
+    UINT32 vertex_count = 0;
+    UINT32 index_count = 0;
+    Printing3DBufferDescription vertex_desc{};
+    Printing3DBufferDescription index_desc{};
+    const HRESULT vertex_count_hr = repaired_mesh ? repaired_mesh->get_VertexCount(&vertex_count) : E_POINTER;
+    const HRESULT index_count_hr = repaired_mesh ? repaired_mesh->get_IndexCount(&index_count) : E_POINTER;
+    const HRESULT vertex_desc_hr = repaired_mesh ? repaired_mesh->get_VertexPositionsDescription(&vertex_desc) : E_POINTER;
+    const HRESULT index_desc_hr = repaired_mesh ? repaired_mesh->get_TriangleIndicesDescription(&index_desc) : E_POINTER;
+
+    Microsoft::WRL::ComPtr<ABI::Windows::Storage::Streams::IBuffer> vertex_buffer;
+    Microsoft::WRL::ComPtr<ABI::Windows::Storage::Streams::IBuffer> index_buffer;
+    const HRESULT vertex_buffer_hr = repaired_mesh ? repaired_mesh->GetVertexPositions(vertex_buffer.GetAddressOf()) : E_POINTER;
+    const HRESULT index_buffer_hr = repaired_mesh ? repaired_mesh->GetTriangleIndices(index_buffer.GetAddressOf()) : E_POINTER;
+    UINT32 vertex_buffer_bytes = 0;
+    UINT32 index_buffer_bytes = 0;
+    const HRESULT vertex_length_hr = vertex_buffer ? vertex_buffer->get_Length(&vertex_buffer_bytes) : E_POINTER;
+    const HRESULT index_length_hr = index_buffer ? index_buffer->get_Length(&index_buffer_bytes) : E_POINTER;
+
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=repaired_mesh_buffers"
+                               << " mesh_hr=" << static_cast<unsigned>(mesh_hr)
+                               << " vertex_count_hr=" << static_cast<unsigned>(vertex_count_hr)
+                               << " index_count_hr=" << static_cast<unsigned>(index_count_hr)
+                               << " vertex_desc_hr=" << static_cast<unsigned>(vertex_desc_hr)
+                               << " index_desc_hr=" << static_cast<unsigned>(index_desc_hr)
+                               << " vertex_buffer_hr=" << static_cast<unsigned>(vertex_buffer_hr)
+                               << " index_buffer_hr=" << static_cast<unsigned>(index_buffer_hr)
+                               << " vertex_length_hr=" << static_cast<unsigned>(vertex_length_hr)
+                               << " index_length_hr=" << static_cast<unsigned>(index_length_hr)
+                               << " vertex_count=" << vertex_count
+                               << " index_count=" << index_count
+                               << " vertex_format=" << static_cast<int>(vertex_desc.Format)
+                               << " vertex_stride=" << vertex_desc.Stride
+                               << " index_format=" << static_cast<int>(index_desc.Format)
+                               << " index_stride=" << index_desc.Stride
+                               << " vertex_buffer_bytes=" << vertex_buffer_bytes
+                               << " index_buffer_bytes=" << index_buffer_bytes
+                               << " trace_id=" << trace_id;
+
+    Microsoft::WRL::ComPtr<IPrinting3DComponent> build_component;
+    const HRESULT build_hr = model ? model->get_Build(build_component.GetAddressOf()) : E_POINTER;
+    UINT32 build_child_count = 0;
+    ABI::Windows::Foundation::Numerics::Matrix4x4 build_matrix{};
+    HRESULT build_children_hr = E_POINTER;
+    HRESULT build_child_hr = E_POINTER;
+    HRESULT build_matrix_hr = E_POINTER;
+    if (SUCCEEDED(build_hr) && build_component) {
+        Microsoft::WRL::ComPtr<ABI::Windows::Foundation::Collections::IVector<Printing3DComponentWithMatrix*>> build_children;
+        build_children_hr = build_component->get_Components(build_children.GetAddressOf());
+        if (SUCCEEDED(build_children_hr) && build_children) {
+            build_children_hr = build_children->get_Size(&build_child_count);
+            if (SUCCEEDED(build_children_hr) && build_child_count == 1) {
+                Microsoft::WRL::ComPtr<IPrinting3DComponentWithMatrix> build_child;
+                build_child_hr = build_children->GetAt(0, build_child.GetAddressOf());
+                if (SUCCEEDED(build_child_hr) && build_child)
+                    build_matrix_hr = build_child->get_Matrix(&build_matrix);
+            }
+        }
+    }
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=repaired_build_metadata"
+                               << " build_hr=" << static_cast<unsigned>(build_hr)
+                               << " children_hr=" << static_cast<unsigned>(build_children_hr)
+                               << " child_hr=" << static_cast<unsigned>(build_child_hr)
+                               << " matrix_hr=" << static_cast<unsigned>(build_matrix_hr)
+                               << " child_count=" << build_child_count
+                               << " matrix=[" << build_matrix.M11 << ',' << build_matrix.M12 << ',' << build_matrix.M13 << ',' << build_matrix.M14
+                               << ';' << build_matrix.M21 << ',' << build_matrix.M22 << ',' << build_matrix.M23 << ',' << build_matrix.M24
+                               << ';' << build_matrix.M31 << ',' << build_matrix.M32 << ',' << build_matrix.M33 << ',' << build_matrix.M34
+                               << ';' << build_matrix.M41 << ',' << build_matrix.M42 << ',' << build_matrix.M43 << ',' << build_matrix.M44 << ']'
+                               << " trace_id=" << trace_id;
+
+    auto nearly_equal = [](float value, float expected) {
+        return std::abs(value - expected) <= 1e-6f;
+    };
+    const bool identity_matrix =
+        SUCCEEDED(build_matrix_hr) &&
+        nearly_equal(build_matrix.M11, 1.f) && nearly_equal(build_matrix.M12, 0.f) && nearly_equal(build_matrix.M13, 0.f) && nearly_equal(build_matrix.M14, 0.f) &&
+        nearly_equal(build_matrix.M21, 0.f) && nearly_equal(build_matrix.M22, 1.f) && nearly_equal(build_matrix.M23, 0.f) && nearly_equal(build_matrix.M24, 0.f) &&
+        nearly_equal(build_matrix.M31, 0.f) && nearly_equal(build_matrix.M32, 0.f) && nearly_equal(build_matrix.M33, 1.f) && nearly_equal(build_matrix.M34, 0.f) &&
+        nearly_equal(build_matrix.M41, 0.f) && nearly_equal(build_matrix.M42, 0.f) && nearly_equal(build_matrix.M43, 0.f) && nearly_equal(build_matrix.M44, 1.f);
+
+    const uint64_t expected_vertex_bytes = static_cast<uint64_t>(vertex_count) * 3 * sizeof(double);
+    const uint64_t expected_index_bytes = static_cast<uint64_t>(index_count) * 3 * sizeof(uint32_t);
+    const bool layout_supported =
+        num_meshes == 1 &&
+        SUCCEEDED(unit_hr) && model_unit == Printing3DModelUnit_Millimeter &&
+        SUCCEEDED(mesh_hr) && repaired_mesh &&
+        SUCCEEDED(vertex_count_hr) && SUCCEEDED(index_count_hr) &&
+        vertex_count > 0 && index_count > 0 &&
+        SUCCEEDED(vertex_desc_hr) && vertex_desc.Format == Printing3DBufferFormat_Printing3DDouble && vertex_desc.Stride == 3 &&
+        SUCCEEDED(index_desc_hr) && index_desc.Format == Printing3DBufferFormat_Printing3DUInt && index_desc.Stride == 3 &&
+        SUCCEEDED(vertex_buffer_hr) && SUCCEEDED(index_buffer_hr) &&
+        SUCCEEDED(vertex_length_hr) && vertex_buffer_bytes == expected_vertex_bytes &&
+        SUCCEEDED(index_length_hr) && index_buffer_bytes == expected_index_bytes &&
+        SUCCEEDED(build_hr) && SUCCEEDED(build_children_hr) && SUCCEEDED(build_child_hr) &&
+        build_child_count == 1 && identity_matrix &&
+        vertex_count <= static_cast<uint64_t>(std::numeric_limits<int>::max());
+
+    if (!layout_supported) {
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=direct_mesh_extract"
+                                   << " success=false reason=unsupported_layout"
+                                   << " elapsed_ms=" << std::chrono::duration<double, std::milli>(Clock::now() - started_at).count()
+                                   << " trace_id=" << trace_id;
+        return false;
+    }
+
+    Microsoft::WRL::ComPtr<Windows::Storage::Streams::IBufferByteAccess> vertex_access;
+    Microsoft::WRL::ComPtr<Windows::Storage::Streams::IBufferByteAccess> index_access;
+    const HRESULT vertex_access_hr = vertex_buffer.As(&vertex_access);
+    const HRESULT index_access_hr = index_buffer.As(&index_access);
+    byte* vertex_data = nullptr;
+    byte* index_data = nullptr;
+    const HRESULT vertex_data_hr = vertex_access ? vertex_access->Buffer(&vertex_data) : E_POINTER;
+    const HRESULT index_data_hr = index_access ? index_access->Buffer(&index_data) : E_POINTER;
+    if (FAILED(vertex_access_hr) || FAILED(index_access_hr) ||
+        FAILED(vertex_data_hr) || FAILED(index_data_hr) || !vertex_data || !index_data) {
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=direct_mesh_extract"
+                                   << " success=false reason=buffer_access"
+                                   << " vertex_access_hr=" << static_cast<unsigned>(vertex_access_hr)
+                                   << " index_access_hr=" << static_cast<unsigned>(index_access_hr)
+                                   << " vertex_data_hr=" << static_cast<unsigned>(vertex_data_hr)
+                                   << " index_data_hr=" << static_cast<unsigned>(index_data_hr)
+                                   << " elapsed_ms=" << std::chrono::duration<double, std::milli>(Clock::now() - started_at).count()
+                                   << " trace_id=" << trace_id;
+        return false;
+    }
+
+    indexed_triangle_set extracted;
+    extracted.vertices.reserve(vertex_count);
+    for (UINT32 vertex_idx = 0; vertex_idx < vertex_count; ++vertex_idx) {
+        double position[3];
+        std::memcpy(position, vertex_data + static_cast<size_t>(vertex_idx) * sizeof(position), sizeof(position));
+        if (!std::isfinite(position[0]) || !std::isfinite(position[1]) || !std::isfinite(position[2])) {
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=direct_mesh_extract"
+                                       << " success=false reason=non_finite_vertex"
+                                       << " vertex_index=" << vertex_idx
+                                       << " elapsed_ms=" << std::chrono::duration<double, std::milli>(Clock::now() - started_at).count()
+                                       << " trace_id=" << trace_id;
+            return false;
+        }
+        extracted.vertices.emplace_back(static_cast<float>(position[0]), static_cast<float>(position[1]), static_cast<float>(position[2]));
+    }
+
+    extracted.indices.reserve(index_count);
+    for (UINT32 face_idx = 0; face_idx < index_count; ++face_idx) {
+        uint32_t indices[3];
+        std::memcpy(indices, index_data + static_cast<size_t>(face_idx) * sizeof(indices), sizeof(indices));
+        if (indices[0] >= vertex_count || indices[1] >= vertex_count || indices[2] >= vertex_count) {
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=direct_mesh_extract"
+                                       << " success=false reason=index_out_of_range"
+                                       << " face_index=" << face_idx
+                                       << " elapsed_ms=" << std::chrono::duration<double, std::milli>(Clock::now() - started_at).count()
+                                       << " trace_id=" << trace_id;
+            return false;
+        }
+        extracted.indices.emplace_back(
+            static_cast<int>(indices[0]),
+            static_cast<int>(indices[1]),
+            static_cast<int>(indices[2]));
+    }
+
+    output = std::move(extracted);
+    BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=direct_mesh_extract"
+                               << " success=true"
+                               << " elapsed_ms=" << std::chrono::duration<double, std::milli>(Clock::now() - started_at).count()
+                               << " vertices=" << output.vertices.size()
+                               << " faces=" << output.indices.size()
+                               << " trace_id=" << trace_id;
+    return true;
+}
+
+static HRESULT create_winrt_model_from_mesh(
+    const indexed_triangle_set& input,
+    Microsoft::WRL::ComPtr<ABI::Windows::Graphics::Printing3D::IPrinting3DModel>& output_model,
+    const char*& failed_stage)
+{
+    using namespace ABI::Windows::Graphics::Printing3D;
+    failed_stage = "validate_input";
+    if (input.vertices.empty() || input.indices.empty() ||
+        input.vertices.size() > std::numeric_limits<UINT32>::max() ||
+        input.indices.size() > std::numeric_limits<UINT32>::max()) {
+        return E_INVALIDARG;
+    }
+
+    const uint64_t vertex_bytes_64 = static_cast<uint64_t>(input.vertices.size()) * 3 * sizeof(double);
+    const uint64_t index_bytes_64 = static_cast<uint64_t>(input.indices.size()) * 3 * sizeof(uint32_t);
+    if (vertex_bytes_64 > std::numeric_limits<UINT32>::max() || index_bytes_64 > std::numeric_limits<UINT32>::max())
+        return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
+
+    const UINT32 vertex_count = static_cast<UINT32>(input.vertices.size());
+    const UINT32 index_count = static_cast<UINT32>(input.indices.size());
+    const UINT32 vertex_bytes = static_cast<UINT32>(vertex_bytes_64);
+    const UINT32 index_bytes = static_cast<UINT32>(index_bytes_64);
+
+    Microsoft::WRL::ComPtr<IPrinting3DModel> model;
+    failed_stage = "activate_model";
+    HRESULT hr = winrt_activate_instance(L"Windows.Graphics.Printing3D.Printing3DModel", model.GetAddressOf());
+    if (FAILED(hr) || !model) return FAILED(hr) ? hr : E_NOINTERFACE;
+    failed_stage = "set_model_unit";
+    hr = model->put_Unit(Printing3DModelUnit_Millimeter);
+    if (FAILED(hr)) return hr;
+
+    Microsoft::WRL::ComPtr<IPrinting3DMesh> mesh;
+    failed_stage = "activate_mesh";
+    hr = winrt_activate_instance(L"Windows.Graphics.Printing3D.Printing3DMesh", mesh.GetAddressOf());
+    if (FAILED(hr) || !mesh) return FAILED(hr) ? hr : E_NOINTERFACE;
+
+    const Printing3DBufferDescription vertex_desc{Printing3DBufferFormat_Printing3DDouble, 3};
+    const Printing3DBufferDescription index_desc{Printing3DBufferFormat_Printing3DUInt, 3};
+    failed_stage = "configure_mesh";
+    if (FAILED(hr = mesh->put_VertexCount(vertex_count)) ||
+        FAILED(hr = mesh->put_IndexCount(index_count)) ||
+        FAILED(hr = mesh->put_VertexPositionsDescription(vertex_desc)) ||
+        FAILED(hr = mesh->put_TriangleIndicesDescription(index_desc)) ||
+        FAILED(hr = mesh->CreateVertexPositions(vertex_bytes)) ||
+        FAILED(hr = mesh->CreateTriangleIndices(index_bytes))) {
+        return hr;
+    }
+
+    Microsoft::WRL::ComPtr<ABI::Windows::Storage::Streams::IBuffer> vertex_buffer;
+    Microsoft::WRL::ComPtr<ABI::Windows::Storage::Streams::IBuffer> index_buffer;
+    failed_stage = "get_mesh_buffers";
+    if (FAILED(hr = mesh->GetVertexPositions(vertex_buffer.GetAddressOf())) || !vertex_buffer ||
+        FAILED(hr = mesh->GetTriangleIndices(index_buffer.GetAddressOf())) || !index_buffer ||
+        FAILED(hr = vertex_buffer->put_Length(vertex_bytes)) ||
+        FAILED(hr = index_buffer->put_Length(index_bytes))) {
+        return FAILED(hr) ? hr : E_NOINTERFACE;
+    }
+
+    Microsoft::WRL::ComPtr<Windows::Storage::Streams::IBufferByteAccess> vertex_access;
+    Microsoft::WRL::ComPtr<Windows::Storage::Streams::IBufferByteAccess> index_access;
+    byte* vertex_data = nullptr;
+    byte* index_data = nullptr;
+    failed_stage = "access_mesh_buffers";
+    if (FAILED(hr = vertex_buffer.As(&vertex_access)) || !vertex_access ||
+        FAILED(hr = index_buffer.As(&index_access)) || !index_access ||
+        FAILED(hr = vertex_access->Buffer(&vertex_data)) || !vertex_data ||
+        FAILED(hr = index_access->Buffer(&index_data)) || !index_data) {
+        return FAILED(hr) ? hr : E_NOINTERFACE;
+    }
+
+    failed_stage = "copy_vertices";
+    for (std::size_t i = 0; i < input.vertices.size(); ++i) {
+        const auto& vertex = input.vertices[i];
+        const double position[3] = {static_cast<double>(vertex[0]), static_cast<double>(vertex[1]), static_cast<double>(vertex[2])};
+        if (!std::isfinite(position[0]) || !std::isfinite(position[1]) || !std::isfinite(position[2]))
+            return E_INVALIDARG;
+        std::memcpy(vertex_data + i * sizeof(position), position, sizeof(position));
+    }
+
+    failed_stage = "copy_indices";
+    for (std::size_t i = 0; i < input.indices.size(); ++i) {
+        const auto& face = input.indices[i];
+        if (face[0] < 0 || face[1] < 0 || face[2] < 0 ||
+            static_cast<std::size_t>(face[0]) >= input.vertices.size() ||
+            static_cast<std::size_t>(face[1]) >= input.vertices.size() ||
+            static_cast<std::size_t>(face[2]) >= input.vertices.size()) {
+            return E_INVALIDARG;
+        }
+        const uint32_t indices[3] = {
+            static_cast<uint32_t>(face[0]), static_cast<uint32_t>(face[1]), static_cast<uint32_t>(face[2])};
+        std::memcpy(index_data + i * sizeof(indices), indices, sizeof(indices));
+    }
+
+    Microsoft::WRL::ComPtr<ABI::Windows::Foundation::Collections::IVector<Printing3DMesh*>> meshes;
+    failed_stage = "append_mesh";
+    if (FAILED(hr = model->get_Meshes(meshes.GetAddressOf())) || !meshes || FAILED(hr = meshes->Append(mesh.Get())))
+        return FAILED(hr) ? hr : E_NOINTERFACE;
+
+    Microsoft::WRL::ComPtr<IPrinting3DComponent> component;
+    failed_stage = "activate_component";
+    hr = winrt_activate_instance(L"Windows.Graphics.Printing3D.Printing3DComponent", component.GetAddressOf());
+    if (FAILED(hr) || !component) return FAILED(hr) ? hr : E_NOINTERFACE;
+    if (FAILED(hr = component->put_Mesh(mesh.Get())) || FAILED(hr = component->put_Type(Printing3DObjectType_Model)))
+        return hr;
+
+    Microsoft::WRL::ComPtr<ABI::Windows::Foundation::Collections::IVector<Printing3DComponent*>> components;
+    failed_stage = "append_component";
+    if (FAILED(hr = model->get_Components(components.GetAddressOf())) || !components || FAILED(hr = components->Append(component.Get())))
+        return FAILED(hr) ? hr : E_NOINTERFACE;
+
+    Microsoft::WRL::ComPtr<IPrinting3DComponentWithMatrix> component_with_matrix;
+    failed_stage = "activate_component_with_matrix";
+    hr = winrt_activate_instance(L"Windows.Graphics.Printing3D.Printing3DComponentWithMatrix", component_with_matrix.GetAddressOf());
+    if (FAILED(hr) || !component_with_matrix) return FAILED(hr) ? hr : E_NOINTERFACE;
+    const ABI::Windows::Foundation::Numerics::Matrix4x4 identity{
+        1.f, 0.f, 0.f, 0.f,
+        0.f, 1.f, 0.f, 0.f,
+        0.f, 0.f, 1.f, 0.f,
+        0.f, 0.f, 0.f, 1.f};
+    if (FAILED(hr = component_with_matrix->put_Component(component.Get())) ||
+        FAILED(hr = component_with_matrix->put_Matrix(identity))) {
+        return hr;
+    }
+
+    Microsoft::WRL::ComPtr<IPrinting3DComponent> build;
+    failed_stage = "activate_build";
+    hr = winrt_activate_instance(L"Windows.Graphics.Printing3D.Printing3DComponent", build.GetAddressOf());
+    if (FAILED(hr) || !build) return FAILED(hr) ? hr : E_NOINTERFACE;
+    Microsoft::WRL::ComPtr<ABI::Windows::Foundation::Collections::IVector<Printing3DComponentWithMatrix*>> build_components;
+    failed_stage = "configure_build";
+    if (FAILED(hr = build->get_Components(build_components.GetAddressOf())) || !build_components ||
+        FAILED(hr = build_components->Append(component_with_matrix.Get())) ||
+        FAILED(hr = model->put_Build(build.Get()))) {
+        return FAILED(hr) ? hr : E_NOINTERFACE;
+    }
+
+    failed_stage = "success";
+    output_model = std::move(model);
+    return S_OK;
+}
+
+bool fix_model_by_win10_sdk(const std::string &path_src, const std::string &path_dst, ProgressFn on_progress, ThrowOnCancelFn throw_on_cancel,
+                                indexed_triangle_set* direct_repaired_mesh = nullptr,
+                                const indexed_triangle_set* direct_input_mesh = nullptr,
+                                std::function<void()> prepare_input_package = {})
+{
+    using Clock = std::chrono::steady_clock;
+    const auto total_started_at = Clock::now();
+    const uint64_t trace_id = (uint64_t)total_started_at.time_since_epoch().count();
+    auto log_winrt_stage = [&](const char* stage, Clock::time_point started_at) {
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=" << stage
+                                   << " elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - started_at).count()
+                                   << " trace_id=" << trace_id;
+    };
+    bool direct_extracted = false;
     
     if (! is_windows10())
         throw Slic3r::RuntimeError(L("Only Windows 10 is supported."));
@@ -263,15 +611,7 @@ HRESULT hr = (*s_RoInitialize)(RO_INIT_MULTITHREADED);
         throw Slic3r::RuntimeError(L("Repair failed."));
     }
 	{
-		on_progress(L("Exporting objects"), 20);
-
-		Microsoft::WRL::ComPtr<ABI::Windows::Storage::Streams::IRandomAccessStream>       fileStream;
-        hr = winrt_open_file_stream(boost::nowide::widen(path_src), ABI::Windows::Storage::FileAccessMode::FileAccessMode_Read, fileStream.GetAddressOf(), throw_on_cancel);
-        if (FAILED(hr) || !fileStream) { 
-            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(" winrt_open_file_stream failed hr=0x%1$08x src='%2%'") % (unsigned)hr % path_src << " tid=" << std::this_thread::get_id() << " rid=" << trace_id;
-            boost::log::core::get()->flush();
-            throw Slic3r::RuntimeError(L("Failed loading objects."));
-        }
+        on_progress(L("Exporting objects"), 20);
 
 		Microsoft::WRL::ComPtr<ABI::Windows::Graphics::Printing3D::IPrinting3D3MFPackage> printing3d3mfpackage;
         hr = winrt_activate_instance(L"Windows.Graphics.Printing3D.Printing3D3MFPackage", printing3d3mfpackage.GetAddressOf());
@@ -281,20 +621,60 @@ HRESULT hr = (*s_RoInitialize)(RO_INIT_MULTITHREADED);
             throw Slic3r::RuntimeError(L("Repair failed."));
         }
 
-		Microsoft::WRL::ComPtr<ABI::Windows::Foundation::IAsyncOperation<ABI::Windows::Graphics::Printing3D::Printing3DModel*>> modelAsync;
-        hr = printing3d3mfpackage->LoadModelFromPackageAsync(fileStream.Get(), modelAsync.GetAddressOf());
-        if (FAILED(hr) || !modelAsync) {
-            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(" LoadModelFromPackageAsync failed hr=0x%1$08x src='%2%'") % (unsigned)hr % path_src << " tid=" << std::this_thread::get_id() << " rid=" << trace_id;
-            boost::log::core::get()->flush();
-            throw Slic3r::RuntimeError(L("Failed loading objects."));
+		Microsoft::WRL::ComPtr<ABI::Windows::Graphics::Printing3D::IPrinting3DModel>	  model;
+        AsyncStatus status = AsyncStatus::Error;
+        bool used_direct_input = false;
+        if (direct_input_mesh) {
+            const auto direct_input_started_at = Clock::now();
+            const char* failed_stage = "unknown";
+            hr = create_winrt_model_from_mesh(*direct_input_mesh, model, failed_stage);
+            used_direct_input = SUCCEEDED(hr) && model;
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=direct_input_model"
+                                       << " success=" << used_direct_input
+                                       << " elapsed_ms=" << std::chrono::duration<double, std::milli>(Clock::now() - direct_input_started_at).count()
+                                       << " failed_stage=" << failed_stage
+                                       << " hr=" << static_cast<unsigned>(hr)
+                                       << " vertices=" << direct_input_mesh->vertices.size()
+                                       << " faces=" << direct_input_mesh->indices.size()
+                                       << " trace_id=" << trace_id;
         }
 
-        AsyncStatus status = winrt_async_await(modelAsync, throw_on_cancel);
-		Microsoft::WRL::ComPtr<ABI::Windows::Graphics::Printing3D::IPrinting3DModel>	  model;
-        if (status == AsyncStatus::Completed)
-            hr = modelAsync->GetResults(model.GetAddressOf());
-        else {
-            throw Slic3r::RuntimeError(L("Failed loading objects."));
+        if (!used_direct_input) {
+            if (prepare_input_package) {
+                const auto prepare_package_started_at = Clock::now();
+                prepare_input_package();
+                BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=prepare_fallback_input_package"
+                                           << " elapsed_ms="
+                                           << std::chrono::duration<double, std::milli>(Clock::now() - prepare_package_started_at).count()
+                                           << " trace_id=" << trace_id;
+            }
+            const auto load_package_started_at = Clock::now();
+		    Microsoft::WRL::ComPtr<ABI::Windows::Storage::Streams::IRandomAccessStream> fileStream;
+            hr = winrt_open_file_stream(boost::nowide::widen(path_src), ABI::Windows::Storage::FileAccessMode::FileAccessMode_Read, fileStream.GetAddressOf(), throw_on_cancel);
+            if (FAILED(hr) || !fileStream) {
+                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(" winrt_open_file_stream failed hr=0x%1$08x src='%2%'") % (unsigned)hr % path_src << " tid=" << std::this_thread::get_id() << " rid=" << trace_id;
+                boost::log::core::get()->flush();
+                throw Slic3r::RuntimeError(L("Failed loading objects."));
+            }
+
+		    Microsoft::WRL::ComPtr<ABI::Windows::Foundation::IAsyncOperation<ABI::Windows::Graphics::Printing3D::Printing3DModel*>> modelAsync;
+            hr = printing3d3mfpackage->LoadModelFromPackageAsync(fileStream.Get(), modelAsync.GetAddressOf());
+            if (FAILED(hr) || !modelAsync) {
+                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(" LoadModelFromPackageAsync failed hr=0x%1$08x src='%2%'") % (unsigned)hr % path_src << " tid=" << std::this_thread::get_id() << " rid=" << trace_id;
+                boost::log::core::get()->flush();
+                throw Slic3r::RuntimeError(L("Failed loading objects."));
+            }
+
+            status = winrt_async_await(modelAsync, throw_on_cancel);
+            if (status == AsyncStatus::Completed)
+                hr = modelAsync->GetResults(model.GetAddressOf());
+            else
+                throw Slic3r::RuntimeError(L("Failed loading objects."));
+            log_winrt_stage("load_input_package", load_package_started_at);
+        } else {
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=load_input_package"
+                                       << " skipped=true reason=direct_input_model"
+                                       << " trace_id=" << trace_id;
         }
 
 		Microsoft::WRL::ComPtr<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Graphics::Printing3D::Printing3DMesh*>> meshes;
@@ -311,8 +691,8 @@ HRESULT hr = (*s_RoInitialize)(RO_INIT_MULTITHREADED);
             boost::log::core::get()->flush();
             throw Slic3r::RuntimeError(L("Repair failed."));
         }
-        
-		on_progress(L("Repairing object by Windows service"), 40);
+        const auto repair_async_started_at = Clock::now();
+        on_progress(L("Repairing object by Windows service"), 40);
 		Microsoft::WRL::ComPtr<ABI::Windows::Foundation::IAsyncAction>					  repairAsync;
         hr = model->RepairAsync(repairAsync.GetAddressOf());
         if (FAILED(hr) || !repairAsync) {
@@ -327,6 +707,7 @@ HRESULT hr = (*s_RoInitialize)(RO_INIT_MULTITHREADED);
             throw Slic3r::RuntimeError(L("Repair failed."));
         }
         repairAsync->GetResults();
+        log_winrt_stage("repair_async", repair_async_started_at);
 
 		on_progress(L("Loading repaired objects"), 60);
 
@@ -345,6 +726,15 @@ HRESULT hr = (*s_RoInitialize)(RO_INIT_MULTITHREADED);
             throw Slic3r::RuntimeError(L("Repair failed."));
         }
 
+        if (direct_repaired_mesh)
+            direct_extracted = try_extract_repaired_mesh(model.Get(), meshes.Get(), num_meshes, *direct_repaired_mesh, trace_id);
+
+        if (direct_extracted) {
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_winrt stage=serialize_repaired_package"
+                                       << " skipped=true reason=direct_mesh_extract"
+                                       << " trace_id=" << trace_id;
+        } else {
+        const auto serialize_package_started_at = Clock::now();
 		// Save model to this class' Printing3D3MFPackage.
 		Microsoft::WRL::ComPtr<ABI::Windows::Foundation::IAsyncAction>					  saveToPackageAsync;
 		hr = printing3d3mfpackage->SaveModelToPackageAsync(model.Get(), saveToPackageAsync.GetAddressOf());
@@ -382,7 +772,9 @@ HRESULT hr = (*s_RoInitialize)(RO_INIT_MULTITHREADED);
             throw Slic3r::RuntimeError(saving_failed_str);
         }
 
-		// Go to the beginning of the stream.
+        log_winrt_stage("serialize_repaired_package", serialize_package_started_at);
+        const auto write_file_started_at = Clock::now();
+        // Go to the beginning of the stream.
         generatorStream->Seek(0);
         Microsoft::WRL::ComPtr<ABI::Windows::Storage::Streams::IInputStream> inputStream;
         hr = generatorStream.As(&inputStream);
@@ -446,9 +838,13 @@ HRESULT hr = (*s_RoInitialize)(RO_INIT_MULTITHREADED);
             size_t written = fwrite(buffer_ptr, length, 1, fout);
         }
         fclose(fout);
+        log_winrt_stage("write_repaired_package", write_file_started_at);
+        }
 		// Here all the COM objects will be released through the ComPtr destructors.
 	}
     (*s_RoUninitialize)();
+    log_winrt_stage("total", total_started_at);
+    return direct_extracted;
 }
 
 static bool fix_mesh_by_win10_sdk_impl(const indexed_triangle_set& mesh,
@@ -457,6 +853,16 @@ static bool fix_mesh_by_win10_sdk_impl(const indexed_triangle_set& mesh,
                                        ThrowOnCancelFn             throw_on_cancel,
                                        std::string*                error_message)
 {
+    using Clock = std::chrono::steady_clock;
+    const auto total_started_at = Clock::now();
+    auto log_stage = [&](const char* stage, Clock::time_point started_at) {
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_impl stage=" << stage
+                                   << " elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - started_at).count()
+                                   << " input_vertices=" << mesh.vertices.size()
+                                   << " input_faces=" << mesh.indices.size();
+    };
+
     // RAII guard ensures the intermediate 3mf files are removed even if
     // store_3mf / fix_model_by_win10_sdk / load_3mf throws.
     struct TempFileGuard
@@ -479,26 +885,54 @@ static bool fix_mesh_by_win10_sdk_impl(const indexed_triangle_set& mesh,
         TempFileGuard src_guard{path_src};
         TempFileGuard dst_guard{path_dst};
 
-        Model        model;
-        ModelObject* model_object = model.add_object();
-        model_object->name        = "texture_mesh";
-        ModelVolume* volume       = model_object->add_volume(TriangleMesh(indexed_triangle_set(mesh)), ModelVolumeType::MODEL_PART, false);
-        volume->name              = "texture_mesh";
-        volume->set_transformation(Geometry::Transformation());
-        model_object->add_instance();
+        Model model;
+        auto prepare_input_package = [&]() {
+            const auto build_model_started_at = Clock::now();
+            ModelObject* model_object = model.add_object();
+            model_object->name        = "texture_mesh";
+            ModelVolume* volume       = model_object->add_volume(TriangleMesh(indexed_triangle_set(mesh)), ModelVolumeType::MODEL_PART, false);
+            volume->name              = "texture_mesh";
+            volume->set_transformation(Geometry::Transformation());
+            model_object->add_instance();
+            log_stage("build_model", build_model_started_at);
 
-        if (!Slic3r::store_3mf(path_src.string().c_str(), &model, nullptr, false, nullptr, false)) {
-            throw Slic3r::RuntimeError(L("Exporting 3mf file failed"));
+            const auto export_started_at = Clock::now();
+            if (!Slic3r::store_3mf(path_src.string().c_str(), &model, nullptr, false, nullptr, false))
+                throw Slic3r::RuntimeError(L("Exporting 3mf file failed"));
+            log_stage("store_input_3mf", export_started_at);
+
+            model.clear_objects();
+            model.clear_materials();
+        };
+
+        const auto winrt_started_at = Clock::now();
+        const bool direct_extracted = fix_model_by_win10_sdk(
+            path_src.string(), path_dst.string(), std::move(progress_callback), std::move(throw_on_cancel),
+            &repaired_mesh, &mesh, prepare_input_package);
+        log_stage("winrt_repair_pipeline", winrt_started_at);
+
+        if (direct_extracted) {
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_impl stage=load_repaired_3mf"
+                                       << " skipped=true reason=direct_mesh_extract"
+                                       << " input_vertices=" << mesh.vertices.size()
+                                       << " input_faces=" << mesh.indices.size();
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_impl stage=bake_result_transform"
+                                       << " skipped=true reason=identity_build_transform"
+                                       << " input_vertices=" << mesh.vertices.size()
+                                       << " input_faces=" << mesh.indices.size();
+            BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_impl stage=total elapsed_ms="
+                                       << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                                       << " output_vertices=" << repaired_mesh.vertices.size()
+                                       << " output_faces=" << repaired_mesh.indices.size()
+                                       << " direct_extract=true";
+            return true;
         }
 
-        model.clear_objects();
-        model.clear_materials();
-
-        fix_model_by_win10_sdk(path_src.string(), path_dst.string(), std::move(progress_callback), std::move(throw_on_cancel));
-
+        const auto load_started_at = Clock::now();
         DynamicPrintConfig        config;
         ConfigSubstitutionContext config_substitutions{ForwardCompatibilitySubstitutionRule::EnableSilent};
         bool                      loaded = Slic3r::load_3mf(path_dst.string().c_str(), config, config_substitutions, &model, false);
+        log_stage("load_repaired_3mf", load_started_at);
 
         if (!loaded)
             throw Slic3r::RuntimeError(L("Import 3mf file failed"));
@@ -527,9 +961,15 @@ static bool fix_mesh_by_win10_sdk_impl(const indexed_triangle_set& mesh,
                                 << ", volume_offset=(" << volume_matrix(0, 3) << ", " << volume_matrix(1, 3) << ", " << volume_matrix(2, 3)
                                 << ")";
 
+        const auto bake_started_at = Clock::now();
         TriangleMesh repaired(repaired_volume->mesh().its);
         repaired.transform(repaired_matrix, true);
         repaired_mesh = std::move(repaired.its);
+        log_stage("bake_result_transform", bake_started_at);
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] windows_repair_impl stage=total elapsed_ms="
+                                   << std::chrono::duration<double, std::milli>(Clock::now() - total_started_at).count()
+                                   << " output_vertices=" << repaired_mesh.vertices.size()
+                                   << " output_faces=" << repaired_mesh.indices.size();
         return true;
     } catch (const std::exception& ex) {
         if (error_message)

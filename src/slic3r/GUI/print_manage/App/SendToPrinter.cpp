@@ -251,6 +251,7 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
 CxSentToPrinterDialog::~CxSentToPrinterDialog() 
 {
     invalidate_ui_gate();
+    clear_cloud_device_refresh_target();
     if (wxGetApp().mainframe && wxGetApp().mainframe->get_printer_mgr_view()) {
         wxGetApp().mainframe->get_printer_mgr_view()->UnregisterHandler("receive_color_match_info");
     }
@@ -268,6 +269,7 @@ CxSentToPrinterDialog::~CxSentToPrinterDialog()
     UnregisterHandler("get_lang");
     UnregisterHandler("get_devices");
     UnregisterHandler("refresh_all_device");
+    UnregisterHandler("set_send_page_cloud_device");
     UnregisterHandler("get_user");
     UnregisterHandler("is_dark_theme");
     UnregisterHandler("get_threeMF");
@@ -290,6 +292,7 @@ void CxSentToPrinterDialog::OnCloseWindow(wxCloseEvent& event)
 
     if (!event.CanVeto()) {
         m_close_allowed = true;
+        clear_cloud_device_refresh_target();
         const std::string task_id = m_upload_task_id;
         const wxString uploading_ip = m_uploadingIp;
         auto& upload_manager = RemotePrint::RemotePrinterManager::getInstance();
@@ -449,6 +452,21 @@ void CxSentToPrinterDialog::bind_events()
         }
     });
 
+    RegisterHandler("set_send_page_cloud_device", [this](const nlohmann::json& json_data) {
+        const auto data = json_data.find("data");
+        if (data == json_data.end() || !data->is_object())
+            return;
+        const auto address_value = data->find("address");
+        if (address_value == data->end() || !address_value->is_string())
+            return;
+        const std::string address = address_value->get<std::string>();
+        // Late WebView messages must not restart polling after the dialog is hidden or closing.
+        if (!address.empty() && (!IsShown() || m_close_pending || m_close_allowed))
+            return;
+        if (wxGetApp().mainframe && wxGetApp().mainframe->get_printer_mgr_view())
+            wxGetApp().mainframe->get_printer_mgr_view()->set_send_page_cloud_device(address);
+    });
+
     RegisterHandler("get_devices", [this](const nlohmann::json& json_data) {
         nlohmann::json commandJson;
         commandJson["command"] = "get_devices";
@@ -549,10 +567,17 @@ void CxSentToPrinterDialog::UnregisterHandler(const std::string& command)
 
 void CxSentToPrinterDialog::OnScriptMessage(wxWebViewEvent& evt)
 {
+    json j;
+    std::string command;
     try {
         wxString strInput = evt.GetString();
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;OnRecv:" << strInput.c_str();
-        json     j = json::parse(strInput);
+        // wxString iterators expose UTF-16 surrogate code units as wxUniChar on
+        // Windows. Parsing them directly corrupts non-BMP characters (e.g. emoji
+        // in uploadName), so use the same explicit UTF-8 input as the app router.
+        const auto utf8_input = strInput.ToUTF8();
+        j = json::parse(utf8_input.data(), utf8_input.data() + utf8_input.length());
+        command = j.at("command").get<std::string>();
         wxString strCmd = j["command"];
         BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Command:" << strCmd;
         if(strCmd == "forward_device_detail"){
@@ -583,7 +608,7 @@ void CxSentToPrinterDialog::OnScriptMessage(wxWebViewEvent& evt)
             Test::EVENT_SPREAD("test_exec_js_respone", strInput.ToStdString());
         }
         
-        if (DM::AppMgr::Ins().Invoke(m_browser, evt.GetString().ToUTF8().data()))
+        if (DM::AppMgr::Ins().Invoke(m_browser, std::string(utf8_input.data(), utf8_input.length())))
         {
             return;
         }
@@ -598,9 +623,25 @@ void CxSentToPrinterDialog::OnScriptMessage(wxWebViewEvent& evt)
             BOOST_LOG_TRIVIAL(trace) << "CxSentToPrinterDialog::OnScriptMessage;Unknown Command:" << strCmd;
         }
 
-    } catch (std::exception &e) {
-       // wxMessageBox(e.what(), "json Exception", MB_OK);
-        BOOST_LOG_TRIVIAL(trace) << "DeviceDialog::OnScriptMessage;Error:" << e.what();
+    } catch (const std::exception &e) {
+        BOOST_LOG_TRIVIAL(error) << "CxSentToPrinterDialog::OnScriptMessage;Command:"
+                                 << command << ";Error:" << e.what();
+        if (command == "send_gcode" || command == "send_3mf") {
+            // The page opens its progress dialog before dispatching the command.
+            // Report preparation errors through the existing upload failure flow.
+            json status = {{"status_code", 1000}};
+            if (j.contains("ipAddress") && j["ipAddress"].is_string())
+                status["printer_ip"] = j["ipAddress"];
+            if (j.contains("uploadTaskId") && j["uploadTaskId"].is_string())
+                status["uploadTaskId"] = j["uploadTaskId"];
+            json response = {{"command", "notify_upload_status"},
+                             {"data", RemotePrint::Utils::url_encode(status.dump())}};
+            const wxString script = wxString::Format("window.handleStudioCmd('%s');",
+                RemotePrint::Utils::url_encode(response.dump(-1, ' ', true)));
+            run_script_if_ready(script);
+            if (m_upload_task_id.empty())
+                close_after_upload_stopped();
+        }
     }
     
 
@@ -1442,8 +1483,16 @@ void CxSentToPrinterDialog::restore_extruder_colors()
     post_notify_event(plate_extruders, m_backup_extruder_colors, false);
 }
 
+void CxSentToPrinterDialog::clear_cloud_device_refresh_target()
+{
+    if (wxGetApp().mainframe && wxGetApp().mainframe->get_printer_mgr_view())
+        wxGetApp().mainframe->get_printer_mgr_view()->set_send_page_cloud_device("");
+}
+
 bool CxSentToPrinterDialog::Show(bool show)
 {
+    if (!show)
+        clear_cloud_device_refresh_target();
     return wxDialog::Show(show);
 }
 

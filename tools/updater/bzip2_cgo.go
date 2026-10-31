@@ -41,6 +41,7 @@ int bz2_decompress_guard(bz_stream* strm) {
 import "C"
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -125,58 +126,19 @@ func (r *cgoBzip2Reader) Read(p []byte) (int, error) {
 	}
 
 	for {
-		remain := int(r.s.avail_in)
-		if remain < 0 {
-			remain = 0
+		// libbzip2 keeps next_in inside this fixed C buffer. Refill only after
+		// consuming it: appending on every small Read accumulated the entire
+		// compressed stream and repeatedly memmoved its unread tail.
+		if r.s.avail_in == 0 && r.inPos < len(r.in) {
+			n := min(r.inCap, len(r.in)-r.inPos)
+			C.memcpy(r.inBuf, unsafe.Pointer(&r.in[r.inPos]), C.size_t(n))
+			r.inPos += n
+			r.s.next_in = (*C.char)(r.inBuf)
+			r.s.avail_in = C.uint(n)
 		}
-
-		if len(p) > r.outCap {
-			nb := C.realloc(r.outBuf, C.size_t(len(p)))
-			if nb == nil {
-				_ = r.Close()
-				return 0, errors.New("realloc out buffer failed")
-			}
-			r.outBuf = nb
-			r.outCap = len(p)
-		}
-
-		const maxAppend = 256 * 1024
-		need := 0
-		if r.inPos < len(r.in) {
-			left := len(r.in) - r.inPos
-			need = left
-			if need > maxAppend {
-				need = maxAppend
-			}
-		}
-		if remain+need > r.inCap {
-			newCap := r.inCap
-			if newCap < 64*1024 {
-				newCap = 64 * 1024
-			}
-			for newCap < remain+need {
-				newCap *= 2
-			}
-			nb := C.realloc(r.inBuf, C.size_t(newCap))
-			if nb == nil {
-				_ = r.Close()
-				return 0, errors.New("realloc in buffer failed")
-			}
-			r.inBuf = nb
-			r.inCap = newCap
-		}
-
-		if need > 0 {
-			C.memcpy(unsafe.Pointer(uintptr(r.inBuf)+uintptr(remain)), unsafe.Pointer(&r.in[r.inPos]), C.size_t(need))
-			r.inPos += need
-			remain += need
-		}
-
-		r.s.next_in = (*C.char)(r.inBuf)
-		r.s.avail_in = C.uint(remain)
 
 		r.s.next_out = (*C.char)(r.outBuf)
-		r.s.avail_out = C.uint(len(p))
+		r.s.avail_out = C.uint(min(len(p), r.outCap))
 
 		availOut0 := int(r.s.avail_out)
 		ret := C.bz2_decompress_guard(r.s)
@@ -190,11 +152,10 @@ func (r *cgoBzip2Reader) Read(p []byte) (int, error) {
 		if remain2 < 0 {
 			remain2 = 0
 		}
-		if remain2 > 0 {
-			C.memmove(r.inBuf, unsafe.Pointer(r.s.next_in), C.size_t(remain2))
+		if ret != C.BZ_OK && ret != C.BZ_STREAM_END {
+			_ = r.Close()
+			return 0, fmt.Errorf("BZ2_bzDecompress failed: %d", int(ret))
 		}
-		r.s.next_in = (*C.char)(r.inBuf)
-		r.s.avail_in = C.uint(remain2)
 
 		if produced > 0 {
 			C.memcpy(unsafe.Pointer(&p[0]), r.outBuf, C.size_t(produced))
@@ -222,6 +183,10 @@ func (r *cgoBzip2Reader) Read(p []byte) (int, error) {
 }
 
 func bspatchLibBzip2(oldData []byte, patchData []byte) (out []byte, err error) {
+	return bspatchLibBzip2WithProgress(oldData, patchData, nil)
+}
+
+func bspatchLibBzip2WithProgress(oldData, patchData []byte, progress func(int64, int64)) (out []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("bspatch panic: %v", r)
@@ -241,7 +206,7 @@ func bspatchLibBzip2(oldData []byte, patchData []byte) (out []byte, err error) {
 		return nil, errors.New("invalid patch header")
 	}
 	total := int64(len(patchData))
-	if 32+ctrlLen+diffLen > total {
+	if ctrlLen > total-32 || diffLen > total-32-ctrlLen {
 		return nil, errors.New("invalid patch lengths")
 	}
 	if newSize > int64(^uint(0)>>1) {
@@ -267,6 +232,11 @@ func bspatchLibBzip2(oldData []byte, patchData []byte) (out []byte, err error) {
 		return nil, err
 	}
 	defer extraR.Close()
+	// Control records and diff spans can be only a few bytes. Buffer all
+	// streams to avoid a cgo transition for each tiny read.
+	ctrl := bufio.NewReaderSize(ctrlR, 64*1024)
+	diff := bufio.NewReaderSize(diffR, 64*1024)
+	extra := bufio.NewReaderSize(extraR, 64*1024)
 
 	newData := make([]byte, int(newSize))
 	var oldPos int64
@@ -274,7 +244,10 @@ func bspatchLibBzip2(oldData []byte, patchData []byte) (out []byte, err error) {
 
 	ctrlBuf := make([]byte, 24)
 	for newPos < newSize {
-		if _, err := io.ReadFull(ctrlR, ctrlBuf); err != nil {
+		if isCanceled() {
+			return nil, errCanceled
+		}
+		if _, err := io.ReadFull(ctrl, ctrlBuf); err != nil {
 			return nil, err
 		}
 		x := bsdiffOfftIn(ctrlBuf[0:8])
@@ -283,43 +256,55 @@ func bspatchLibBzip2(oldData []byte, patchData []byte) (out []byte, err error) {
 		if x < 0 || y < 0 {
 			return nil, errors.New("invalid control data")
 		}
-		if newPos+x > newSize {
+		if x == 0 && y == 0 && z == 0 {
+			return nil, errors.New("empty control record")
+		}
+		if x > newSize-newPos {
 			return nil, errors.New("control overflows output")
 		}
 
 		if x > 0 {
-			buf := make([]byte, 64*1024)
 			var iBase int64
 			for iBase < x {
-				chunk := x - iBase
-				if chunk > int64(len(buf)) {
-					chunk = int64(len(buf))
+				if isCanceled() {
+					return nil, errCanceled
 				}
-				if _, err := io.ReadFull(diffR, buf[:chunk]); err != nil {
+				chunk := min(x-iBase, 64*1024)
+				buf := newData[newPos+iBase : newPos+iBase+chunk]
+				if _, err := io.ReadFull(diff, buf); err != nil {
 					return nil, err
 				}
 				for i := int64(0); i < chunk; i++ {
-					nb := buf[i]
 					op := oldPos + iBase + i
 					if op >= 0 && op < int64(len(oldData)) {
-						nb = byte(int(nb) + int(oldData[op]))
+						buf[i] += oldData[op]
 					}
-					newData[newPos+iBase+i] = nb
 				}
 				iBase += chunk
+				if progress != nil {
+					progress(newPos+iBase, newSize)
+				}
 			}
 			newPos += x
 			oldPos += x
 		}
 
-		if newPos+y > newSize {
+		if y > newSize-newPos {
 			return nil, errors.New("control overflows output")
 		}
-		if y > 0 {
-			if _, err := io.ReadFull(extraR, newData[newPos:newPos+y]); err != nil {
+		for y > 0 {
+			if isCanceled() {
+				return nil, errCanceled
+			}
+			chunk := min(y, 64*1024)
+			if _, err := io.ReadFull(extra, newData[newPos:newPos+chunk]); err != nil {
 				return nil, err
 			}
-			newPos += y
+			newPos += chunk
+			y -= chunk
+			if progress != nil {
+				progress(newPos, newSize)
+			}
 		}
 		oldPos += z
 	}

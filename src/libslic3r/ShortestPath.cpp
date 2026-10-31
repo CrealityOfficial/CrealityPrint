@@ -1928,15 +1928,8 @@ static inline void improve_ordering_by_two_exchanges_with_segment_flipping(Polyl
 #endif /* NDEBUG */
 }
 
-// Used to optimize order of infill lines and brim lines.
-Polylines chain_polylines(Polylines &&polylines, const Point *start_near)
+Polylines chain_polylines_greedy(Polylines &&polylines, const Point *start_near)
 {
-#ifdef DEBUG_SVG_OUTPUT
-	static int iRun = 0;
-	++ iRun;
-	svg_draw_polyline_chain("chain_polylines-initial", iRun, polylines);
-#endif /* DEBUG_SVG_OUTPUT */
-
 	Polylines out;
 	if (! polylines.empty()) {
 		auto segment_end_point = [&polylines](size_t idx, bool first_point) -> const Point& { return first_point ? polylines[idx].first_point() : polylines[idx].last_point(); };
@@ -1947,11 +1940,22 @@ Polylines chain_polylines(Polylines &&polylines, const Point *start_near)
 			if (segment_and_reversal.second)
 				out.back().reverse();
 		}
-		if (out.size() > 1 && start_near == nullptr) {
-			improve_ordering_by_two_exchanges_with_segment_flipping(out, start_near != nullptr);
-			//improve_ordering_by_segment_flipping(out, start_near != nullptr);
-		}
 	}
+	return out;
+}
+
+// Used to optimize order of infill lines and brim lines.
+Polylines chain_polylines(Polylines &&polylines, const Point *start_near)
+{
+#ifdef DEBUG_SVG_OUTPUT
+	static int iRun = 0;
+	++ iRun;
+	svg_draw_polyline_chain("chain_polylines-initial", iRun, polylines);
+#endif /* DEBUG_SVG_OUTPUT */
+
+	Polylines out = chain_polylines_greedy(std::move(polylines), start_near);
+	if (out.size() > 1 && start_near == nullptr)
+		improve_ordering_by_two_exchanges_with_segment_flipping(out, false);
 
 #ifdef DEBUG_SVG_OUTPUT
 	svg_draw_polyline_chain("chain_polylines-final", iRun, out);

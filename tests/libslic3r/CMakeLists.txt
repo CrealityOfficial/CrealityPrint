@@ -7,6 +7,8 @@ add_executable(${_TEST_NAME}_tests
 	test_clipper_offset.cpp
 	test_clipper_utils.cpp
 	test_infill_config.cpp
+	test_hilbert_infill.cpp
+	test_hilbert_gap_fill.cpp
 	test_config.cpp
 	test_cloud_preset_serialization.cpp
 	test_creality_version.cpp
@@ -19,6 +21,7 @@ add_executable(${_TEST_NAME}_tests
 	test_zaa_preview.cpp
 	test_preset_config_cache.cpp
 	test_preset_normalize.cpp
+	test_prime_tower_options.cpp
 	test_project_variant_restore.cpp
 	test_preset_project_reset.cpp
 	test_polygon.cpp

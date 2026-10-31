@@ -68,6 +68,14 @@ bool MCPChatPanel::TryHandleSceneContextToolCall(const std::string& request_id,
                 result["object_index"] = bridge_result["object_index"];
             if (bridge_result.contains("object_name"))
                 result["object_name"] = bridge_result["object_name"];
+            if (bridge_result.contains("instance_index"))
+                result["instance_index"] = bridge_result["instance_index"];
+            if (bridge_result.contains("summary"))
+                result["summary"] = bridge_result["summary"];
+            if (bridge_result.contains("global_recommendation_input")) {
+                result["global_recommendation_input"] = bridge_result["global_recommendation_input"];
+                result["scope"] = "global";
+            }
 
             m_cxagent_bridge->SendToolProgress(request_id, 100, "Model views captured", "completed", "completed");
             m_cxagent_bridge->SendToolResult(request_id, true, result);

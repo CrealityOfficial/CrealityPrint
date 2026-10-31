@@ -1,4 +1,0 @@
-pytest==8.4.0
-pytest-html=4.1.1
-pyautogui=0.9.54
-GitPython=3.1.44

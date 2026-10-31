@@ -2094,7 +2094,12 @@ void MainFrame::slice_plate(SliceSelectType type)
         wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_SLICE_ALL));
     else
         wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_SLICE_PLATE));
-	this->m_tabpanel->SetSelection(tpPreview);
+    // The queued slice event owns grouping and slicing for this request.
+    // Do not also enqueue the Preview tab's automatic slicing callback.
+    const bool tab_event_enabled = m_tab_event_enabled;
+    m_tab_event_enabled = false;
+    this->m_tabpanel->SetSelection(tpPreview);
+    m_tab_event_enabled = tab_event_enabled;
     this->m_topbar->SetSelection(tpPreview);
 }
 

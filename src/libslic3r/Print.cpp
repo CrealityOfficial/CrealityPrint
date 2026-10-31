@@ -227,7 +227,9 @@ static void replace_skeletons_for_flush_volume(Print& print, coordf_t print_z, f
 void mark_skeleton_flush_extrusions_for_tool_ordering(Print& print, ToolOrdering& tool_ordering)
 {
     const bool solid_skeleton_mode = print.has_prime_volume_solid_skeleton();
-    const bool layer_filament_wipe_packing_mode = flush_into_skeleton_packing_mode_enabled(print);
+    const bool layer_filament_wipe_packing_mode =
+        no_wipe_tower_no_purge_mode_enabled(print) ||
+        flush_into_skeleton_packing_mode_enabled(print);
     if ((!print.config().multicolor_method.value && !solid_skeleton_mode && !layer_filament_wipe_packing_mode) || print.has_wipe_tower() ||
         (!solid_skeleton_mode && !layer_filament_wipe_packing_mode &&
          !creality::is_k2_series_printer_from_string(print.config().printer_model.value)))
@@ -395,12 +397,13 @@ bool lockedzag_skin_depth_needs_actual_replan(const PrintObject& object, const P
         return false;
 
     const bool solid_skeleton_mode = object.print()->has_prime_volume_solid_skeleton();
+    const bool no_wipe_tower_no_purge_mode = no_wipe_tower_no_purge_mode_enabled(*object.print());
     const bool skeleton_packing_mode = flush_into_skeleton_packing_mode_enabled(*object.print());
-    if (!solid_skeleton_mode && !skeleton_packing_mode &&
+    if (!solid_skeleton_mode && !no_wipe_tower_no_purge_mode && !skeleton_packing_mode &&
         !creality::is_k2_series_printer_from_string(object.print()->config().printer_model.value))
         return false;
 
-    if (skeleton_packing_mode)
+    if (no_wipe_tower_no_purge_mode || skeleton_packing_mode)
         return region_config.sparse_infill_density.value > 0;
 
     return (region_config.sparse_infill_pattern.value == ipLockedZag || solid_skeleton_mode) &&
@@ -652,6 +655,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "slow_down_min_speed",
         "max_volumetric_extrusion_rate_slope",
         "max_volumetric_extrusion_rate_slope_segment_length",
+        "extrusion_rate_smoothing_external_perimeter_only",
         "reduce_infill_retraction",
         "filename_format",
         "retraction_minimum_travel",
@@ -666,9 +670,11 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "retract_lift_enforce",
         "retract_restart_extra",
         "retract_restart_extra_toolchange",
+        "no_prime_tower_retract_restart_extra",
         //"retraction_speed",
         "use_firmware_retraction",
         "slow_down_layer_time",
+        "wait_for_temperature_after_toolchange",
         "standby_temperature_delta",
         "preheat_temperature_delta",
         "preheat_time",
@@ -833,11 +839,14 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "prime_tower_brim_width"
             || opt_key == "first_layer_print_sequence"
             || opt_key == "other_layers_print_sequence"
-            || opt_key == "other_layers_print_sequence_nums" 
+            || opt_key == "other_layers_print_sequence_nums"
+            || opt_key == "first_layer_sequence_choice"
+            || opt_key == "other_layers_sequence_choice"
             || opt_key == "wipe_tower_bridging"
             || opt_key == "wipe_tower_extra_flow" 
             || opt_key == "filament_adhesiveness_category"
             || opt_key == "wipe_tower_no_sparse_layers"
+            || opt_key == "wipe_tower_extra_interlayer_wipe_layers"
             || opt_key == "flush_volumes_matrix"
             || opt_key == "flush_multiplier"
             || opt_key == "prime_volume"
@@ -859,6 +868,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "wipe_tower_extra_spacing"
             || opt_key == "prime_tower_start_ironing"
             || opt_key == "prime_tower_start_offset"
+            || opt_key == "prime_tower_toolchange_at_start"
             || opt_key == "prime_tower_enhance_type"
             || opt_key == "prime_tower_corner_rib_length"
             || opt_key == "wipe_tower_max_purge_speed"
@@ -872,14 +882,17 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "retraction_speed"
             || opt_key == "initial_layer_travel_acceleration"
             ) {
+            const bool no_tower_skin_color_changed =
+                (opt_key == "filament_colour" || opt_key == "default_filament_colour") &&
+                no_wipe_tower_no_purge_mode_enabled(*this);
             if (opt_key == "enable_prime_tower" || opt_key == "flush_into_solid_skeleton" || opt_key == "prime_volume" ||
-                opt_key == "filament_minimal_purge_on_wipe_tower") {
-                if (opt_key == "enable_prime_tower") {
+                opt_key == "filament_minimal_purge_on_wipe_tower" || no_tower_skin_color_changed) {
+                if (opt_key == "enable_prime_tower" || no_tower_skin_color_changed) {
                     // Infill is rebuilt before psWipeTower, so discard no-tower planning data here.
                     this->clear_lockedzag_skin_infill_depths();
                 }
                 for (PrintObject* object : m_objects)
-                    object->invalidate_step(posInfill);
+                    invalidated |= object->invalidate_step(posInfill);
             }
             steps.emplace_back(psWipeTower);
             steps.emplace_back(psSkirtBrim);
@@ -997,7 +1010,7 @@ void Print::release_previous_slice_memory()
         }
         // Only drop lslices (and the Layer objects that own perimeters / infill)
         // when slice geometry will be rebuilt. Wall-loop or infill-density changes
-        // keep posSlice done — keep those layers.
+        // keep posSlice done ??? keep those layers.
         if (!obj->is_step_done(posSlice)) {
             obj->clear_layers();
             obj->firstLayerObjSliceByVolume = {};
@@ -1511,7 +1524,7 @@ const float* Print::lockedzag_skin_infill_depth(const LayerRegion& layer_region,
 
 const float* Print::layer_filament_wipe_packing_sparse_infill_density(const LayerRegion& /*layer_region*/, const Surface& surface) const
 {
-    if (!flush_into_skeleton_packing_mode_enabled(*this))
+    if (!no_wipe_tower_no_purge_mode_enabled(*this) && !flush_into_skeleton_packing_mode_enabled(*this))
         return nullptr;
     auto it = m_layer_filament_wipe_packing_sparse_infill_densities.find(&surface);
     return it == m_layer_filament_wipe_packing_sparse_infill_densities.end() ? nullptr : &it->second;
@@ -1519,7 +1532,7 @@ const float* Print::layer_filament_wipe_packing_sparse_infill_density(const Laye
 
 bool Print::layer_filament_wipe_packing_force_plain_infill(const LayerRegion& /*layer_region*/, const Surface& surface) const
 {
-    return flush_into_skeleton_packing_mode_enabled(*this) &&
+    return (no_wipe_tower_no_purge_mode_enabled(*this) || flush_into_skeleton_packing_mode_enabled(*this)) &&
            m_layer_filament_wipe_packing_plain_infill_surfaces.find(&surface) != m_layer_filament_wipe_packing_plain_infill_surfaces.end();
 }
 
@@ -1556,7 +1569,12 @@ bool Print::update_lockedzag_skin_infill_depths_from_actual(const ToolOrdering& 
 
     const bool skeleton_packing_mode = flush_into_skeleton_packing_mode_enabled(*this);
 
-    if (skeleton_packing_mode) {
+    const bool no_wipe_tower_no_purge_mode = no_wipe_tower_no_purge_mode_enabled(*this);
+    BOOST_LOG_TRIVIAL(warning) << "[NO_WIPE_TRACE] update begin density_search=" << perform_density_search
+                               << " layers=" << std::distance(tool_ordering.begin(), tool_ordering.end())
+                               << " no_wipe=" << no_wipe_tower_no_purge_mode
+                               << " skeleton_packing=" << skeleton_packing_mode;
+    if (no_wipe_tower_no_purge_mode || skeleton_packing_mode) {
         const FillTower::LayerFilamentWipePackingPlan plan =
             FillTower::plan_layer_filament_wipe_packing(
                 *this,
@@ -1580,18 +1598,26 @@ bool Print::update_lockedzag_skin_infill_depths_from_actual(const ToolOrdering& 
             m_layer_filament_wipe_packing_plain_infill_surfaces = plan.plain_infill_surfaces;
             m_layer_filament_wipe_packing_infill_transitions.clear();
             m_layer_filament_wipe_packing_transition_region_volumes.clear();
+            BOOST_LOG_TRIVIAL(warning) << "[NO_WIPE_TRACE] density result skin=" << m_lockedzag_surface_skin_infill_depths.size()
+                                       << " densities=" << m_layer_filament_wipe_packing_sparse_infill_densities.size()
+                                       << " transitions=0 region_volumes=0 changed=" << changed;
             return changed;
         }
 
-        std::map<const Surface*, float> merged_skin_depths = m_lockedzag_surface_skin_infill_depths;
-        for (const auto& entry : plan.skin_depths) {
-            if (entry.first == nullptr || entry.second <= EPSILON)
-                continue;
-            auto existing = merged_skin_depths.find(entry.first);
-            if (existing == merged_skin_depths.end())
-                merged_skin_depths.emplace(entry.first, entry.second);
-            else
-                existing->second = std::max(existing->second, entry.second);
+        // No-tower skin is an exact assignment/UI/host-color result, including
+        // zero. An older positive value must not survive confirmation.
+        std::map<const Surface*, float> merged_skin_depths = no_wipe_tower_no_purge_mode ?
+            plan.skin_depths : m_lockedzag_surface_skin_infill_depths;
+        if (!no_wipe_tower_no_purge_mode) {
+            for (const auto& entry : plan.skin_depths) {
+                if (entry.first == nullptr || entry.second <= EPSILON)
+                    continue;
+                auto existing = merged_skin_depths.find(entry.first);
+                if (existing == merged_skin_depths.end())
+                    merged_skin_depths.emplace(entry.first, entry.second);
+                else
+                    existing->second = std::max(existing->second, entry.second);
+            }
         }
 
         const bool skin_depths_changed =
@@ -1600,10 +1626,19 @@ bool Print::update_lockedzag_skin_infill_depths_from_actual(const ToolOrdering& 
         m_layer_filament_wipe_packing_blocked_transitions = plan.external_flush_transitions;
         m_lockedzag_skin_infill_depths.clear();
         m_lockedzag_surface_skin_infill_depths = std::move(merged_skin_depths);
-        m_layer_filament_wipe_packing_sparse_infill_densities.clear();
-        m_layer_filament_wipe_packing_plain_infill_surfaces.clear();
+        // The final no-tower rebuild must retain the searched densities: used
+        // receivers keep exactly the geometry against which they were budgeted.
+        if (!no_wipe_tower_no_purge_mode) {
+            m_layer_filament_wipe_packing_sparse_infill_densities.clear();
+            m_layer_filament_wipe_packing_plain_infill_surfaces.clear();
+        }
         m_layer_filament_wipe_packing_infill_transitions = plan.infill_transitions;
         m_layer_filament_wipe_packing_transition_region_volumes = plan.transition_region_volumes;
+        BOOST_LOG_TRIVIAL(warning) << "[NO_WIPE_TRACE] confirmation result skin=" << m_lockedzag_surface_skin_infill_depths.size()
+                                   << " densities=" << m_layer_filament_wipe_packing_sparse_infill_densities.size()
+                                   << " transitions=" << m_layer_filament_wipe_packing_infill_transitions.size()
+                                   << " region_volumes=" << m_layer_filament_wipe_packing_transition_region_volumes.size()
+                                   << " skin_changed=" << skin_depths_changed;
         return skin_depths_changed;
     }
     auto required_flush_volume = [&](unsigned int old_extruder, unsigned int new_extruder) {
@@ -1670,7 +1705,7 @@ bool Print::update_lockedzag_skin_infill_depths_from_actual(const ToolOrdering& 
             const LayerTools& layer_tools = tool_ordering.tools_for_layer(layer->print_z);
             const WipingExtrusions& wiping_extrusions = layer_tools.wiping_extrusions();
 
-            if (skeleton_packing_mode) {
+            if (no_wipe_tower_no_purge_mode || skeleton_packing_mode) {
                 std::map<unsigned int, float> required_flush_by_new_extruder;
                 auto add_transition_pair = [&](unsigned int old_extruder, unsigned int new_extruder) {
                     if (old_extruder == (unsigned int)-1 || new_extruder == (unsigned int)-1 || old_extruder == new_extruder)
@@ -2066,7 +2101,7 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
 #if 0 //do not sort anymore, use the order in object list
     auto bed_points = get_bed_shape(print_config);
     float bed_width = bed_points[1].x() - bed_points[0].x();
-    // 如果扩大以后的多边形的距离小于这个值，就需要严格保证从左到右的打印顺序，否则会撞工具头右侧
+    // ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     float unsafe_dist = scale_(print_config.extruder_clearance_max_radius.value - print_config.extruder_clearance_radius.value);
     struct VecHash
     {
@@ -2100,7 +2135,7 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
                 auto inter_max = std::min(ly2, ry2);
                 auto inter_y   = inter_max - inter_min;
 
-                // 如果y方向的重合超过轮廓的膨胀量，说明两个物体在一行，应该先打左边的物体，即先比较二者的x坐标。
+                // ??????y???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????x?????????
                 if (inter_y > scale_(0.5 * print.config().extruder_clearance_radius.value)) {
                     if (std::max(rx1 - lx2, lx1 - rx2) < unsafe_dist) {
                         if (lx1 > rx1) {
@@ -2115,13 +2150,13 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
                     }
                 }
                 if (l.height > hc1 && r.height < hc1) {
-                    // 当前物体超过了顶盖高度，必须后打
+                    // ????????????????????????????????????????????????
                     left_right_pair.insert({j, i});
                     BOOST_LOG_TRIVIAL(debug) << "height>hc1, print_instance " << r.print_instance->model_instance->get_object()->name << "(" << r.arrange_score << ")"
                                              << " -> " << l.print_instance->model_instance->get_object()->name << "(" << l.arrange_score << ")";
                 }
                 else if (l.height > hc2 && l.height > r.height && l.arrange_score<r.arrange_score) {
-                    // 如果当前物体的高度超过滑杆，且比r高，就给它加一点代价，尽量让高的物体后打（只有物体高度超过滑杆时才有必要按高度来）
+                    // ????????????????????????????????????????????????r???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
                     if (l.arrange_score < r.arrange_score)
                         l.arrange_score = r.arrange_score + 10;
                     BOOST_LOG_TRIVIAL(debug) << "height>hc2, print_instance " << inst.print_instance->model_instance->get_object()->name
@@ -2131,8 +2166,8 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
             }
         }
     }
-    // 多做几次代价传播，因为前一次有些值没有更新。
-    // TODO 更好的办法是建立一颗树，一步到位。不过我暂时没精力搞，先就这样吧
+    // ??????????????????????????????????????????????????????????????????
+    // TODO ????????????????????????????????????????????????????????????????????????????????????????????????
     for (int k=0;k<5;k++)
     for (auto p : left_right_pair) {
         auto &l = print_instance_with_bounding_box[p(0)];
@@ -2200,7 +2235,7 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
         for (int k = 0; k < print_instance_count; k++)
         {
             auto inst = print_instance_with_bounding_box[k].print_instance;
-            // 只需要考虑喷嘴到滑杆的偏移量，这个比整个工具头的碰撞半径要小得多
+            // ????????????????????????????????????????????????????????????????????????????????????????????????
             auto bbox = print_instance_with_bounding_box[k].bounding_box.inflated(-scale_(0.5 * print.config().extruder_clearance_radius.value));
             auto iy1 = bbox.min.y();
             auto iy2 = bbox.max.y();
@@ -2441,8 +2476,14 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
             continue;
 
         bool scarf_enabled = false;
-        for (const PrintRegion& region : object->all_regions())
+        for (const PrintRegion& region : object->all_regions()) {
+            // Inspect effective region settings, including object/volume/layer
+            // overrides, before either GUI or CLI slicing reaches G-code export.
+            if (m_config.enable_arc_fitting.value && region.config().smooth_speed_discontinuity_area.value)
+                return {L("Arc fitting and smooth speed discontinuity area cannot be enabled at the same time. Disable one of them before slicing."),
+                        object->model_object(), "smooth_speed_discontinuity_area", STRING_EXCEPT_PROCESS_PARAMETER_MUTEX};
             scarf_enabled |= region.config().seam_slope_type.value != SeamScarfType::None;
+        }
 
         std::vector<std::string> active_modes;
         if (m_config.spiral_mode.value)
@@ -2816,7 +2857,7 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
 		double min_nozzle_diameter = std::numeric_limits<double>::max();
 		double max_nozzle_diameter = 0;
 		for (unsigned int extruder_id : extruders) {
-            // TODO: 混色默认取第一个挤出机的喷嘴直径，跟混色成员耗材无关
+            // TODO: ??????????????????????????????????????????????????????????????????????????????
 			double dmr = get_physical_nozzle_diameter(m_config, extruder_id);
 			min_nozzle_diameter = std::min(min_nozzle_diameter, dmr);
 			max_nozzle_diameter = std::max(max_nozzle_diameter, dmr);
@@ -3507,6 +3548,46 @@ void  PrintObject::copy_layers_from_shared_object()
     }
 }
 
+void PrintObject::copy_sliced_layers_and_perimeters(const PrintObject& source)
+{
+    // Called before infill preparation. Collections deep-copy their extrusion
+    // entities; regions and surfaces must have independent addresses for packing.
+    assert(m_shared_object == nullptr && !source.m_typed_slices);
+    this->clear_support_layers();
+    this->clear_layers();
+    m_layers.reserve(source.m_layers.size());
+    for (const Layer* source_layer : source.m_layers) {
+        Layer* layer = new Layer(*source_layer);
+        layer->m_regions.clear();
+        layer->m_object = this;
+        layer->lower_layer = m_layers.empty() ? nullptr : m_layers.back();
+        layer->upper_layer = nullptr;
+        if (layer->lower_layer != nullptr)
+            layer->lower_layer->upper_layer = layer;
+        m_layers.push_back(layer);
+        for (size_t i = 0; i < source_layer->regions().size(); ++i) {
+            LayerRegion* region = layer->add_region(&this->printing_region(i));
+            *region = *source_layer->regions()[i];
+            region->m_layer = layer;
+            region->m_region = &this->printing_region(i);
+            region->fills.clear();
+            region->skeleton_flush_density_replaced = false;
+        }
+    }
+    m_typed_slices = false;
+    firstLayerObjSliceByVolume = source.firstLayerObjSliceByVolume;
+    firstLayerObjSliceByGroups = source.firstLayerObjSliceByGroups;
+    this->update_slicing_parameters();
+    if (this->set_started(posSlice)) {
+        this->publish_zaa_incompatibility_warning();
+        this->set_done(posSlice);
+    }
+    if (this->set_started(posPerimeters))
+        this->set_done(posPerimeters);
+    BOOST_LOG_TRIVIAL(warning) << "[NO_WIPE_TRACE] copied walls with independent fill regions"
+                               << " source=" << source.id().id << " object=" << this->id().id;
+}
+
 void  PrintObject::copy_layers_overhang_from_shared_object()
 {
     if (m_shared_object) {
@@ -3577,8 +3658,8 @@ bool Print::PreSliceForDetermineSupport(long long* time_cost_with_cache, bool us
     return false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Print::process — Parallel slicing pipeline
+// ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+// Print::process ??? Parallel slicing pipeline
 //
 // Layer structure:
 //   Layer 1 (serial)  : A  make_perimeters() + estimate_curled_extrusions()
@@ -3595,7 +3676,7 @@ bool Print::PreSliceForDetermineSupport(long long* time_cost_with_cache, bool us
 //
 // Correctness verification: after each barrier, key output sizes are
 // logged so they can be compared against the serial path.
-// ─────────────────────────────────────────────────────────────────────────────
+// ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 void Print::process(long long *time_cost_with_cache, bool use_cache)
 {
     auto performance_scope = Diagnostics::performance("path.slice.process", *this);
@@ -3604,7 +3685,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         << " use_cache=" << use_cache
         << " objects=" << m_objects.size();
 
-    // ── Timing helpers (same format as process() so logs are comparable) ──
+    // ?????? Timing helpers (same format as process() so logs are comparable) ??????
 #ifndef PERF_START
 #define PERF_START(label) \
     auto _perf_t0_##label = std::chrono::high_resolution_clock::now();
@@ -3614,7 +3695,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
       BOOST_LOG_TRIVIAL(warning) << "[PERF][PARALLEL] " #label " cost " << _perf_ms << " ms"; }
 #endif
 
-    // ── Total wall-clock timer ──
+    // ?????? Total wall-clock timer ??????
     auto _par_total_t0 = std::chrono::high_resolution_clock::now();
 
     BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " start memory info " << log_memory_info();
@@ -3637,8 +3718,26 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         this->restore_filament_mapping(std::move(state));
     });
 
-    for (PrintObject *obj : m_objects)
+    const bool independent_no_wipe_slicing = no_wipe_tower_no_purge_mode_enabled(*this);
+    if (independent_no_wipe_slicing) {
+        // Keep valid slicing/perimeter caches, but recompute plate-dependent
+        // infill and purge assignments for independently owned regions.
+        use_cache = false;
+        this->reset_all_steps();
+        this->clear_lockedzag_skin_infill_depths();
+        BOOST_LOG_TRIVIAL(warning)
+            << "[NO_WIPE_TRACE] independent infill: perimeter caches retained"
+            << " objects=" << m_objects.size();
+    }
+
+    for (PrintObject *obj : m_objects) {
         obj->clear_shared_object();
+        if (independent_no_wipe_slicing) {
+            // Already on the slicing thread; do not invoke UI cancellation.
+            obj->invalidate_steps_without_cancel(
+                {posInfill, posIroning, posSimplifyInfill, posZaaPathPlan});
+        }
+    }
 
     // Freeze each object's layer schedule and validate an explicit ZAA offset
     // before changing cache state, sharing or generating any geometry.
@@ -3709,8 +3808,8 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         return true;
     };
 
-    // ── Shared-object deduplication ──
-    auto is_print_object_the_same = [this, &zaa_slicing_geometry_is_same](const PrintObject* o1, const PrintObject* o2) -> bool {
+    // ?????? Shared-object deduplication ??????
+    auto is_print_object_geometry_the_same = [this, &zaa_slicing_geometry_is_same](const PrintObject* o1, const PrintObject* o2) -> bool {
         if (!zaa_slicing_geometry_is_same(o1, o2)) return false;
         if (o1->trafo().matrix() != o2->trafo().matrix()) return false;
         const ModelObject* m1 = o1->model_object();
@@ -3734,6 +3833,10 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         if (m1->config.get() != m2->config.get()) return false;
         if (m1->layer_height_profile.get() != m2->layer_height_profile.get()) return false;
         return true;
+    };
+
+    auto is_print_object_the_same = [&](const PrintObject* o1, const PrintObject* o2) {
+        return !independent_no_wipe_slicing && is_print_object_geometry_the_same(o1, o2);
     };
 
     // Detach shared-object aliases first, then drop owner layer/support data
@@ -3781,9 +3884,9 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
     BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] need_slicing=" << need_slicing_objects.size()
         << " re_slicing=" << re_slicing_objects.size();
 
-    // ── Parallel eligibility check ──
+    // ?????? Parallel eligibility check ??????
     // Fallback to serial if any object lacks support or uses overhang_optimization
-    // (overhang_optimization temporarily mutates shared region config → write race).
+    // (overhang_optimization temporarily mutates shared region config ??? write race).
     // Note: thick_bridges no longer forces serial because prepare_infill() is now
     // executed before the parallel phase, ensuring fill_surfaces is fully populated.
     bool can_parallel = true;
@@ -3799,14 +3902,31 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
     }
     BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] can_parallel=" << can_parallel;
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     // Helper lambdas for each module (used in both parallel and serial paths)
-    // ─────────────────────────────────────────────────────────────────────────
+    // ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     auto run_make_perimeters = [&]() {
         PERF_START(make_perimeters)
+        std::vector<PrintObject*> wall_sources;
         for (PrintObject *obj : m_objects) {
             if (need_slicing_objects.count(obj)) {
-                obj->make_perimeters();
+                PrintObject* wall_source = nullptr;
+                if (independent_no_wipe_slicing && !obj->is_step_done(posPerimeters)) {
+                    for (PrintObject* source : wall_sources) {
+                        if (is_print_object_geometry_the_same(obj, source)) {
+                            wall_source = source;
+                            break;
+                        }
+                    }
+                }
+                if (wall_source != nullptr)
+                    obj->copy_sliced_layers_and_perimeters(*wall_source);
+                else
+                    obj->make_perimeters();
+                // Reuse only fresh wall output, before surface classification
+                // and fill preparation have modified its internal surfaces.
+                if (independent_no_wipe_slicing && !obj->m_typed_slices)
+                    wall_sources.push_back(obj);
             } else {
                 if (obj->set_started(posSlice)) {
                     obj->publish_zaa_incompatibility_warning();
@@ -3972,10 +4092,10 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         PERF_END(zaa_path_plan)
     };
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     // Correctness verification helper
     // Logs key output sizes after each barrier so they can be diffed vs serial.
-    // ─────────────────────────────────────────────────────────────────────────
+    // ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     auto verify_layer1 = [&]() {
         size_t total_layers = 0, total_lslices = 0;
         for (PrintObject *obj : need_slicing_objects) {
@@ -3998,28 +4118,28 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
                 total_loverhangs += l->loverhangs.size();
         }
         BOOST_LOG_TRIVIAL(warning)
-            << "[PARALLEL][VERIFY] after Layer2(B‖C‖E): total_fills=" << total_fills
+            << "[PARALLEL][VERIFY] after Layer2(B???C???E): total_fills=" << total_fills
             << " support_layers=" << total_support_layers
             << " loverhangs=" << total_loverhangs;
     };
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     // MAIN PIPELINE
-    // ─────────────────────────────────────────────────────────────────────────
+    // ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     if (!use_cache) {
-        // ── Layer 1: A (serial) ──────────────────────────────────────────────
+        // ?????? Layer 1: A (serial) ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
         BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] Layer1 start: make_perimeters + estimate_curled";
         run_make_perimeters();
         run_estimate_curled();
         verify_layer1();
 
         if (can_parallel) {
-            // ── prepare_infill (serial): ensure fill_surfaces is ready before parallel phase ──
+            // ?????? prepare_infill (serial): ensure fill_surfaces is ready before parallel phase ??????
             BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] Layer1.5: prepare_infill (serial, resolves fill_surfaces dependency)";
             run_prepare_infill();
 
-            // ── Layer 2: B ‖ C ‖ E (parallel) ───────────────────────────────
-            BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] Layer2 start: infill ‖ support ‖ detect_overhangs";
+            // ?????? Layer 2: B ??? C ??? E (parallel) ?????????????????????????????????????????????????????????????????????????????????????????????
+            BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] Layer2 start: infill ??? support ??? detect_overhangs";
             auto _par_l2_t0 = std::chrono::high_resolution_clock::now();
 
             tbb::task_group g2;
@@ -4031,10 +4151,10 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
 
             double l2_ms = std::chrono::duration<double,std::milli>(
                 std::chrono::high_resolution_clock::now() - _par_l2_t0).count();
-            BOOST_LOG_TRIVIAL(warning) << "[PERF][PARALLEL] Layer2(B‖C‖E) wall cost " << l2_ms << " ms";
+            BOOST_LOG_TRIVIAL(warning) << "[PERF][PARALLEL] Layer2(B???C???E) wall cost " << l2_ms << " ms";
             verify_layer2();
 
-            // ── Layer 3 (serial): only ironing. copy/wipe_tower/simplify moved to common section. ──
+            // ?????? Layer 3 (serial): only ironing. copy/wipe_tower/simplify moved to common section. ??????
             BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] Layer3 start: ironing (serial)";
             auto _par_l3_t0 = std::chrono::high_resolution_clock::now();
 
@@ -4042,10 +4162,10 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
 
             double l3_ms = std::chrono::duration<double,std::milli>(
                 std::chrono::high_resolution_clock::now() - _par_l3_t0).count();
-            BOOST_LOG_TRIVIAL(warning) << "[PERF][PARALLEL] Layer3(D‖F‖I) wall cost " << l3_ms << " ms";
+            BOOST_LOG_TRIVIAL(warning) << "[PERF][PARALLEL] Layer3(D???F???I) wall cost " << l3_ms << " ms";
 
         } else {
-            // ── Serial fallback (identical to process()) ─────────────────────
+            // ?????? Serial fallback (identical to process()) ???????????????????????????????????????????????????????????????
             BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] using serial fallback path";
             run_infill();
             run_ironing();
@@ -4054,7 +4174,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         }
 
     } else {
-        // ── use_cache branch (incremental re-slice) ──────────────────────────
+        // ?????? use_cache branch (incremental re-slice) ??????????????????????????????????????????????????????????????????????????????
         // Same as old process(): no parallel, strict serial order.
         for (PrintObject *obj : m_objects) {
             if (re_slicing_objects.count(obj) == 0) {
@@ -4082,7 +4202,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
 
 
 
-    // ── Common: copy shared object layers + wipe_tower (shared across all branches) ──
+    // ?????? Common: copy shared object layers + wipe_tower (shared across all branches) ??????
     for (PrintObject *obj : m_objects) {
         if (need_slicing_objects.count(obj) == 0) {
             obj->copy_layers_from_shared_object();
@@ -4096,8 +4216,14 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         auto build_tool_ordering = [this]() -> const ToolOrdering* {
             m_wipe_tower_data.clear();
             m_tool_ordering.clear();
-            if (this->has_wipe_tower()) {
+            if (this->has_wipe_tower() || this->needs_timelapse_tower()) {
                 this->_make_wipe_tower();
+                // The camera-only tower does not participate in material
+                // purging. In the no-tower mode, mark the model infill paths
+                // after the camera tower has been planned so the normal G-code
+                // material-change path can consume them.
+                if (this->needs_timelapse_tower() && no_wipe_tower_no_purge_mode_enabled(*this))
+                    mark_skeleton_flush_extrusions_for_tool_ordering(*this, m_wipe_tower_data.tool_ordering);
                 return &m_wipe_tower_data.tool_ordering;
             }
             if (this->config().print_sequence != PrintSequence::ByObject
@@ -4112,8 +4238,26 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         };
 
         if (print_has_lockedzag_skin_depth_replan_region(*this)) {
+            const bool no_wipe_tower_no_purge_mode = no_wipe_tower_no_purge_mode_enabled(*this);
             const bool skeleton_packing_mode = flush_into_skeleton_packing_mode_enabled(*this);
-            if (skeleton_packing_mode) {
+            if (no_wipe_tower_no_purge_mode) {
+                const ToolOrdering* planning_tool_ordering = build_tool_ordering();
+                if (planning_tool_ordering != nullptr) {
+                    const bool rebuild_required =
+                        update_lockedzag_skin_infill_depths_from_actual(*planning_tool_ordering, true);
+                    if (rebuild_required)
+                        rebuild_lockedzag_infill_after_skin_replan();
+
+                    const ToolOrdering* confirmation_tool_ordering = build_tool_ordering();
+                    if (confirmation_tool_ordering != nullptr &&
+                        update_lockedzag_skin_infill_depths_from_actual(*confirmation_tool_ordering, false)) {
+                        // Remove unused skin once, keeping the confirmed region
+                        // budgets frozen. Repacking the newly freed area could
+                        // select an unused region and recreate its skin again.
+                        rebuild_lockedzag_infill_after_skin_replan();
+                    }
+                }
+            } else if (skeleton_packing_mode) {
                 // Keep the UI density fixed. Rebuild only when a newly assigned
                 // transition adds a protective depth from the transmittance matrix.
                 for (;;) {
@@ -4143,7 +4287,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         PERF_END(wipe_tower)
     }
 
-    // ── Layer 4: G  SkirtBrim (serial, depends on F) ─────────────────────────
+    // ?????? Layer 4: G  SkirtBrim (serial, depends on F) ???????????????????????????????????????????????????????????????????????????
     if (this->set_started(psSkirtBrim)) {
         PERF_START(skirt_brim)
         this->set_status(70, L("Generating skirt & brim"));
@@ -4234,11 +4378,11 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         }
     }
 
-    // ── Common: path simplification, then 3D ZAA planning (after SkirtBrim) ──
+    // ?????? Common: path simplification, then 3D ZAA planning (after SkirtBrim) ??????
     run_simplify();
     run_zaa_path_planning_stage();
 
-    // ── Conflict / toolpath-outside checks (same as process()) ───────────────
+    // ?????? Conflict / toolpath-outside checks (same as process()) ?????????????????????????????????????????????
     bool has_adaptive_layer_height = false;
     for (PrintObject* obj : m_objects)
         if (!obj->model_object()->layer_height_profile.empty()) { has_adaptive_layer_height = true; break; }
@@ -4291,7 +4435,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         }
     }
 
-    // ── Total wall-clock ──────────────────────────────────────────────────────
+    // ?????? Total wall-clock ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     double total_ms = std::chrono::duration<double,std::milli>(
         std::chrono::high_resolution_clock::now() - _par_total_t0).count();
     BOOST_LOG_TRIVIAL(warning) << "[PERF][PARALLEL] process total wall cost " << total_ms << " ms";
@@ -4301,11 +4445,11 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
     BOOST_LOG_TRIVIAL(warning) << "[PARALLEL] Print::process exit";
 }
 //
-// use_cache path: re-slice only objects that lost cache, then same Layer3→5 flow.
+// use_cache path: re-slice only objects that lost cache, then same Layer3???5 flow.
 // The export_gcode may die for various reasons (fails to process filename_format,
 // write error into the G-code, cannot execute post-processing scripts).
 // It is up to the caller to show an error message.
-std::string Print::export_gcode(const std::string& path_template, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb)
+std::string Print::export_gcode(const std::string& path_template, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb)
 {
     auto performance_scope = Diagnostics::performance("path.gcode.export", *this);
 
@@ -4339,7 +4483,7 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
     //BBS: compute plate offset for gcode-generator
     const Vec3d origin = this->get_plate_origin();
     gcode.set_gcode_offset(origin(0), origin(1));
-    gcode.do_export(this, path.c_str(), result, thumbnail_cb);
+    gcode.do_export(this, path.c_str(), result, thumbnail_cb, plate_object_bitmap_cb);
 
     m_print_statistics.total_layer_count = gcode.layer_count();
     m_print_uuid = gcode.get_gcode_uuid();
@@ -4350,7 +4494,7 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
         const auto primary_pathological_probe_ticket = result->pathological_probe_ticket;
         const auto primary_gcode_filename = result->filename;
 
-        // 导出confi配置到指定目录
+        // ??????confi?????????????????????
         std::string full_config;
         GCode::append_full_config(*this, full_config);
         std::string fileDir = Slic3r::data_dir() + "/automation/config/";
@@ -4364,7 +4508,7 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
         logFile << full_config << std::endl;
         logFile.close();
 
-        // 导出gcode到指定目录
+        // ??????gcode???????????????
         std::string automation_path = Slic3r::data_dir() + "/automation/gcode";
 
         if (!fs::exists(automation_path)) {
@@ -4373,7 +4517,7 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
         std::string filename      = AutomationMgr::getFileName();
         std::string gcodeFilename = AutomationMgr::generateUniqueFilename(automation_path, filename, ".gcode");
         std::string gcodePath     = automation_path + "/" + gcodeFilename;
-        gcode.do_export(this, gcodePath.c_str(), result, thumbnail_cb);
+        gcode.do_export(this, gcodePath.c_str(), result, thumbnail_cb, plate_object_bitmap_cb);
         // The GUI decision applies to the primary export path, not the automation copy.
         result->pathological_probe_result = primary_pathological_probe_result;
         result->pathological_probe_ticket = primary_pathological_probe_ticket;
@@ -5058,7 +5202,8 @@ Polygons Print::first_layer_islands() const
 std::vector<Point> Print::first_layer_wipe_tower_corners(bool check_wipe_tower_existance) const
 {
     std::vector<Point> corners;
-    if (check_wipe_tower_existance && (!has_wipe_tower() || m_wipe_tower_data.tool_changes.empty()))
+    if (check_wipe_tower_existance &&
+        ((!has_wipe_tower() && !needs_timelapse_tower()) || m_wipe_tower_data.tool_changes.empty()))
         return corners;
     {
         double width = m_config.prime_tower_width + 2*m_wipe_tower_data.brim_width;
@@ -5135,37 +5280,47 @@ bool Print::has_wipe_tower() const
     return false;
 }
 
+double Print::estimate_wipe_tower_depth(const PrintConfig& config, size_t filaments_cnt)
+{
+    const double width = config.prime_tower_width;
+    if (filaments_cnt == 0 || !std::isfinite(width) || width <= EPSILON)
+        return 0.;
+
+    const double layer_height = 0.2; // Keep the existing preview estimate.
+    double depth = 0.;
+    if (config.purge_in_prime_tower) {
+        // Account for the current project's purging volumes.
+        const auto wipe_volumes = WipeTower2::extract_wipe_volumes(config);
+        if (wipe_volumes.empty())
+            return 0.;
+
+        std::vector<float> max_wipe_volumes;
+        for (const auto& volumes : wipe_volumes) {
+            if (volumes.empty())
+                return 0.;
+            max_wipe_volumes.emplace_back(*std::max_element(volumes.begin(), volumes.end()));
+        }
+        float maximum = std::accumulate(max_wipe_volumes.begin(), max_wipe_volumes.end(), 0.f);
+        maximum = maximum * filaments_cnt / max_wipe_volumes.size();
+        // Orca: reduce the initial estimate, which tends to overshoot.
+        maximum *= 0.6;
+        depth = maximum / (layer_height * width);
+    } else {
+        double wipe_volume = config.prime_volume;
+        for (size_t n = 0; n < config.filament_minimal_purge_on_wipe_tower.size(); ++n)
+            wipe_volume = std::max<float>(wipe_volume, config.filament_minimal_purge_on_wipe_tower.get_at(n));
+        const size_t toolchanges = filaments_cnt == 1 && config.timelapse_type.value == TimelapseType::tlSmooth ?
+                                       1 : filaments_cnt - 1;
+        depth = wipe_volume * toolchanges / (layer_height * width);
+    }
+    return std::isfinite(depth) ? std::max(0., depth) : 0.;
+}
+
 const WipeTowerData &Print::wipe_tower_data(size_t filaments_cnt) const
 {
-    // If the wipe tower wasn't created yet, make sure the depth and brim_width members are set to default.
+    // Legacy callers may still request an estimate from this Print's configuration.
     if (!is_step_done(psWipeTower) && filaments_cnt != 0) {
-        double width        = m_config.prime_tower_width;
-        double layer_height = 0.2; // hard code layer height
-        if (m_config.purge_in_prime_tower) {
-            // Calculating depth should take into account currently set wiping volumes.
-            // For a long time, the initial preview would just use 900/width per toolchange (15mm on a 60mm wide tower)
-            // and it worked well enough. Let's try to do slightly better by accounting for the purging volumes.
-            std::vector<std::vector<float>> wipe_volumes = WipeTower2::extract_wipe_volumes(m_config);
-            std::vector<float>              max_wipe_volumes;
-            for (const std::vector<float> &v : wipe_volumes)
-                max_wipe_volumes.emplace_back(*std::max_element(v.begin(), v.end()));
-            float maximum = std::accumulate(max_wipe_volumes.begin(), max_wipe_volumes.end(), 0.f);
-            maximum       = maximum * filaments_cnt / max_wipe_volumes.size();
-            
-            // Orca: it's overshooting a bit, so let's reduce it a bit
-            maximum *= 0.6; 
-            const_cast<Print *>(this)->m_wipe_tower_data.depth = maximum / (layer_height * width);
-        } else {
-            double wipe_volume = m_config.prime_volume;
-            for (int n = 0; n < m_config.filament_minimal_purge_on_wipe_tower.size();n++){
-                wipe_volume = std::max<float>(wipe_volume, m_config.filament_minimal_purge_on_wipe_tower.get_at(n));
-            }
-            if (filaments_cnt == 1 && enable_timelapse_print()) {
-                const_cast<Print *>(this)->m_wipe_tower_data.depth = wipe_volume / (layer_height * width);
-            } else {
-                const_cast<Print *>(this)->m_wipe_tower_data.depth = wipe_volume * (filaments_cnt - 1) / (layer_height * width);
-            }
-        }
+        const_cast<Print *>(this)->m_wipe_tower_data.depth = estimate_wipe_tower_depth(m_config, filaments_cnt);
         const_cast<Print *>(this)->m_wipe_tower_data.brim_width = m_config.prime_tower_brim_width;
     }
 
@@ -5211,6 +5366,21 @@ void WipeTowerData::construct_mesh(
 bool Print::enable_timelapse_print() const
 {
     return m_config.timelapse_type.value == TimelapseType::tlSmooth;
+}
+
+bool Print::needs_timelapse_tower() const
+{
+    // Smooth timelapse needs a camera tower even when material changes use
+    // the no-tower flush-into-infill/objects/support path.
+    if (!enable_timelapse_print() ||
+        m_config.enable_prime_tower.value ||
+        m_config.flush_into_solid_skeleton.value ||
+        m_config.print_sequence.value != PrintSequence::ByLayer ||
+        m_config.spiral_mode.value ||
+        !m_machine_vender->is_firmwaresoft_mm_printer() ||
+        has_prime_volume_solid_skeleton())
+        return false;
+    return true;
 }
 
 std::set<unsigned int> Print::used_physical_extruders() const
@@ -5260,6 +5430,7 @@ bool Print::has_prime_volume_solid_skeleton() const
 void Print::_make_wipe_tower()
 {
     m_wipe_tower_data.clear();
+    const bool timelapse_tower_only = needs_timelapse_tower();
 
     // Get wiping matrix to get number of extruders and convert vector<double> to vector<float>:
     std::vector<float> flush_matrix(cast<float>(m_config.flush_volumes_matrix.values));
@@ -5331,7 +5502,7 @@ void Print::_make_wipe_tower()
     }
     this->throw_if_canceled();
 
-    if (!bUseWipeTower2) {
+    if (!bUseWipeTower2 && !timelapse_tower_only) {
         // in BBL machine, wipe tower is only use to prime extruder. So just use a global wipe volume.
         WipeTower wipe_tower(m_config, m_plate_index, m_origin, m_config.prime_volume, m_wipe_tower_data.tool_ordering.first_extruder(),
                              m_wipe_tower_data.tool_ordering.empty() ? 0.f : m_wipe_tower_data.tool_ordering.back().print_z);
@@ -5407,7 +5578,7 @@ void Print::_make_wipe_tower()
 
                 // if enable timelapse, slice all layer
                 if (enable_timelapse_print()) {
-                    if (layer_tools.wipe_tower_partitions == 0)
+                    if (layer_tools.wipe_tower_partitions == 0 && !layer_tools.extra_interlayer_wipe)
                         wipe_tower.set_last_layer_extruder_fill(false);
                     continue;
                 }
@@ -5449,8 +5620,8 @@ void Print::_make_wipe_tower()
                                                   wipe_tower.get_layer_height(), m_wipe_tower_data.depth, m_wipe_tower_data.brim_width,
                                                   {scale_(origin.x()), scale_(origin.y())});
     }
-    else if (m_machine_vender->is_firmwaresoft_mm_printer()) {
-        if (m_config.single_extruder_multi_material_priming && bUseWipeTower2) {
+    else if (timelapse_tower_only || m_machine_vender->is_firmwaresoft_mm_printer()) {
+        if (!timelapse_tower_only && m_config.single_extruder_multi_material_priming && bUseWipeTower2) {
             WipeTower2 priming_wipe_tower(m_config, m_default_region_config, m_plate_index, m_origin, wipe_volumes,
                                           m_wipe_tower_data.tool_ordering.first_extruder());
             for (size_t i = 0; i < number_of_extruders; ++i)
@@ -5474,7 +5645,9 @@ void Print::_make_wipe_tower()
             // Lets go through the wipe tower layers and determine pairs of extruder changes for each
             // to pass to wipe_tower (so that it can use it for planning the layout of the tower)
             {
-                unsigned int current_extruder_id = m_wipe_tower_data.tool_ordering.all_extruders().back();
+                unsigned int current_extruder_id = timelapse_tower_only ?
+                    m_wipe_tower_data.tool_ordering.first_extruder() :
+                    m_wipe_tower_data.tool_ordering.all_extruders().back();
                 const bool use_filament_change_topology = m_config.support_filament_nozzle_mapping.value &&
                                                           m_config.nozzle_diameter.size() > 1;
                 PhysicalNozzleStateRecorder nozzle_state_recorder(m_config.nozzle_diameter.size());
@@ -5525,6 +5698,34 @@ void Print::_make_wipe_tower()
                     if (!layer_tools.has_wipe_tower)
                         continue;
 
+                    if (timelapse_tower_only) {
+                        // The camera tower is printed with the active filament.
+                        // Material purge remains on model paths when an
+                        // explicit flush-into-infill/object/support option is
+                        // enabled; the tower itself stays purge-free.
+                        const float wipe_tower_extrusion_height = float(std::max(
+                            layer_tools.wipe_tower_layer_height, layer_tools.layer_height));
+                        const bool flush_into_model = !no_wipe_tower_no_purge_mode_enabled(*this);
+                        for (const unsigned int extruder_id : layer_tools.extruders) {
+                            if (extruder_id == current_extruder_id)
+                                continue;
+                            if (current_extruder_id < wipe_volumes_creatily.size() &&
+                                extruder_id < wipe_volumes_creatily[current_extruder_id].size()) {
+                                const float purge_volume = wipe_volumes_creatily[current_extruder_id][extruder_id] *
+                                    m_config.flush_multiplier;
+                                if (flush_into_model && purge_volume > EPSILON)
+                                    layer_tools.wiping_extrusions().mark_wiping_extrusions(
+                                        *this, current_extruder_id, extruder_id, purge_volume, 0.f,
+                                        false, false, false, false, false);
+                            }
+                            current_extruder_id = extruder_id;
+                        }
+                        layer_tools.wiping_extrusions().ensure_perimeters_infills_order(*this);
+                        wipe_tower.plan_timelapse_layer((float) layer_tools.print_z, wipe_tower_extrusion_height,
+                            current_extruder_id);
+                        continue;
+                    }
+
                     // Only the purge left after the mandatory wipe-tower
                     // minimum can be assigned to object skeletons. Use the
                     // largest available amount for this layer before marking
@@ -5552,12 +5753,11 @@ void Print::_make_wipe_tower()
 
                     bool first_layer = &layer_tools == &m_wipe_tower_data.tool_ordering.front();
                     const bool round_wipe_wall = layer_round_wipe_wall_enabled(layer_tools.print_z);
-                    // Different objects may contribute interleaved print Z values. Preserve a larger sparse-tower
-                    // height, but never calculate extrusion from a gap smaller than the current printable layer.
                     const float wipe_tower_extrusion_height = float(std::max(
                         layer_tools.wipe_tower_layer_height, layer_tools.layer_height));
                     wipe_tower.plan_toolchange((float) layer_tools.print_z, wipe_tower_extrusion_height,
-                                               current_extruder_id, current_extruder_id, 0.f, 0.f, false, round_wipe_wall);
+                                                current_extruder_id, current_extruder_id, 0.f, 0.f, false, round_wipe_wall,
+                                                layer_tools.extra_interlayer_wipe);
                     for (size_t extruder_idx = 0; extruder_idx < layer_tools.extruders.size(); ++extruder_idx) {
                         const auto extruder_id = layer_tools.extruders[extruder_idx];
                         if ((first_layer && extruder_id == m_wipe_tower_data.tool_ordering.all_extruders().back()) ||
@@ -5645,11 +5845,12 @@ void Print::_make_wipe_tower()
                     layer_tools.wiping_extrusions().ensure_perimeters_infills_order(*this);
                     // if enable timelapse, slice all layer
                     if (enable_timelapse_print()) {
-                        if (layer_tools.wipe_tower_partitions == 0)
+                        if (layer_tools.wipe_tower_partitions == 0 && !layer_tools.extra_interlayer_wipe)
                             wipe_tower.set_last_layer_extruder_fill(false);
                         continue;
                     }
-                    if (&layer_tools == &m_wipe_tower_data.tool_ordering.back() || (&layer_tools + 1)->wipe_tower_partitions == 0)
+                    if (&layer_tools == &m_wipe_tower_data.tool_ordering.back() ||
+                        ((&layer_tools + 1)->wipe_tower_partitions == 0 && !(&layer_tools + 1)->extra_interlayer_wipe))
                         break;
                 }
             }
@@ -5687,8 +5888,9 @@ void Print::_make_wipe_tower()
                 assert(m_wipe_tower_data.tool_ordering.back().wipe_tower_partitions == 0);
                 wipe_tower.set_layer(float(m_wipe_tower_data.tool_ordering.back().print_z), float(layer_height), 0, false, true);
             }
-            m_wipe_tower_data.final_purge = Slic3r::make_unique<WipeTower::ToolChangeResult>(
-                wipe_tower.tool_change((unsigned int) (-1)));
+            m_wipe_tower_data.final_purge = timelapse_tower_only ?
+                Slic3r::make_unique<WipeTower::ToolChangeResult>() :
+                Slic3r::make_unique<WipeTower::ToolChangeResult>(wipe_tower.tool_change((unsigned int) (-1)));
 
             m_wipe_tower_data.used_filament         = wipe_tower.get_used_filament();
             m_wipe_tower_data.number_of_toolchanges = wipe_tower.get_number_of_toolchanges();
@@ -5928,7 +6130,7 @@ DynamicConfig PrintStatistics::config() const
     config.set_key_value("print_time", new ConfigOptionString(normal_print_time));
     config.set_key_value("normal_print_time", new ConfigOptionString(normal_print_time));
     config.set_key_value("silent_print_time", new ConfigOptionString(silent_print_time));
-    config.set_key_value("used_filament", new ConfigOptionFloat(round(this->total_used_filament / 10.) / 100.00));//只保留小数点后2位
+    config.set_key_value("used_filament", new ConfigOptionFloat(round(this->total_used_filament / 10.) / 100.00));//?????????????????????2???
     config.set_key_value("extruded_volume",           new ConfigOptionFloat(this->total_extruded_volume));
     config.set_key_value("total_cost",                new ConfigOptionFloat(this->total_cost));
     config.set_key_value("total_toolchanges",         new ConfigOptionInt(this->total_toolchanges));
@@ -5980,7 +6182,7 @@ std::string PrintStatistics::finalize_output_path(const std::string &path_in) co
 
      const double filament_shrinkage_compensation_xy = m_config.filament_shrink.get_at(extruders.front());
      const double filament_shrinkage_compensation_z  = m_config.filament_shrinkage_compensation_z.get_at(extruders.front());
-    // TODO: 混色默认取第一个物理耗材的收缩率，跟混色成员耗材无关
+    // TODO: ??????????????????????????????????????????????????????????????????????????????
      for (unsigned int extruder : extruders) {
          if (filament_shrinkage_compensation_xy != m_config.filament_shrink.get_at(extruder) ||
              filament_shrinkage_compensation_z  != m_config.filament_shrinkage_compensation_z.get_at(extruder)) {

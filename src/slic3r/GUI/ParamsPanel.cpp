@@ -17,6 +17,8 @@
 #include "MainFrame.hpp"
 #include "GUI_App.hpp"
 #include "Plater.hpp"
+#include "simple/MCPChatPanel.hpp"
+#include "simple/bridge/SlicerBridge.hpp"
 
 #include "libslic3r/ModelObject.hpp"
 #include "libslic3r/AppConfig.hpp"
@@ -29,6 +31,7 @@
 #include "Widgets/TabCtrl.hpp"
 #include "ParamsDialog.hpp"
 #include <map>
+#include <chrono>
 #include <wx/colour.h>
 #include <wx/event.h>
 #include <wx/gdicmn.h>
@@ -521,6 +524,35 @@ ParamsPanel::ParamsPanel( wxWindow* parent, wxWindowID id, const wxPoint& pos, c
         //m_mode_view_box = new HoverBorderBox(m_top_panel, m_mode_view, wxDefaultPosition, wxSize(FromDIP(24),FromDIP(24)), wxTE_PROCESS_ENTER);
         m_mode_view->SetToolTip(_L("Advance parameters"));
 
+        m_parameter_diff_button = new Button(m_top_panel, _L("Difference explanations"));
+        m_parameter_diff_button->SetFont(Label::Body_12);
+        m_parameter_diff_button->SetMinSize(wxSize(FromDIP(92), FromDIP(24)));
+        m_parameter_diff_button->SetTextColorNormal(wxColour("#0B9B64"));
+        m_parameter_diff_button->SetToolTip(_L("Explain parameter differences"));
+        m_parameter_diff_button->Hide();
+        // Listen on the visible header, not the button: a hidden button must
+        // still reappear after import, selection changes or parameter edits.
+        m_top_panel->Bind(wxEVT_UPDATE_UI, [this](wxUpdateUIEvent& event) {
+            if (m_top_panel->IsShownOnScreen()) {
+                const bool show = Bridge::SlicerBridge::Instance().HasParameterDifferences(get_switch_of_object());
+                if (m_parameter_diff_button->IsShown() != show) {
+                    m_parameter_diff_button->Show(show);
+                    m_top_panel->Layout();
+                }
+            }
+            event.Skip();
+        }, m_top_panel->GetId());
+        m_parameter_diff_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+            OpenActiveAIParameterDiffPanel(this, {
+                    {"loading", true},
+                    {"source", "3mf_import"},
+                    {"entry_click", true},
+                    {"entry_started_at", std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count()},
+                    {"scope", get_switch_of_object() ? "object" : "global"}
+                });
+        });
+
         //reset
         m_btn_reset = new ScalableButton(m_top_panel, wxID_ANY, is_dark ? "undo" : "undo", wxEmptyString,
                                            wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, true, FromDIP(14));
@@ -740,6 +772,8 @@ void ParamsPanel::create_layout_printerAndFilament()
         m_mode_sizer->Add(m_title_label, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(2);
         m_mode_sizer->Add(m_mode_region, 0, wxALIGN_CENTER);
+        m_mode_sizer->AddSpacer(FromDIP(8));
+        m_mode_sizer->Add(m_parameter_diff_button, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(1);
         m_mode_sizer->Add(m_tips_arrow, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(10);
@@ -1232,6 +1266,8 @@ void ParamsPanel::create_layout_process()
         m_mode_sizer->Add(m_title_label, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(FromDIP(2));
         m_mode_sizer->Add(m_mode_region, 0, wxALIGN_CENTER);
+        m_mode_sizer->AddSpacer(FromDIP(8));
+        m_mode_sizer->Add(m_parameter_diff_button, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(FromDIP(1));
         m_mode_sizer->Add(m_tips_arrow, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(FromDIP(10));
@@ -1426,6 +1462,7 @@ void ParamsPanel::OnActivate()
 void ParamsPanel::OnToggled(wxCommandEvent& event)
 {
     if (m_mode_region && m_mode_region->GetId() == event.GetId()) {
+        MCPParameterDiffWindow::Hide();
         wxWindowUpdateLocker locker(GetParent());
         set_active_tab(nullptr);
         event.Skip();
@@ -1711,12 +1748,16 @@ void ParamsPanel::msw_rescale()
 
 void ParamsPanel::switch_to_global()
 {
+    if (get_switch_of_object())
+        MCPParameterDiffWindow::Hide();
     m_mode_region->SetValue(false);
     set_active_tab(nullptr);
 }
 
 void ParamsPanel::switch_to_object(bool with_tips)
 {
+    if (!get_switch_of_object())
+        MCPParameterDiffWindow::Hide();
     m_mode_region->SetValue(true);
     set_active_tab(nullptr);
     if (with_tips) {

@@ -90,7 +90,19 @@ Semver get_version_from_json(std::string file_path)
         boost::nowide::ifstream ifs(file_path);
         json j;
         ifs >> j;
-        std::string version_str = j.at(BBL_JSON_KEY_VERSION);
+
+        // A syntactically valid JSON value is not necessarily a valid vendor
+        // manifest. In particular, calling at() on a file containing `null`
+        // throws type_error and prevents PresetUpdater from replacing the
+        // damaged manifest with the bundled resource copy.
+        if (!j.is_object() || !j.contains(BBL_JSON_KEY_VERSION) ||
+            !j[BBL_JSON_KEY_VERSION].is_string()) {
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": invalid profile manifest " << file_path
+                                     << ", expected an object with a string \"" << BBL_JSON_KEY_VERSION << "\"";
+            return Semver();
+        }
+
+        std::string version_str = j[BBL_JSON_KEY_VERSION].get<std::string>();
 
         auto config_version = Semver::parse(version_str);
         if (! config_version) {
@@ -99,10 +111,10 @@ Semver get_version_from_json(std::string file_path)
             return *config_version;
         }
     }
-    catch(nlohmann::detail::parse_error &err) {
-        BOOST_LOG_TRIVIAL(error) << __FUNCTION__<< ": parse "<<file_path<<" got a nlohmann::detail::parse_error, reason = " << err.what();
+    catch (const nlohmann::json::exception &err) {
+        BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": parse " << file_path
+                                 << " got a JSON exception, reason = " << err.what();
         return Semver();
-        //throw ConfigurationError(format("Failed loading configuration file \"%1%\": %2%", file_path, err.what()));
     }
 }
 
@@ -981,6 +993,7 @@ static std::vector<std::string> s_Preset_print_options {
     "lateral_lattice_angle_2",
     "symmetric_infill_y_axis",
     "skeleton_infill_density",
+    "minimum_skeleton_infill_density",
     "infill_lock_depth",
     "skin_infill_depth",
     "skin_infill_density",
@@ -1000,6 +1013,7 @@ static std::vector<std::string> s_Preset_print_options {
     "fuzzy_skin_scale", "fuzzy_skin_octaves", "fuzzy_skin_persistence",
     "fuzzy_skin_first_layer",
     "max_volumetric_extrusion_rate_slope", "max_volumetric_extrusion_rate_slope_segment_length",
+    "extrusion_rate_smoothing_external_perimeter_only",
     "msao_recovery_enable", "msao_safe_accel", "msao_safe_velocity",
     "acceleration_limit_mess_enable", "acceleration_limit_mess", "speed_limit_to_height_enable", "speed_limit_to_height",
     "inner_wall_speed", "outer_wall_speed", "sparse_infill_speed", "internal_solid_infill_speed",
@@ -1015,11 +1029,13 @@ static std::vector<std::string> s_Preset_print_options {
     "support_top_z_distance", "support_on_build_plate_only","support_critical_regions_only", "bridge_no_support", "thick_bridges", "thick_internal_bridges","dont_filter_internal_bridges", "max_bridge_length", "print_sequence", "print_order", "support_remove_small_overhang",
     "filename_format", "wall_filament", "support_bottom_z_distance","minimum_support_area","support_xy_overrides_z",
     "sparse_infill_filament", "solid_infill_filament", "support_filament", "support_interface_filament","support_interface_not_for_body",
+    "wait_for_temperature_after_toolchange",
     "ooze_prevention", "standby_temperature_delta", "preheat_temperature_delta", "preheat_time","preheat_steps", "interface_shells", "line_width", "initial_layer_line_width",
     "inner_wall_line_width", "outer_wall_line_width", "sparse_infill_line_width", "internal_solid_infill_line_width", "external_infill_margin",
     "top_surface_line_width", "support_line_width", "infill_wall_overlap","top_bottom_infill_wall_overlap", "bridge_flow", "internal_bridge_flow",
     "elefant_foot_compensation", "elefant_foot_compensation_layers", "xy_contour_compensation", "xy_hole_compensation", "resolution", "enable_prime_tower",
     "prime_tower_enhance_type","prime_tower_width","prime_tower_rib_wall","prime_tower_corner_rib_length","prime_tower_skip_points","prime_tower_enable_framework", "prime_tower_brim_width","prime_volume","skeleton_flush_slowdown_speed",
+    "bottom_fill_flush_layers", "top_fill_flush_layers",
     "wipe_tower_no_sparse_layers", "compatible_printers", "compatible_printers_condition", "inherits",
     "flush_into_infill", "flush_into_objects", "flush_into_support", "flush_into_skeleton", "flush_into_solid_skeleton",
      "tree_support_branch_angle", "tree_support_angle_slow", "tree_support_wall_count", "tree_support_wall_count_tree", "tree_support_top_rate", "tree_support_branch_distance", "tree_support_tip_diameter",
@@ -1041,7 +1057,8 @@ static std::vector<std::string> s_Preset_print_options {
      "tree_support_brim_width", "gcode_comments", "gcode_label_objects",
      "initial_layer_travel_speed", "exclude_object", "slow_down_layers", "infill_anchor", "infill_anchor_max","initial_layer_min_bead_width",
      "make_overhang_printable", "make_overhang_printable_angle", "make_overhang_printable_hole_size" ,"notes",
-     "wipe_tower_cone_angle", "wipe_tower_extra_spacing", "prime_tower_start_ironing", "prime_tower_start_offset", "wipe_tower_max_purge_speed", "wipe_tower_filament", "wiping_volumes_extruders","wipe_tower_bridging","wipe_tower_extra_flow", "single_extruder_multi_material_priming","purge_in_prime_tower",
+     "wipe_tower_cone_angle", "wipe_tower_extra_spacing", "prime_tower_start_ironing", "prime_tower_start_offset", "wipe_tower_max_purge_speed", "wipe_tower_filament", "wiping_volumes_extruders","wipe_tower_bridging","wipe_tower_extra_flow", "wipe_tower_extra_interlayer_wipe_layers", "single_extruder_multi_material_priming","purge_in_prime_tower",
+     "bottom_fill_flush_layers", "top_fill_flush_layers",
      "wipe_tower_rotation_angle", "tree_support_branch_distance_organic", "tree_support_branch_diameter_organic", "tree_support_branch_angle_organic",
      "tree_support_organic_validate_repair",
      "hole_to_polyhole", "hole_to_polyhole_threshold", "hole_to_polyhole_twisted", "mmu_segmented_region_max_width", "mmu_segmented_region_interlocking_depth",
@@ -1129,7 +1146,7 @@ static std::vector<std::string> s_Preset_printer_options {
     "printhost_user", "printhost_password", "printhost_ssl_ignore_revoke", "thumbnails", "thumbnails_format",
     "use_firmware_retraction", "use_relative_e_distances", "printer_notes",
     "cooling_tube_retraction",
-    "cooling_tube_length", "high_current_on_filament_swap", "parking_pos_retraction", "extra_loading_move", "purge_in_prime_tower", "enable_filament_ramming",
+    "cooling_tube_length", "high_current_on_filament_swap", "parking_pos_retraction", "extra_loading_move", "no_prime_tower_retract_restart_extra", "purge_in_prime_tower", "prime_tower_toolchange_at_start", "enable_filament_ramming",
     "z_offset", "disable_m73", "preferred_orientation", "emit_machine_limits_to_gcode",
                              "pellet_modded_printer", "support_multi_bed_types", "bed_mesh_min", "bed_mesh_max", "bed_mesh_probe_distance",
                              "adaptive_bed_mesh_margin", "enable_long_retraction_when_cut", "long_retractions_when_cut",
@@ -1410,6 +1427,7 @@ void PresetCollection::load_presets(
                     if (key_values.find("instantiation") != key_values.end())
                         preset.is_visible = key_values["instantiation"] != "false";
 
+                    migrate_user_preset_config(config);
                     //BBS: use inherit config as the base
                     Preset* inherit_preset = nullptr;
                     ConfigOption* inherits_config = config.option(BBL_JSON_KEY_INHERITS);
@@ -1468,6 +1486,7 @@ void PresetCollection::load_presets(
                 } catch (const std::ifstream::failure &err) {
                     ++m_errors;
                     BOOST_LOG_TRIVIAL(error) << boost::format("The user-config cannot be loaded: %1%. Reason: %2%")%preset.file %err.what();
+                    if (DataMigration::preserves_user_presets(std::filesystem::u8path(data_dir()))) continue;
                     fs::path file_path(preset.file);
                     if (fs::exists(file_path))
                         fs::remove(file_path);
@@ -2041,6 +2060,7 @@ bool PresetCollection::load_user_preset(std::string name, std::map<std::string, 
     DynamicPrintConfig new_config, cloud_config;
     try {
         ConfigSubstitutions config_substitutions = cloud_config.load_string_map(preset_values, rule);
+        migrate_user_preset_config(cloud_config);
         if (! config_substitutions.empty())
             substitutions.push_back({ name, m_type, PresetConfigSubstitutions::Source::UserCloud, name, std::move(config_substitutions) });
 
@@ -2207,6 +2227,26 @@ bool PresetCollection::validate_preset(const std::string &preset_name, std::stri
     return found;
 }
 
+
+void PresetCollection::migrate_user_preset_config(DynamicPrintConfig &config) const
+{
+    auto *inherits = config.option<ConfigOptionString>("inherits");
+    if (inherits) {
+        const std::string old_name = inherits->value;
+        inherits->value = canonical_preset_name(old_name);
+        const Preset *parent = find_preset(inherits->value, false);
+        if (parent && is_legacy_k3_rename(old_name, *parent)) {
+            DynamicPrintConfig merged(parent->config);
+            merged.apply(config);
+            const auto keys = config.keys();
+            restore_legacy_k3_overrides(m_type, merged, config, parent->config,
+                                        std::set<std::string>(keys.begin(), keys.end()));
+            config = std::move(merged);
+        }
+    }
+    if (m_owner)
+        m_owner->migrate_preset_references(config);
+}
 
 // Load a preset from an already parsed config file, insert it into the sorted sequence of presets
 // and select it, losing previous modifications.

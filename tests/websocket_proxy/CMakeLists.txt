@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(WebSocketFallbackTests LANGUAGES CXX)
+enable_testing()
+add_executable(websocket_fallback_test websocket_fallback_test.cpp)
+target_compile_features(websocket_fallback_test PRIVATE cxx_std_17)
+target_include_directories(websocket_fallback_test PRIVATE ../../src)
+add_test(NAME websocket_fallback COMMAND websocket_fallback_test)

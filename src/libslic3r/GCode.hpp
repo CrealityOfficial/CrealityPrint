@@ -22,6 +22,7 @@
 #include "GCode/ThumbnailData.hpp"
 #include "libslic3r/ObjectID.hpp"
 #include "GCode/ExtrusionProcessor.hpp"
+#include "FDM/NoWipeTowerPrintStart.hpp"
 
 #include "GCode/PressureEqualizer.hpp"
 #include "GCode/SmoothSpeedAndAcc.hpp"
@@ -54,6 +55,7 @@ public:
     OozePrevention() : enable(false) {}
     std::string pre_toolchange(GCode &gcodegen);
     std::string post_toolchange(GCode &gcodegen);
+    std::string temperature_wait(const GCode &gcodegen) const;
 
 private:
     int _get_temp(const GCode& gcodegen) const;
@@ -94,7 +96,8 @@ public:
         const Vec3d                                                  plate_origin,
         const std::vector<WipeTower::ToolChangeResult>              &priming,
         const std::vector<std::vector<WipeTower::ToolChangeResult>> &tool_changes,
-        const WipeTower::ToolChangeResult                           &final_purge) :
+        const WipeTower::ToolChangeResult                           &final_purge,
+        bool                                                          timelapse_tower_only = false) :
         m_left(/*float(print_config.wipe_tower_x.value)*/ 0.f),
         m_right(float(/*print_config.wipe_tower_x.value +*/ print_config.prime_tower_width.value)),
         m_wipe_tower_pos(float(print_config.wipe_tower_x.get_at(plate_idx)), float(print_config.wipe_tower_y.get_at(plate_idx))),
@@ -103,6 +106,7 @@ public:
         m_priming(priming),
         m_tool_changes(tool_changes),
         m_final_purge(final_purge),
+        m_timelapse_tower_only(timelapse_tower_only),
         m_layer_idx(-1),
         m_tool_change_idx(0),
         m_plate_origin(plate_origin),
@@ -117,6 +121,7 @@ public:
     std::string prime(GCode &gcodegen);
     void next_layer() { ++ m_layer_idx; m_tool_change_idx = 0; }
     std::string tool_change(GCode &gcodegen, int extruder_id, bool finish_layer);
+    std::string timelapse_tower_layer(GCode &gcodegen);
     bool is_empty_wipe_tower_gcode(GCode &gcodegen, int extruder_id, bool finish_layer);
     std::string finalize(GCode &gcodegen);
     std::vector<float> used_filament_length() const;
@@ -128,6 +133,7 @@ public:
     void set_creality_cfs(bool cfs) { m_isCrealityCFS = cfs; }
 
     bool enable_timelapse_print() const { return m_enable_timelapse_print; }
+    bool tower_only() const { return m_timelapse_tower_only; }
     void set_wipe_tower_depth(float depth) { m_wipe_tower_depth = depth; }
     void set_wipe_tower_bbx(const BoundingBoxf& bbx) { m_wipe_tower_bbx = bbx; }
 
@@ -183,6 +189,7 @@ private:
     bool                                                         m_single_extruder_multi_material;
     bool                                                         m_extruder_is_offset;
     bool                                                         m_enable_timelapse_print;
+    bool                                                         m_timelapse_tower_only;
     bool                                                         m_is_first_print;
     bool                                                         m_isCrealityCFS;
 
@@ -212,6 +219,9 @@ struct LayerResult {
     // Is indicating if this LayerResult should be processed, or it is just inserted artificial LayerResult.
     // It is used for the pressure equalizer because it needs to buffer one layer back.
     bool        nop_layer_result { false };
+    // Captured by parsing and carried with this layer across pipeline stages.
+    // The writer must not read the parser's concurrently changing position.
+    float       cooling_layer_end_z { 0.f };
 
     static LayerResult make_nop_layer_result() { return {"", std::numeric_limits<coord_t>::max(), false, false, 0, 0, true}; }
 };
@@ -263,7 +273,7 @@ public:
 
     // throws std::runtime_exception on error,
     // throws CanceledException through print->throw_if_canceled().
-    void            do_export(Print* print, const char* path, GCodeProcessorResult* result = nullptr, ThumbnailsGeneratorCallback thumbnail_cb = nullptr);
+    void            do_export(Print* print, const char* path, GCodeProcessorResult* result = nullptr, ThumbnailsGeneratorCallback thumbnail_cb = nullptr, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb = nullptr);
 
     //BBS: set offset for gcode writer
     void set_gcode_offset(double x, double y) { m_writer.set_xy_offset(x, y); m_processor.set_xy_offset(x, y);}
@@ -300,8 +310,9 @@ public:
                               bool exact_target_z = false);
     bool            needs_retraction(const Polyline& travel, ExtrusionRole role, LiftType& lift_type);
     std::string     retract(bool toolchange = false, bool is_last_retraction = false, LiftType lift_type = LiftType::NormalLift);
-    std::string     unretract(const double limitSpeed = 0.0f) { return m_writer.unlift(limitSpeed) + m_writer.unretract(); }
-    std::string     set_extruder(unsigned int extruder_id, double print_z, bool by_object = false, bool change_tool = true, bool run_change_filament_gcode = true);
+    std::string     unretract(const double limitSpeed = 0.0f);
+    std::string     set_extruder(unsigned int extruder_id, double print_z, bool by_object = false, bool change_tool = true, bool run_change_filament_gcode = true,
+                                 const Vec2f* tool_change_pos_on_plate = nullptr);
     std::string  set_extruder_new(unsigned int extruder_id,
                                           double       print_z,
                                           float        trc_wipe_volume,
@@ -309,10 +320,12 @@ public:
                                           float        wipe_pos_y,
                                           float        max_wipe_x,
                                           float        max_wipe_y,
+                                          const Vec2f& tool_change_pos_on_plate,
                                           bool         by_object   = false,
                                           bool         change_tool = true,
                                           const FilamentChangeTopology* filament_change_topology = nullptr,
-                                          float        wipe_tower_tail_flush_length = 0.f);
+                                          float        wipe_tower_tail_flush_length = 0.f,
+                                          const std::vector<std::pair<Vec2f, Vec2f>>& outer_wall_wipe_segments = {});
 #ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
     void            set_toolchange_source_object(const PrintObject *print_object);
     void            set_toolchange_target_object(const PrintObject *print_object);
@@ -413,7 +426,7 @@ private:
         FILE *f = nullptr;
         GCodeProcessor &m_processor;
     };
-    void            _do_export(Print &print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb);
+    void            _do_export(Print &print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb);
 
     static std::vector<LayerToPrint>        		                   collect_layers_to_print(const PrintObject &object);
     static std::vector<std::pair<coordf_t, std::vector<LayerToPrint>>> collect_layers_to_print(const Print &print);
@@ -573,7 +586,12 @@ private:
 
     std::string     extrude_perimeters(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool is_first_layer, bool is_infill_first);
     std::string     extrude_skin(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region);
-    std::string     extrude_infill(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool ironing, double speed = -1., bool use_skeleton_wipe_line_width = false, bool use_skeleton_wipe_speed = false);
+    struct NoWipeTowerPrintStartOverride {
+        std::unique_ptr<ExtrusionEntity> output;
+        Point original_start = Point::Zero();
+        size_t region_idx = size_t(-1);
+    };
+    std::string     extrude_infill(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool ironing, double speed = -1., bool use_skeleton_wipe_line_width = false, bool use_skeleton_wipe_speed = false, const NoWipeTowerPrintStartOverride* print_start = nullptr);
     std::string extrude_support(const ExtrusionEntityCollection& support_fills, const ExtrusionRole support_extrusion_role);
 
     // ----- Mixed sub-layer emission (phase B) -----
@@ -677,6 +695,10 @@ private:
     bool m_enable_exclude_object;
     std::vector<size_t> m_label_objects_ids;
     std::string _encode_label_ids_to_base64(std::vector<size_t> ids);
+
+    // Creality: id/name mapping for the exclude-object feature (Klipper flavor only), handed to GCodeProcessor
+    // before the body is analyzed. END_POS and END_OFFSET (and the trailing block) are filled by GCodeProcessor.
+    std::vector<ExcludeObjectEndInfo> m_exclude_object_end_infos;
     // Orca
     bool m_is_overhang_fan_on;
     bool m_is_supp_interface_fan_on;
@@ -776,6 +798,10 @@ private:
     bool m_need_change_layer_lift_z = false;
     int m_start_gcode_filament = -1;
     bool m_solid_skeleton_mode_active = false;
+    bool m_no_wipe_tower_no_purge_mode_active = false;
+    NoWipeTowerPrintStartHistory m_no_wipe_tower_print_start_history;
+    coord_t m_no_wipe_tower_print_start_z = std::numeric_limits<coord_t>::min();
+    size_t m_no_wipe_tower_print_start_layer = 0;
     bool m_flush_into_skeleton_packing_mode_active = false;
     size_t m_solid_skeleton_start_corner_index = 0;
     std::map<std::tuple<const PrintObject*, unsigned int, unsigned int, coord_t, coord_t>, size_t> m_solid_skeleton_start_corner_indices;
@@ -815,7 +841,8 @@ private:
     int get_bed_temperature(const int extruder_id, const bool is_first_layer, const BedType bed_type,
         const std::vector<unsigned int>* extruder_ids = nullptr) const;
 
-    std::string _extrude(const ExtrusionPath &path, std::string description = "", double speed = -1);
+    std::string _extrude(const ExtrusionPath &path, std::string description = "", double speed = -1,
+                         const ExtrusionPath *previous_path = nullptr, const ExtrusionPath *next_path = nullptr);
     std::string set_wipe_tower_print_acceleration();
     std::string inject_wipe_tower_print_acceleration(std::string tower_gcode);
     ExtrusionPaths set_speed_transition(ExtrusionPaths& paths);
@@ -827,7 +854,11 @@ private:
     double get_speed_coor_x(double speed);
     void print_machine_envelope(GCodeOutputStream &file, Print &print);
     void _print_first_layer_bed_temperature(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait);
-    void _print_first_layer_extruder_temperatures(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait);
+    void _print_first_layer_extruder_temperatures(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait, bool current_extruder_only = false);
+    // Captures the completed tower toolchange temperature/tool until departure wiping is done.
+    std::string m_pending_temperature_wait_after_tower;
+    std::string take_pending_temperature_wait_after_tower();
+    std::string wait_for_temperature_before_model() const;
     std::string restore_motion_limits_after_toolchange();
 
     // On the first printing layer. This flag triggers first layer speeds.

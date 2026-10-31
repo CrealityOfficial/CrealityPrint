@@ -141,6 +141,7 @@ public:
     bool use_bbl_device_tab();
 
     //BBS: project embedded preset logic
+    void migrate_preset_references(DynamicPrintConfig &config) const;
     PresetsConfigSubstitutions load_project_embedded_presets(std::vector<Preset*> project_presets, ForwardCompatibilitySubstitutionRule substitution_rule);
     std::vector<Preset*> get_current_project_embedded_presets();
     void reset_project_embedded_presets();
@@ -247,7 +248,7 @@ public:
     bool                           m_project_filament_mapping_pending { false };
     FilamentMapMode                 m_pending_filament_mapping_mode { fmmAutoForSaving };
     std::vector<bool>              get_print_preset_nozzle_compatibility(const Preset &preset, bool hard_limits = false) const;
-    bool                            is_print_preset_compatible_with_nozzle_variants(const Preset &preset) const;
+    bool                            is_print_preset_compatible_with_nozzle_variants(const Preset &preset, bool hard_limits = false) const;
 
     DynamicPrintConfig          full_config() const;
     // full_config() with the some "useless" config removed.

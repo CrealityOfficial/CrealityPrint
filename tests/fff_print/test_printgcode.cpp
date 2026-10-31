@@ -2,6 +2,9 @@
 
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/GCodeReader.hpp"
+#include "libslic3r/ModelObject.hpp"
+#include "libslic3r/ModelVolume.hpp"
+#include "libslic3r/BoundingBox.hpp"
 
 #include "test_data.hpp"
 
@@ -268,4 +271,115 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
 			}
         }
     }
+}
+
+
+TEST_CASE("Smooth timelapse keeps automatic no-tower infill material changes", "[PrintGCode][timelapse][no_wipe_tower]")
+{
+    DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+    config.set_num_filaments(2);
+    config.set_deserialize_strict({
+        {"printer_model", "SPARKX i7"},
+        {"enable_prime_tower", "0"},
+        {"timelapse_type", "1"},
+        {"multicolor_method", "1"},
+        {"single_extruder_multi_material", "1"},
+        {"flush_into_infill", "0"},
+        {"flush_into_objects", "0"},
+        {"flush_into_support", "0"},
+        {"flush_into_skeleton", "0"},
+        {"flush_into_solid_skeleton", "0"},
+        {"sparse_infill_pattern", "locked-zag"},
+        {"sparse_infill_density", "10%"},
+        {"layer_height", "0.2"},
+        {"initial_layer_print_height", "0.2"},
+        {"bottom_shell_layers", "1"},
+        {"top_shell_layers", "1"},
+        {"top_shell_thickness", "0"},
+        {"bottom_shell_thickness", "0"},
+        {"bottom_fill_flush_layers", "0"},
+        {"top_fill_flush_layers", "0"},
+        {"wall_loops", "2"},
+        {"skirt_loops", "0"},
+        {"brim_type", "no_brim"},
+        {"flush_volumes_matrix", "0,30,30,0"},
+        {"filament_minimal_purge_on_wipe_tower", "0,0"},
+        {"prime_tower_width", "20"},
+        {"prime_tower_brim_width", "0"},
+        {"wipe_tower_x", "10"},
+        {"wipe_tower_y", "10"},
+        // These prime-tower preferences must not change the camera tower's tool or height.
+        {"wipe_tower_filament", "1"},
+        {"wipe_tower_no_sparse_layers", "1"},
+        {"machine_start_gcode", "G90\nM83\n"},
+        {"machine_end_gcode", ""},
+        {"change_filament_gcode", "; OUTSIDE_PURGE\nT[next_extruder]\n"},
+        {"time_lapse_gcode", "; CAMERA_SHOT\nG1 X267 Y110 F24000\n"},
+        {"filament_start_gcode", ";,;"},
+        {"filament_end_gcode", ";,;"}
+    });
+
+    Print print;
+    Model model;
+    for (int tool = 1; tool <= 2; ++tool) {
+        ModelObject* object = model.add_object();
+        object->name = "timelapse_" + std::to_string(tool);
+        TriangleMesh mesh = make_cube(30., 30., 3.);
+        mesh.translate(Vec3f(60.f + 45.f * (tool - 1), 60.f, 0.f));
+        object->add_volume(std::move(mesh));
+        object->add_instance();
+        object->config.set_key_value("extruder", new ConfigOptionInt(tool));
+        object->volumes.front()->config.set_key_value("extruder", new ConfigOptionInt(tool));
+    }
+    print.apply(model, config);
+    print.set_status_silent();
+
+    REQUIRE_FALSE(print.has_wipe_tower());
+    REQUIRE(print.needs_timelapse_tower());
+    const std::string output = Test::gcode(print);
+    CHECK_FALSE(print.config().enable_prime_tower.value);
+    REQUIRE(output.find("; NO_WIPE_TOWER_NO_PURGE_") != std::string::npos);
+    REQUIRE(output.find("; CAMERA_SHOT\n") != std::string::npos);
+    REQUIRE(output.find("; CP EMPTY GRID START") != std::string::npos);
+    CHECK(output.find("[change_filament_gcode]") == std::string::npos);
+    CHECK(output.find("[deretraction") == std::string::npos);
+    REQUIRE_FALSE(print.first_layer_wipe_tower_corners().empty());
+    REQUIRE_FALSE(print.wipe_tower_data().tool_changes.empty());
+    CHECK(print.wipe_tower_data().priming->empty());
+    CHECK(print.wipe_tower_data().final_purge->gcode.empty());
+    CHECK(print.wipe_tower_data().number_of_toolchanges == 0);
+    size_t tower_layer = 0;
+    for (const LayerTools& layer : print.tool_ordering()) {
+        if (!layer.has_wipe_tower)
+            continue;
+        REQUIRE(tower_layer < print.wipe_tower_data().tool_changes.size());
+        const auto& paths = print.wipe_tower_data().tool_changes[tower_layer++];
+        REQUIRE(paths.size() == 1);
+        CHECK(paths.front().initial_tool == paths.front().new_tool);
+        CHECK(paths.front().new_tool == int(layer.extruders.back()));
+        CHECK(paths.front().purge_volume == 0.f);
+        CHECK_FALSE(paths.front().is_tool_change);
+        CHECK(paths.front().print_z == Approx(layer.print_z));
+    }
+    CHECK(tower_layer == print.wipe_tower_data().tool_changes.size());
+
+    // Check the emitted order on every complete model layer: both model tools,
+    // then one photo and one camera-tower path, without a tower toolchange.
+    size_t layer_begin = output.find(";LAYER_CHANGE\n");
+    size_t camera_count = 0;
+    while (layer_begin != std::string::npos) {
+        const size_t next = output.find(";LAYER_CHANGE\n", layer_begin + 1);
+        const size_t block_end = next == std::string::npos ? output.find("; EXECUTABLE_BLOCK_END", layer_begin) : next;
+        const std::string block = output.substr(layer_begin, block_end - layer_begin);
+        const size_t shot = block.find("; CAMERA_SHOT\n");
+        REQUIRE(shot != std::string::npos);
+        CHECK(block.find("; CAMERA_SHOT\n", shot + 1) == std::string::npos);
+        const size_t tower = block.find("; CP EMPTY GRID START");
+        REQUIRE(tower != std::string::npos);
+        CHECK(shot < tower);
+        CHECK(block.find("\nT", shot) == std::string::npos);
+        ++camera_count;
+        layer_begin = next;
+    }
+    CHECK(camera_count == tower_layer);
 }

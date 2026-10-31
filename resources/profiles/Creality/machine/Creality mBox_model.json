@@ -1,0 +1,13 @@
+{
+    "type": "machine_model",
+    "name": "Creality mBox",
+    "nozzle_diameter": "0.4",
+    "bed_model": "creality_k1_buildplate_model.stl",
+    "default_bed_type": "Epoxy Resin Plate",
+    "bed_texture": "",
+    "family": "Creality",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "Creality_mBox",
+    "default_materials": "Hyper PLA"
+}

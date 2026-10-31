@@ -6,6 +6,67 @@
 
 using namespace Slic3r;
 
+TEST_CASE("Tower Z synchronization allows travel hops at accumulated layer heights", "[GCodeWriter][tower_z_sync]")
+{
+    const auto lift_type = GENERATE(LiftType::NormalLift, LiftType::LazyLift, LiftType::SpiralLift);
+    GCodeWriter writer;
+    writer.config.z_hop.values = {0.4};
+    writer.config.retract_lift_above.values = {0.};
+    writer.config.retract_lift_below.values = {254.};
+    writer.set_extruders({0});
+    writer.set_extruder(0);
+    writer.set_current_position_clear(true);
+
+    double nominal_z = 0.;
+    for (int layer = 1; layer <= 188; ++layer) {
+        nominal_z += 0.2;
+        const double emitted_z = std::round(nominal_z * 1000.) / 1000.;
+        CAPTURE(layer, nominal_z, emitted_z, static_cast<int>(lift_type));
+        writer.set_position(Vec3d(112.5, 222.5, emitted_z));
+        writer.sync_lifted_to_nominal_z(nominal_z);
+        REQUIRE(writer.get_zhop() == 0.);
+
+        writer.lift(lift_type);
+        const std::string travel = writer.travel_to_xyz(Vec3d(115.183, 145.932, nominal_z));
+        REQUIRE(travel.find('Z') != std::string::npos);
+        REQUIRE(writer.get_position().z() == Approx(emitted_z + 0.4));
+        REQUIRE(writer.get_zhop() == Approx(0.4));
+        writer.unlift();
+        REQUIRE(writer.get_position().z() == Approx(nominal_z));
+    }
+}
+
+TEST_CASE("Tower Z synchronization preserves real hops and clears stale pending hops", "[GCodeWriter][tower_z_sync]")
+{
+    GCodeWriter writer;
+    writer.config.z_hop.values = {0.4};
+    writer.config.retract_lift_above.values = {0.};
+    writer.config.retract_lift_below.values = {254.};
+    writer.set_extruders({0});
+    writer.set_extruder(0);
+    writer.set_current_position_clear(true);
+    writer.set_position(Vec3d(112.5, 222.5, 1.6));
+    writer.lift(LiftType::LazyLift);
+
+    SECTION("An actual hop is preserved without adding another hop") {
+        writer.set_position(Vec3d(112.5, 222.5, 2.0));
+        writer.sync_lifted_to_nominal_z(1.6);
+        REQUIRE(writer.get_zhop() == Approx(0.4));
+        writer.lift(LiftType::LazyLift);
+        writer.travel_to_xyz(Vec3d(115.183, 145.932, 1.6));
+        REQUIRE(writer.get_position().z() == Approx(2.0));
+        writer.unlift();
+        REQUIRE(writer.get_position().z() == Approx(1.6));
+    }
+    SECTION("A tower below the model does not retain a pending hop") {
+        writer.sync_lifted_to_nominal_z(1.8);
+        REQUIRE(writer.get_zhop() == 0.);
+        writer.travel_to_xyz(Vec3d(115.183, 145.932, 1.8));
+        REQUIRE(writer.get_position().z() == Approx(1.8));
+        REQUIRE(writer.get_zhop() == 0.);
+    }
+}
+
 SCENARIO("lift() is not ignored after unlift() at normal values of Z", "[GCodeWriter]") {
     GIVEN("A config from a file and a single extruder.") {
         GCodeWriter writer;

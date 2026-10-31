@@ -1,4 +1,6 @@
 #include "WebSocketProxy.hpp"
+#include "WebSocketFallbackPolicy.hpp"
+#include "WebSocketReadLimitPolicy.hpp"
 #include "DeviceMessageFilter.h"
 
 #include "libslic3r/Utils.hpp"
@@ -74,6 +76,7 @@ constexpr auto WS_TIMEOUT        = std::chrono::seconds(8);
 constexpr auto WRITE_TIMEOUT     = std::chrono::seconds(8);
 constexpr auto CLOSE_TIMEOUT     = std::chrono::seconds(3);
 constexpr auto SHUTDOWN_WAIT     = std::chrono::seconds(5);
+constexpr auto SECURE_HEALTHY_TIME = std::chrono::seconds(30);
 
 struct ParsedWsUrl
 {
@@ -83,6 +86,12 @@ struct ParsedWsUrl
     std::string host_header;
     std::string target{"/"};
 };
+
+std::string message_limit_key(const ParsedWsUrl& endpoint)
+{
+    return std::string(endpoint.secure ? "wss://" : "ws://") +
+           endpoint.host_header + endpoint.target;
+}
 
 bool has_invalid_host_character(const std::string& value)
 {
@@ -658,6 +667,7 @@ public:
             std::string page_token,
             std::string socket_token,
             ParsedWsUrl endpoint,
+            std::size_t incoming_message_limit,
             EventHandler event_handler,
             SessionHandler terminal_handler)
         : m_executor(std::move(executor))
@@ -670,6 +680,7 @@ public:
         , m_page_token(std::move(page_token))
         , m_socket_token(std::move(socket_token))
         , m_endpoint(std::move(endpoint))
+        , m_incoming_message_limit(incoming_message_limit)
         , m_event_handler(std::move(event_handler))
         , m_terminal_handler(std::move(terminal_handler))
     {
@@ -702,6 +713,17 @@ public:
                !m_endpoint.port.empty();
     }
 
+    bool secure() const { return m_endpoint.secure; }
+    std::string endpoint_key() const { return m_endpoint.host_header; }
+    bool transport_failed() const { return m_transport_failed; }
+    bool message_limit_exceeded() const { return m_message_limit_exceeded; }
+    std::string read_limit_key() const { return message_limit_key(m_endpoint); }
+    bool healthy_secure_connection() const
+    {
+        return m_endpoint.secure && m_received_messages != 0 &&
+               std::chrono::steady_clock::now() - m_opened_at >= SECURE_HEALTHY_TIME;
+    }
+
     bool CanStart() const
     {
         return m_state == State::Created && !m_finished;
@@ -719,7 +741,7 @@ public:
                     return;
                 }
                 m_wss = std::make_unique<SecureStream>(m_executor, m_ssl_context);
-                m_wss->read_message_max(MAX_INCOMING_MESSAGE_SIZE);
+                m_wss->read_message_max(m_incoming_message_limit);
                 if (is_device_proxy_endpoint(m_endpoint)) {
                     std::string policy_error;
                     if (!Slic3r::DeviceTlsPolicy::ignore_certificate_time(
@@ -730,7 +752,7 @@ public:
                 }
             } else {
                 m_ws = std::make_unique<PlainStream>(m_executor);
-                m_ws->read_message_max(MAX_INCOMING_MESSAGE_SIZE);
+                m_ws->read_message_max(m_incoming_message_limit);
             }
         } catch (const std::exception& e) {
             Fail(e.what());
@@ -799,7 +821,7 @@ public:
 
     void FailEventDelivery()
     {
-        Fail("WebSocket proxy UI event queue is full");
+        Fail("WebSocket proxy UI event queue is full", false);
     }
 
 private:
@@ -929,6 +951,7 @@ private:
         }
 
         m_state = State::Open;
+        m_opened_at = std::chrono::steady_clock::now();
         if (m_wss)
             m_wss->text(true);
         else
@@ -962,6 +985,7 @@ private:
             return;
 
         if (ec == websocket::error::closed) {
+            m_transport_failed = !m_close_requested;
             const websocket::close_reason reason =
                 m_wss ? m_wss->reason() : m_ws->reason();
             const int code = reason.code == websocket::close_code::none
@@ -972,12 +996,30 @@ private:
             return;
         }
         if (ec) {
-            Fail("read failed: " + ec.message());
+            if (ec == websocket::error::message_too_big) {
+                m_message_limit_exceeded = true;
+                BOOST_LOG_TRIVIAL(warning) << "WebSocket proxy message limit exceeded: id="
+                    << m_id << ", endpoint=" << read_limit_key()
+                    << ", message_index=" << (m_received_messages + 1)
+                    << ", read_message_max=" << (m_wss ? m_wss->read_message_max() : m_ws->read_message_max())
+                    << ", buffered_bytes=" << m_read_buffer.size()
+                    << "; next connection will use read_message_max=0";
+            }
+            // Beast has already failed the stream. Apply the fallback to a new
+            // connection, and do not mistake a size limit for a TLS failure.
+            Fail("read failed: " + ec.message(), !m_message_limit_exceeded);
             return;
         }
 
         const std::string data = beast::buffers_to_string(m_read_buffer.data());
         m_read_buffer.consume(m_read_buffer.size());
+        ++m_received_messages;
+        if (m_incoming_message_limit == 0) {
+            BOOST_LOG_TRIVIAL(warning) << "WebSocket proxy unlimited read received: id="
+                << m_id << ", endpoint=" << read_limit_key()
+                << ", message_index=" << m_received_messages
+                << ", received_bytes=" << data.size();
+        }
         Emit("message", data, 0, std::string(), true);
         if (m_state == State::Open)
             DoRead();
@@ -1114,12 +1156,15 @@ private:
         }
     }
 
-    void Fail(const std::string& message)
+    void Fail(const std::string& message, bool transport_failure = true)
     {
         if (m_finished)
             return;
+        m_transport_failed = transport_failure && !m_close_requested;
         BOOST_LOG_TRIVIAL(error) << "WebSocket proxy session failed: id="
-                                 << m_id << ", error=" << message;
+                                 << m_id << ", endpoint=" << (m_endpoint.secure ? "wss://" : "ws://")
+                                 << m_endpoint.host_header << ", received_messages=" << m_received_messages
+                                 << ", error=" << message;
         Emit("error", std::string(), 0, message, false);
         Finish(1006, message, false, true);
     }
@@ -1184,6 +1229,7 @@ private:
     std::string                         m_page_token;
     std::string                         m_socket_token;
     ParsedWsUrl                         m_endpoint;
+    std::size_t                         m_incoming_message_limit;
     EventHandler                        m_event_handler;
     SessionHandler                      m_terminal_handler;
     State                               m_state{State::Created};
@@ -1195,6 +1241,10 @@ private:
     bool                                m_write_in_progress{false};
     bool                                m_close_requested{false};
     bool                                m_finished{false};
+    bool                                m_transport_failed{false};
+    bool                                m_message_limit_exceeded{false};
+    std::uint64_t                       m_received_messages{0};
+    std::chrono::steady_clock::time_point m_opened_at{};
 };
 
 } // namespace
@@ -1283,6 +1333,8 @@ private:
         page_token = new_page_token;
         ++generation;
         device_detail_state = {};
+        fallback_policy.Clear();
+        read_limit_policy.Clear();
         ui_gate->SetGeneration(generation);
 
         std::vector<SessionPtr> old_sessions;
@@ -1302,7 +1354,7 @@ private:
         if (!IsCurrentPage(command.page_token))
             return;
 
-        const std::optional<ParsedWsUrl> endpoint = parse_ws_url(command.url);
+        std::optional<ParsedWsUrl> endpoint = parse_ws_url(command.url);
         const bool endpoint_allowed = endpoint &&
             is_device_proxy_endpoint(*endpoint);
         if (!endpoint_allowed) {
@@ -1327,6 +1379,21 @@ private:
         }
 
         std::weak_ptr<Impl> weak_self = shared_from_this();
+        // Keep the page/socket tokens so JS reconnect initialization runs normally.
+        // Only this channel changes transport; HTTPS/video capabilities remain valid.
+        if (endpoint->secure && fallback_policy.UsePlaintext(endpoint->host_header)) {
+            BOOST_LOG_TRIVIAL(warning) << "WebSocket proxy falling back after repeated WSS failures: "
+                                       << endpoint->host_header << " -> ws://" << endpoint->host << ":9999";
+            endpoint->secure = false;
+            endpoint->port = "9999";
+            endpoint->host_header = endpoint->host + ":9999";
+        }
+        const std::size_t incoming_message_limit = read_limit_policy.Limit(message_limit_key(*endpoint));
+        if (incoming_message_limit == 0) {
+            BOOST_LOG_TRIVIAL(warning) << "WebSocket proxy retrying without message size limit: id="
+                << command.id << ", endpoint=" << message_limit_key(*endpoint)
+                << ", read_message_max=0";
+        }
         SessionPtr session = std::make_shared<Session>(
             runtime.executor(),
             runtime.ssl_context(),
@@ -1336,6 +1403,7 @@ private:
             page_token,
             command.socket_token,
             *endpoint,
+            incoming_message_limit,
             [weak_self](const SessionPtr& source, ProxyEvent event) {
                 if (auto self = weak_self.lock())
                     self->OnSessionEvent(source, std::move(event));
@@ -1398,6 +1466,9 @@ private:
         if (it == sessions.end() || it->second.get() != source.get())
             return;
 
+        if (event.event == "message" && source->healthy_secure_connection())
+            fallback_policy.Healthy(source->endpoint_key());
+
         if (event.event == "message" && source->is_device_connection()) {
             const DeviceIdentity source_device{source->host(), {}};
             DeviceMessageFilterResult filter_result = FilterDeviceMessage(
@@ -1423,6 +1494,14 @@ private:
         const auto it = sessions.find(source->id());
         if (it != sessions.end() && it->second.get() == source.get() &&
             source->generation() == generation) {
+            if (source->message_limit_exceeded())
+                read_limit_policy.Exceeded(source->read_limit_key());
+            if (source->secure() && source->transport_failed()) {
+                const auto failures = fallback_policy.Failed(source->endpoint_key());
+                BOOST_LOG_TRIVIAL(warning) << "WebSocket proxy WSS failure count: endpoint="
+                                           << source->endpoint_key() << ", count=" << failures
+                                           << ", fallback_threshold=" << WebSocketFallbackPolicy::failure_limit;
+            }
             sessions.erase(it);
         }
     }
@@ -1476,6 +1555,8 @@ private:
     std::shared_ptr<UiGate>                   ui_gate;
     Runtime                                   runtime;
     DeviceDetailState                         device_detail_state;
+    WebSocketFallbackPolicy                   fallback_policy;
+    WebSocketReadLimitPolicy                   read_limit_policy{MAX_INCOMING_MESSAGE_SIZE};
     std::string                               page_token;
     std::uint64_t                             generation{0};
     std::unordered_map<int, SessionPtr>       sessions;

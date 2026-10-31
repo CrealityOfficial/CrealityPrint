@@ -109,6 +109,12 @@ private:
     bool m_slice_result_valid;
     bool m_apply_invalid {false};
     std::string m_validate_error_message;  // Store validation error message for analytics
+    AIRecommendationMetrics m_ai_pending_metrics;
+    AIRecommendationMetrics m_ai_file_metrics;
+    bool m_ai_metrics_pending = false;
+    std::string m_ai_metrics_path;
+    uintmax_t m_ai_metrics_size = 0;
+    int64_t m_ai_metrics_mtime = 0;
     float m_slice_percent;
 
     Print *m_print; //Print reference, not own it, no need to serialize
@@ -249,6 +255,16 @@ public:
 
     //clear alll the instances in plate
     void clear(bool clear_sliced_result = true);
+    std::string get_ai_recommend_id();
+    AIRecommendationMetrics capture_ai_recommendation_metrics(const Model& model) const;
+    void begin_ai_recommendation_slice(const AIRecommendationMetrics& metrics) {
+        m_ai_pending_metrics = metrics;
+        m_ai_metrics_pending = true;
+    }
+    void finish_ai_recommendation_slice(bool success);
+    void bind_ai_recommendation_file(const AIRecommendationMetrics& metrics, const std::string& path);
+    bool ai_recommendation_file_matches(const std::string& path) const;
+    AIRecommendationMetrics ai_recommendation_metrics_for_file(const std::string& path) const;
 
     BedType get_bed_type(bool load_from_project = false) const;
     void set_bed_type(BedType bed_type);

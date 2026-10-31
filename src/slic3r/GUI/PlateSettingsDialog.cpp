@@ -184,6 +184,7 @@ OtherLayersSeqPanel::OtherLayersSeqPanel(wxWindow* parent)
     wxBoxSizer* title_sizer = new wxBoxSizer(wxHORIZONTAL);
     m_other_layer_print_seq_choice = new ComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(FromDIP(240), -1), 0, NULL, wxCB_READONLY);
     m_other_layer_print_seq_choice->Append(_L("Auto"));
+    m_other_layer_print_seq_choice->Append(_L("Gray safe"));
     m_other_layer_print_seq_choice->Append(_L("Customize"));
     m_other_layer_print_seq_choice->SetSelection(0);
     wxStaticText* other_layer_txt = new wxStaticText(this, wxID_ANY, _L("Other layer filament sequence"));
@@ -217,13 +218,13 @@ OtherLayersSeqPanel::OtherLayersSeqPanel(wxWindow* parent)
 
 
     m_other_layer_print_seq_choice->Bind(wxEVT_COMBOBOX, [this, buttons_sizer](auto& e) {
-        if (e.GetSelection() == 0) {
-            m_layer_input_panel->Show(false);
-            buttons_sizer->Show(false);
-        }
-        else if (e.GetSelection() == 1) {
+        if (e.GetSelection() == 2) {
             m_layer_input_panel->Show(true);
             buttons_sizer->Show(true);
+        }
+        else {
+            m_layer_input_panel->Show(false);
+            buttons_sizer->Show(false);
         }
         m_parent->Layout();
         m_parent->Fit();
@@ -344,7 +345,7 @@ void OtherLayersSeqPanel::clear_all_layers()
 void OtherLayersSeqPanel::sync_layers_print_seq(int selection, const std::vector<LayerSeqInfo>& seq)
 {
     if (m_other_layer_print_seq_choice != nullptr) {
-        if (selection == 1) {
+        if (selection == 2) {
             clear_all_layers();
             Freeze();
             for (int i = 0; i < seq.size(); i++) {
@@ -438,14 +439,18 @@ PlateSettingsDialog::PlateSettingsDialog(wxWindow* parent, const wxString& title
     // First layer filament sequence
     m_first_layer_print_seq_choice = new ComboBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(FromDIP(240), -1), 0, NULL, wxCB_READONLY);
     m_first_layer_print_seq_choice->Append(_L("Auto"));
+    m_first_layer_print_seq_choice->Append(_L("Gray safe"));
     m_first_layer_print_seq_choice->Append(_L("Customize"));
     m_first_layer_print_seq_choice->SetSelection(0);
     m_first_layer_print_seq_choice->Bind(wxEVT_COMBOBOX, [this](auto& e) {
         if (e.GetSelection() == 0) {
             m_drag_canvas->Hide();
         }
-        else if (e.GetSelection() == 1) {
+        else if (e.GetSelection() == 2) {
             m_drag_canvas->Show();
+        }
+        else {
+            m_drag_canvas->Hide();
         }
         Layout();
         Fit();
@@ -598,7 +603,7 @@ void PlateSettingsDialog::sync_print_seq(int print_seq)
 void PlateSettingsDialog::sync_first_layer_print_seq(int selection, const std::vector<int>& seq)
 {
     if (m_first_layer_print_seq_choice != nullptr) {
-        if (selection == 1) {
+        if (selection == 2) {
             const std::vector<std::string> extruder_colours = wxGetApp().plater()->get_extruder_colors_from_plater_config();
             m_drag_canvas->set_shape_list(extruder_colours, seq);
         }
@@ -612,7 +617,7 @@ void PlateSettingsDialog::sync_first_layer_print_seq(int selection, const std::v
 }
 
 void PlateSettingsDialog::sync_other_layers_print_seq(int selection, const std::vector<LayerPrintSequence>& seq) {
-    if (selection == 1) {
+    if (selection == 2) {
         std::vector<LayerSeqInfo> sequences;
         sequences.reserve(seq.size());
         for (int i = 0; i < seq.size(); i++) {

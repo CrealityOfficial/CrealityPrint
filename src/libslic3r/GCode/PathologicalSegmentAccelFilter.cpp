@@ -1123,6 +1123,8 @@ std::string PathologicalSegmentAccelFilter::apply(
                 out += set_motion_feedrate(lines[i], aue_speed_cap);
         } else {
             out += lines[i];
+            if (m_output_callback)
+                m_output_callback(lines[i], out, false);
         }
         if (cap_aue_speed && line_feed > 1e-9) {
             out += "G1 F";
@@ -1215,6 +1217,8 @@ std::string PathologicalSegmentAccelFilter::apply(
         out += " unresolved=";
         out += residual_count == 0 ? "0\n" : "1\n";
     }
+    if (m_output_callback)
+        m_output_callback({}, out, true);
     return out;
 }
 

@@ -1074,20 +1074,6 @@ void BBLTopbar::Init(wxFrame* parent)
         logo_item->SetUserData(HOME_BTN_CODE_UNCHECKED);
         logo_item->SetState(wxAUI_BUTTON_STATE_NORMAL);
 
-        if (evt.GetId() == MainFrame::tpPreview &&
-            wxGetApp().tab_panel()->GetSelection() != MainFrame::tpPreview) {
-            Plater* plater = wxGetApp().plater();
-            PartPlate* current_plate = plater == nullptr ? nullptr : plater->get_partplate_list().get_curr_plate();
-            if (current_plate != nullptr && !current_plate->is_slice_result_valid() &&
-                !plater->sidebar().prepare_filament_nozzle_mapping_for_slice(false, false)) {
-                if (auto* tabs = dynamic_cast<ButtonsCtrl*>(m_tabCtrol)) {
-                    tabs->SetSelection(wxGetApp().tab_panel()->GetSelection());
-                    tabs->SuppressHoverUntilReenter(MainFrame::tpPreview);
-                }
-                return;
-            }
-        }
-
         if (nullptr != m_tabCtrol) 
         {
             ButtonsCtrl* pCtr = dynamic_cast<ButtonsCtrl*>(m_tabCtrol);

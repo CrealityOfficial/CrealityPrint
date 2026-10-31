@@ -163,6 +163,51 @@
             ]
         },
         {
+            "name": "Creality K3",
+            "showVersion": "V3.5.0",
+            "nozzleDiameter": [
+                "0.4",
+                "0.4",
+                "0.4",
+                "0.4"
+            ]
+        },
+        {
+            "name": "Creality mBox",
+            "showVersion": "V3.1.0",
+            "nozzleDiameter": [
+                "0.4"
+            ]
+        },
+        {
+            "name": "Creality Ender-3 V3 Neo",
+            "showVersion": "V3.0.0",
+            "nozzleDiameter": [
+                "0.8"
+            ]
+        },
+        {
+            "name": "Creality Ender-3 V3 Neo",
+            "showVersion": "V3.1.0",
+            "nozzleDiameter": [
+                "0.6"
+            ]
+        },
+        {
+            "name": "Creality Ender-3 V3 Neo",
+            "showVersion": "V3.0.0",
+            "nozzleDiameter": [
+                "0.4"
+            ]
+        },
+        {
+            "name": "SPARKX i8",
+            "showVersion": "V3.4.5",
+            "nozzleDiameter": [
+                "0.4"
+            ]
+        },
+        {
             "name": "Creality GS-03",
             "showVersion": "V3.1.0",
             "nozzleDiameter": [
@@ -193,6 +238,20 @@
         {
             "name": "Creality Ender-3 V3 Mega",
             "showVersion": "V3.0.0",
+            "nozzleDiameter": [
+                "0.8"
+            ]
+        },
+        {
+            "name": "Creality Ender-3 V3 Mega",
+            "showVersion": "V3.1.0",
+            "nozzleDiameter": [
+                "0.6"
+            ]
+        },
+        {
+            "name": "Creality Ender-3 V3 Mega",
+            "showVersion": "V3.7.0",
             "nozzleDiameter": [
                 "0.4"
             ]
@@ -234,7 +293,7 @@
         },
         {
             "name": "SPARKX i7",
-            "showVersion": "V3.14.0",
+            "showVersion": "V3.17.0",
             "nozzleDiameter": [
                 "0.4"
             ]
@@ -262,7 +321,7 @@
         },
         {
             "name": "Creality K2",
-            "showVersion": "V3.12.0",
+            "showVersion": "V3.14.0",
             "nozzleDiameter": [
                 "0.4"
             ]
@@ -325,7 +384,7 @@
         },
         {
             "name": "Creality K2 Pro",
-            "showVersion": "V3.10.1",
+            "showVersion": "V3.15.0",
             "nozzleDiameter": [
                 "0.4"
             ]
@@ -346,28 +405,28 @@
         },
         {
             "name": "Creality K2 Plus",
-            "showVersion": "V3.16.0",
+            "showVersion": "V3.17.0",
             "nozzleDiameter": [
                 "0.8"
             ]
         },
         {
             "name": "Creality K2 Plus",
-            "showVersion": "V3.16.0",
+            "showVersion": "V3.18.0",
             "nozzleDiameter": [
                 "0.6"
             ]
         },
         {
             "name": "Creality K2 Plus",
-            "showVersion": "V3.28.0",
+            "showVersion": "V3.31.0",
             "nozzleDiameter": [
                 "0.4"
             ]
         },
         {
             "name": "Creality K2 Plus",
-            "showVersion": "V3.15.0",
+            "showVersion": "V3.16.0",
             "nozzleDiameter": [
                 "0.2"
             ]

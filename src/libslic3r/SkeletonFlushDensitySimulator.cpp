@@ -6,6 +6,7 @@
 #include "Layer.hpp"
 #include "Print.hpp"
 #include "PrintConfig.hpp"
+#include "FDM/NoWipeTowerMaterialChange.hpp"
 #include "Surface.hpp"
 
 #include <algorithm>
@@ -226,7 +227,7 @@ SkeletonFlushDensityResult replace_skeleton_with_flush_density(
     result.required_volume = result.base_volume + kSkeletonFlushShare * current_flush_volume;
 
     const float configured_density =
-        std::clamp(float(0.01 * layer_region.region().config().skeleton_infill_density), 0.01f, max_density);
+        std::clamp(0.01f * configured_skeleton_infill_density_percent(object->print()->config(), layer_region.region().config()), 0.01f, max_density);
     density_step = std::max(0.001f, density_step);
     max_density = std::clamp(max_density, configured_density, 0.99f);
 

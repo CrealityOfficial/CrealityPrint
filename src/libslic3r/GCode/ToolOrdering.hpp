@@ -22,10 +22,12 @@ class ExtrusionEntityCollection;
 class LayerTools;
 class Print;
 class PrintObject;
-class PrintConfig;
 class PrintRegion;
 namespace CustomGCode { struct Item; }
 
+class PrintConfig;
+float flush_volume_from_matrix(const std::vector<double>& flush_volumes_matrix, size_t nozzle_count, double flush_multiplier,
+                               unsigned int old_extruder, unsigned int new_extruder);
 float flush_volume_from_matrix(const PrintConfig& config,
                                unsigned int old_extruder, unsigned int new_extruder);
 float skeleton_wipe_line_width(const Print& print, const PrintRegion& region, unsigned int extruder);
@@ -101,6 +103,9 @@ private:
     int first_nonsoluble_extruder_on_layer(const PrintConfig& print_config) const;
     int last_nonsoluble_extruder_on_layer(const PrintConfig& print_config) const;
 
+    bool split_skeleton_collection_for_wipe(ExtrusionEntityCollection& fills, size_t fill_idx, float volume_limit,
+                                            ExtrusionEntityCollection*& wipe_collection, float& wipe_volume, float wipe_line_width);
+
     // This function is called from mark_wiping_extrusions and sets extruder that it should be printed with (-1 .. as usual)
     void set_extruder_override(const ExtrusionEntity* entity, const PrintObject* object, size_t copy_id, int extruder, size_t num_of_copies);
     // BBS
@@ -169,6 +174,7 @@ public:
     // Due to the support layers possibly interleaving the object layers,
     // wipe tower will be disabled for some support only layers.
     bool 						has_wipe_tower = false;
+    bool                        extra_interlayer_wipe = false;
     // Number of wipe tower partitions to support the required number of tool switches
     // and to support the wipe tower partitions above this one.
     size_t                      wipe_tower_partitions = 0;
@@ -284,6 +290,7 @@ public:
 
     void 				clear() {
         m_layer_tools.clear(); m_tool_order_cache.clear();
+        m_initial_extruder = (unsigned int)-1;
         m_mixed_object_layers.clear();
         m_object_all_layer_indices.clear();
     }
@@ -358,6 +365,9 @@ private:
 
 
     std::vector<LayerTools>    m_layer_tools;
+    // Already loaded physical tool, if known (zero-based). Used to plan the
+    // transition into the first Gray safe layer without fixing its start.
+    unsigned int               m_initial_extruder = (unsigned int)-1;
     // First printing extruder, including the multi-material priming sequence.
     unsigned int               m_first_printing_extruder = (unsigned int)-1;
     // Final printing extruder.

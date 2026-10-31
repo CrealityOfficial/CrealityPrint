@@ -304,7 +304,9 @@ static constexpr const char* LOCK_ATTR = "locked";
 static constexpr const char* BED_TYPE_ATTR = "bed_type";
 static constexpr const char* PRINT_SEQUENCE_ATTR = "print_sequence";
 static constexpr const char* FIRST_LAYER_PRINT_SEQUENCE_ATTR = "first_layer_print_sequence";
+static constexpr const char* FIRST_LAYER_SEQUENCE_CHOICE_ATTR = "first_layer_sequence_choice";
 static constexpr const char* OTHER_LAYERS_PRINT_SEQUENCE_ATTR = "other_layers_print_sequence";
+static constexpr const char* OTHER_LAYERS_SEQUENCE_CHOICE_ATTR = "other_layers_sequence_choice";
 static constexpr const char* OTHER_LAYERS_PRINT_SEQUENCE_NUMS_ATTR = "other_layers_print_sequence_nums";
 static constexpr const char* SPIRAL_VASE_MODE = "spiral_mode";
 static constexpr const char* GCODE_FILE_ATTR = "gcode_file";
@@ -2887,6 +2889,21 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             ++object_idx;
         }
 
+        // Object, modifier and layer-range overrides are read directly from XML,
+        // bypassing DynamicPrintConfig's composite legacy conversion.
+        auto migrate_skeleton_density = [](ModelConfig& local_config) {
+            if (!local_config.has("minimum_skeleton_infill_density"))
+                if (const auto* density = local_config.option("skeleton_infill_density"))
+                    local_config.set_key_value("minimum_skeleton_infill_density", density->clone());
+        };
+        for (ModelObject* object : model.objects) {
+            migrate_skeleton_density(object->config);
+            for (auto& range : object->layer_config_ranges)
+                migrate_skeleton_density(range.second);
+            for (ModelVolume* volume : object->volumes)
+                migrate_skeleton_density(volume->config);
+        }
+
         if (m_migrate_legacy_role_filament_defaults) {
             const size_t migrated_configs = migrate_legacy_role_filament_defaults(model);
             if (migrated_configs != 0)
@@ -5256,6 +5273,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 ConfigOptionEnum<PrintSequence>::from_string(value, print_sequence);
                 m_curr_plater->config.set_key_value("print_sequence", new ConfigOptionEnum<PrintSequence>(print_sequence));
             }
+            else if (key == FIRST_LAYER_SEQUENCE_CHOICE_ATTR) {
+                LayerSeq sequence_choice = flsAuto;
+                ConfigOptionEnum<LayerSeq>::from_string(value, sequence_choice);
+                m_curr_plater->config.set_key_value("first_layer_sequence_choice", new ConfigOptionEnum<LayerSeq>(sequence_choice));
+            }
             else if (key == FIRST_LAYER_PRINT_SEQUENCE_ATTR) {
                 auto get_vector_from_string = [](const std::string &str) -> std::vector<int> {
                     std::stringstream stream(str);
@@ -5267,6 +5289,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     return results;
                 };
                 m_curr_plater->config.set_key_value("first_layer_print_sequence", new ConfigOptionInts(get_vector_from_string(value)));
+            }
+            else if (key == OTHER_LAYERS_SEQUENCE_CHOICE_ATTR) {
+                LayerSeq sequence_choice = flsAuto;
+                ConfigOptionEnum<LayerSeq>::from_string(value, sequence_choice);
+                m_curr_plater->config.set_key_value("other_layers_sequence_choice", new ConfigOptionEnum<LayerSeq>(sequence_choice));
             }
             else if (key == OTHER_LAYERS_PRINT_SEQUENCE_ATTR) {
                 auto get_vector_from_string = [](const std::string &str) -> std::vector<int> {
@@ -9113,6 +9140,13 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 if (print_sequence_opt != nullptr && print_sequence_names.size() > print_sequence_opt->getInt())
                     stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << PRINT_SEQUENCE_ATTR << "\" " << VALUE_ATTR << "=\"" << print_sequence_names[print_sequence_opt->getInt()] << "\"/>\n";
 
+                ConfigOption* first_layer_sequence_choice_opt = plate_data->config.option("first_layer_sequence_choice");
+                if (first_layer_sequence_choice_opt != nullptr) {
+                    t_config_enum_names sequence_names = ConfigOptionEnum<LayerSeq>::get_enum_names();
+                    if (sequence_names.size() > first_layer_sequence_choice_opt->getInt())
+                        stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << FIRST_LAYER_SEQUENCE_CHOICE_ATTR << "\" " << VALUE_ATTR << "=\"" << sequence_names[first_layer_sequence_choice_opt->getInt()] << "\"/>\n";
+                }
+
                 ConfigOptionInts *first_layer_print_sequence_opt = plate_data->config.option<ConfigOptionInts>("first_layer_print_sequence");
                 if (first_layer_print_sequence_opt != nullptr) {
                     stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << FIRST_LAYER_PRINT_SEQUENCE_ATTR << "\" " << VALUE_ATTR << "=\"";
@@ -9125,6 +9159,13 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     stream << "\"/>\n";
                 }
 
+
+                ConfigOption* other_layers_sequence_choice_opt = plate_data->config.option("other_layers_sequence_choice");
+                if (other_layers_sequence_choice_opt != nullptr) {
+                    t_config_enum_names sequence_names = ConfigOptionEnum<LayerSeq>::get_enum_names();
+                    if (sequence_names.size() > other_layers_sequence_choice_opt->getInt())
+                        stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << OTHER_LAYERS_SEQUENCE_CHOICE_ATTR << "\" " << VALUE_ATTR << "=\"" << sequence_names[other_layers_sequence_choice_opt->getInt()] << "\"/>\n";
+                }
 
                 ConfigOptionInts *other_layers_print_sequence_opt = plate_data->config.option<ConfigOptionInts>("other_layers_print_sequence");
                 if (other_layers_print_sequence_opt != nullptr) {

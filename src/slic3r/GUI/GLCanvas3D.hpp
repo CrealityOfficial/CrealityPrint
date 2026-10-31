@@ -1121,7 +1121,7 @@ public:
     void set_shells_on_previewing(bool is_preview) { m_gcode_viewer.set_shells_on_preview(is_preview); }
 
     // BBS: add only gcode mode
-    void load_gcode_preview(const GCodeProcessorResult& gcode_result, const std::vector<std::string>& str_tool_colors, bool only_gcode);
+    bool load_gcode_preview(const GCodeProcessorResult& gcode_result, const std::vector<std::string>& str_tool_colors, bool only_gcode);
     void refresh_gcode_preview_render_paths();
     void set_gcode_view_preview_type(EViewType type) { return m_gcode_viewer.set_view_type(type); }
     EViewType get_gcode_view_preview_type() const { return m_gcode_viewer.get_view_type(); }
@@ -1207,6 +1207,7 @@ public:
 
     void set_mouse_as_dragging() { m_mouse.dragging = true; }
     bool is_mouse_dragging() const { return m_mouse.dragging; }
+    bool is_rectangle_selection_dragging() const { return m_rectangle_selection.is_dragging(); }
 
     double get_size_proportional_to_max_bed_size(double factor) const;
 

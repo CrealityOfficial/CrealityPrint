@@ -87,6 +87,7 @@ public:
 	void set_fff_print(Print *print) { m_fff_print = print; }
     void set_sla_print(SLAPrint *print) { m_sla_print = print; m_sla_print->set_printer(&m_sla_archive); }
 	void set_thumbnail_cb(ThumbnailsGeneratorCallback cb) { m_thumbnail_cb = cb; }
+	void set_plate_object_bitmap_cb(PlateObjectBitmapGeneratorCallback cb) { m_plate_object_bitmap_cb = cb; }
 	void set_gcode_result(GCodeProcessorResult* result) { m_gcode_result = result; }
 
 	//BBS: add partplate related logic
@@ -240,6 +241,7 @@ private:
 	GCodeProcessorResult     *m_gcode_result 		 = nullptr;
 	// Callback function, used to write thumbnails into gcode.
 	ThumbnailsGeneratorCallback m_thumbnail_cb 	     = nullptr;
+	PlateObjectBitmapGeneratorCallback m_plate_object_bitmap_cb = nullptr;
 	SL1Archive                  m_sla_archive;
 		// Temporary G-code, there is one defined for the BackgroundSlicingProcess, differentiated from the other processes by a process ID.
 	std::string 				m_temp_output_path;
@@ -277,6 +279,7 @@ private:
 
 	//BBS: partplate related
 	GUI::PartPlate* m_current_plate;
+    AIRecommendationMetrics m_ai_prepared_metrics;
 	PrinterTechnology m_printer_tech = ptUnknown;
 	bool m_internal_cancelled = false;
 
@@ -293,6 +296,7 @@ private:
     void                prepare_upload();
     // To be executed at the background thread.
 	ThumbnailsList		render_thumbnails(const ThumbnailsParams &params);
+	PlateObjectBitmapData render_plate_object_bitmaps(const PlateObjectBitmapParams &params);
 	// Execute task from background thread on the UI thread synchronously. Returns true if processed, false if cancelled before executing the task.
 	bool 				execute_ui_task(std::function<void()> task);
 	// To be called from inside m_mutex to cancel a planned UI task.

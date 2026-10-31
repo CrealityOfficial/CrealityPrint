@@ -30,6 +30,7 @@
 #include <stdexcept>
 #include <unordered_set>
 #include <unordered_map>
+#include <vector>
 
 using json = nlohmann::json;
 
@@ -77,6 +78,245 @@ json SlicerBridge::DoGetPresets(const json& params)
     return result;
 }
 
+json SlicerBridge::DoGetProject3mfContext(const json& params)
+{
+    (void) params;
+    auto* bundle = wxGetApp().preset_bundle;
+    auto* plater = wxGetApp().plater();
+    if (!bundle || !plater)
+        return {{"success", false}, {"message", "Creality Print project context is not available"}};
+
+    // Match ConfigBase::save_to_json exactly so the Python packager receives
+    // the same fully resolved project_settings.config that CP writes itself.
+    // full_config_secure deliberately excludes credentials and other secrets.
+    const DynamicPrintConfig config = bundle->full_config_secure();
+    json project_settings;
+    project_settings["version"] = std::string(CREALITYPRINT_VERSION);
+    project_settings["name"] = "project_settings";
+    project_settings["from"] = "project";
+    for (const std::string& key : config.keys()) {
+        const ConfigOption* option = config.option(key);
+        if (!option)
+            continue;
+        if (option->is_scalar()) {
+            if (option->type() == coString && key != "bed_custom_texture" && key != "bed_custom_model") {
+                const auto* string_option = dynamic_cast<const ConfigOptionString*>(option);
+                if (string_option)
+                    project_settings[key] = string_option->value;
+            } else {
+                project_settings[key] = option->serialize();
+            }
+        } else {
+            const auto* vector_option = dynamic_cast<const ConfigOptionVectorBase*>(option);
+            if (vector_option)
+                project_settings[key] = vector_option->vserialize();
+        }
+    }
+
+    json result;
+    result["success"] = true;
+    result["message"] = "OK";
+    result["project_settings"] = std::move(project_settings);
+    result["current_printer_preset"] = bundle->printers.get_edited_preset().name;
+    result["current_print_preset"] = bundle->prints.get_edited_preset().name;
+    result["current_filament_presets"] = bundle->filament_presets;
+    result["extruder_colors"] = plater->get_extruder_colors_from_plater_config();
+    result["application_version"] = std::string(CREALITYPRINT_VERSION);
+    result["application_stage"] = std::string(PROJECT_VERSION_EXTRA);
+    return result;
+}
+
+bool SlicerBridge::HasParameterDifferences(bool object_scope)
+{
+    const json result = DoGetParameterDifferences({{"scope", object_scope ? "object" : "global"}}, true);
+    return result.value("success", false) && result.value("has_differences", false);
+}
+
+json SlicerBridge::DoGetParameterDifferences(const json& params, bool presence_only)
+{
+    auto* bundle = wxGetApp().preset_bundle;
+    auto* plater = wxGetApp().plater();
+    if (!bundle || !plater || plater->model().objects.empty())
+        return {{"success", false}, {"error_code", "NO_MODEL"}, {"message", "Import a 3MF project first."}};
+
+    const std::string scope = params.value("scope", std::string("global"));
+    if (scope != "global" && scope != "object")
+        return {{"success", false}, {"message", "Unsupported parameter scope."}};
+
+    const auto& current = bundle->prints.get_edited_preset().config;
+    DynamicPrintConfig baseline;
+    DynamicPrintConfig actual;
+    std::string baseline_name;
+    std::string object_name;
+    std::string object_id;
+    if (scope == "object") {
+        const auto& selection = plater->get_selection();
+        const int index = selection.get_object_idx();
+        const auto& objects = plater->model().objects;
+        if (index < 0 || index >= static_cast<int>(objects.size()) || !objects[index])
+            return {{"success", false}, {"error_code", "SELECT_ONE_OBJECT"}, {"message", "Select one object to explain its overrides."}};
+        const auto* object = objects[index];
+        object_name = object->name;
+        object_id = std::to_string(object->id().id);
+        baseline = current;
+        // An object's inherited values include its plate's process overrides.
+        const int instance = selection.get_instance_idx();
+        if (instance < 0)
+            return {{"success", false}, {"error_code", "SELECT_ONE_OBJECT"}, {"message", "Select one object instance to determine its plate baseline."}};
+        if (instance >= 0) {
+            auto& plates = plater->get_partplate_list();
+            const int plate_index = plates.find_instance(index, instance);
+            if (plate_index >= 0) {
+                if (auto* plate = plates.get_plate(plate_index))
+                    baseline.apply(*plate->config());
+            }
+        }
+        baseline_name = "inherited_global_and_plate";
+        // Only explicitly overridden object keys are considered, not every
+        // difference in the inherited global process.
+        actual.apply(object->config.get());
+    } else {
+        // Match the process panel's system/default-value indicator. Avoid
+        // comparing against ConfigOptionDef's generic factory defaults.
+        const Preset* parent = bundle->prints.get_selected_preset_parent();
+        if (!parent)
+            return {{"success", false}, {"error_code", "BASELINE_UNAVAILABLE"},
+                    {"message", "The imported process preset has no available baseline."}};
+        baseline = parent->config;
+        baseline_name = parent->name;
+        actual = current;
+    }
+
+    json parameters = json::array();
+    json display = json::array();
+    json panel_names; // Loaded only when an uncategorized difference needs a display name.
+    size_t skipped = 0;
+    for (const auto& key : actual.keys()) {
+        // Exclude profile identities, paths, scripts and non-process settings.
+        if (!current.has(key)) continue;
+        const auto found = print_config_def.options.find(key);
+        if (found == print_config_def.options.end()) continue;
+        const auto& def = found->second;
+        // Category is optional display metadata: valid process options such as
+        // first-layer speed, acceleration and jerk leave it empty.
+        if (def.label.empty() || def.mode == comDevelop || def.printer_technology == ptSLA)
+            continue;
+        const ConfigOption* from = baseline.option(key);
+        const ConfigOption* to = actual.option(key);
+        if (!from || !to || from->type() != to->type() || *from == *to) continue;
+
+        const auto* from_vector = dynamic_cast<const ConfigOptionVectorBase*>(from);
+        const auto* to_vector = dynamic_cast<const ConfigOptionVectorBase*>(to);
+        const auto from_values = from_vector ? from_vector->vserialize() : std::vector<std::string>{from->serialize()};
+        const auto to_values = to_vector ? to_vector->vserialize() : std::vector<std::string>{to->serialize()};
+        if (from_values.empty() || to_values.empty()) { ++skipped; continue; }
+        const auto type = static_cast<ConfigOptionType>(int(to->type()) & ~int(coVectorType));
+        // Vector process values (e.g. per-nozzle speeds) are sent as individual
+        // scalar entries. Index metadata stays local; arrays never reach API.
+        for (size_t index = 0; index < to_values.size(); ++index) {
+            const size_t from_index = std::min(index, from_values.size() - 1);
+            if (to_vector && to_vector->is_nil(index)) continue; // inherited, not overridden
+            if (from_vector && from_vector->is_nil(from_index)) { ++skipped; continue; }
+            if (from_values[from_index] == to_values[index]) continue;
+            std::string unit = def.sidetext;
+            auto scalar = [&](std::string value) -> json {
+                switch (type) {
+                case coBool:
+                    if (value == "1" || value == "true") return true;
+                    if (value == "0" || value == "false") return false;
+                    return nullptr;
+                case coFloat:
+                case coInt:
+                case coPercent:
+                case coFloatOrPercent: {
+                    if (!value.empty() && value.back() == '%') value.pop_back();
+                    json number = json::parse(value, nullptr, false);
+                    if (number.is_discarded() || !number.is_number() || !std::isfinite(number.get<double>()))
+                        return nullptr;
+                    return number;
+                }
+                case coEnum: return value;
+                case coString: return def.enum_values.empty() ? json(nullptr) : json(value);
+                default: return nullptr;
+                }
+            };
+            if (type == coFloatOrPercent) {
+                const bool from_percent = !from_values[from_index].empty() && from_values[from_index].back() == '%';
+                const bool to_percent = !to_values[index].empty() && to_values[index].back() == '%';
+                if (from_percent != to_percent) { ++skipped; continue; }
+                if (from_percent) unit = "%";
+                else {
+                    const size_t suffix = unit.find(" or %");
+                    if (suffix != std::string::npos) unit.erase(suffix);
+                }
+            } else if (type == coPercent) unit = "%";
+            else if (type == coBool || type == coEnum) unit.clear();
+            const json default_value = scalar(from_values[from_index]);
+            const json actual_value = scalar(to_values[index]);
+            if (default_value.is_null() || actual_value.is_null()) { ++skipped; continue; }
+            if (default_value == actual_value) continue;
+            if (presence_only)
+                return {{"success", true}, {"has_differences", true}};
+            json parameter = {{"param_name_en", key}, {"default_value", default_value}, {"actual_value", actual_value}};
+            const std::string leaf = _u8L((def.full_label.empty() ? def.label : def.full_label).c_str());
+            std::string label = def.category.empty() ? leaf : _u8L(def.category.c_str()) + " / " + leaf;
+            if (def.category.empty()) {
+                // Short labels such as "Initial layer" occur under speed,
+                // acceleration and jerk. Reuse the panel's display context,
+                // without making the existence of a panel entry a filter.
+                if (panel_names.is_null()) panel_names = BuildPanelNameMap();
+                const auto panel = panel_names.find(key);
+                if (panel != panel_names.end()) {
+                    label.clear();
+                    std::string previous;
+                    for (const auto& segment : {panel->value("group_loc", std::string()),
+                                                panel->value("line_loc", std::string()), leaf}) {
+                        if (segment.empty() || segment == previous) continue;
+                        if (!label.empty()) label += " / ";
+                        label += segment;
+                        previous = segment;
+                    }
+                }
+            }
+            // Send the canonical English key. Panel labels can be abbreviated
+            // (e.g. "Outer wall"), so keep localized labels in display metadata
+            // instead of introducing a conflicting Chinese lookup name.
+            if (!unit.empty()) parameter["unit"] = unit;
+            json display_item = {{"label", label}, {"value_index", to_vector ? int(index) : -1}};
+            // Resolve enum text exactly like Choice::build in the process panel:
+            // map the serialized value to enum_labels, then use CP's locale.
+            // Keep raw enum values in the algorithm request; labels are UI-only.
+            auto enum_label = [&](const std::string& value) -> std::string {
+                const auto it = std::find(def.enum_values.begin(), def.enum_values.end(), value);
+                if (it == def.enum_values.end()) return {};
+                const size_t choice = size_t(it - def.enum_values.begin());
+                if (choice >= def.enum_labels.size() || def.enum_labels[choice].empty()) return {};
+                return _u8L(def.enum_labels[choice].c_str());
+            };
+            if (type == coEnum || type == coString) {
+                const std::string from_label = enum_label(from_values[from_index]);
+                const std::string to_label = enum_label(to_values[index]);
+                if (!from_label.empty()) display_item["default_value_label"] = from_label;
+                if (!to_label.empty()) display_item["actual_value_label"] = to_label;
+            }
+            display.push_back(std::move(display_item));
+            parameters.push_back(std::move(parameter));
+        }
+    }
+    if (presence_only)
+        return {{"success", true}, {"has_differences", false}};
+    json object_ids = json::array();
+    for (const auto* object : plater->model().objects)
+        if (object) object_ids.push_back(std::to_string(object->id().id));
+    const wxString filename = plater->get_project_filename();
+    // Only the display name crosses the WebView bridge, never a local path.
+    const std::string source_name = into_u8(filename.AfterLast('\\').AfterLast('/'));
+    return {{"success", true}, {"parameters", parameters}, {"scope", scope},
+            {"source_name", source_name}, {"object_name", object_name},
+            {"object_id", object_id}, {"project_object_ids", object_ids},
+            {"baseline_name", baseline_name}, {"skipped_count", skipped}, {"display", display}};
+}
+
 json SlicerBridge::DoGetEditedConfig(const json& params)
 {
     auto* bundle = wxGetApp().preset_bundle;
@@ -93,7 +333,9 @@ json SlicerBridge::DoGetEditedConfig(const json& params)
 
     // 获取当前选中对象的 per-object config（用于覆盖全局值）
     const ModelConfig* object_cfg = nullptr;
-    if (auto* plater = wxGetApp().plater()) {
+    const bool global_scope = params.value("scope", std::string()) == "global";
+    if (global_scope) result["scope"] = "global";
+    if (auto* plater = wxGetApp().plater(); plater && !global_scope) {
         auto& selection = plater->get_selection();
         const int obj_idx = selection.get_object_idx();
         const auto& model = plater->model();
@@ -258,8 +500,8 @@ json SlicerBridge::DoApplyConfig(const json& params)
     // warnings. "scope"/"object_name" are consumed above; "parameter"/"value"/
     // "patch" are handled by the arg-shape normalization.
     static const std::unordered_set<std::string> kMetaKeys = {
-        "scope", "object_name", "request_id", "workflow_id", "workflowId",
-        "parameter", "value", "patch"
+        "scope", "object_name", "object_uid", "request_id", "workflow_id", "workflowId",
+        "parameter", "value", "patch", "recommend_id"
     };
 
     // Compute the set of config keys whose UI fields are currently DISABLED, by
@@ -412,6 +654,36 @@ json SlicerBridge::DoApplyConfig(const json& params)
     int applied = 0;
     json changes = json::array();
     json warnings = json::array();
+    const std::string recommend_id = resolved_params.contains("recommend_id") && resolved_params["recommend_id"].is_string()
+        ? resolved_params["recommend_id"].get<std::string>() : std::string();
+    const uint64_t apply_seq = recommend_id.empty() ? 0 : next_ai_recommendation_sequence();
+    std::map<std::string, AIRecommendationValue> accepted_recommendations;
+    // Include same-value applications, but never rejected/unsupported request entries.
+    auto accept_recommendation = [&](const std::string& key, const ConfigOption* option) {
+        if (recommend_id.empty() || !option) return;
+        try {
+            accepted_recommendations[key] = {option->serialize(), int(option->type()), recommend_id, apply_seq};
+        } catch (...) { BOOST_LOG_TRIVIAL(warning) << "[AIRecommendation] cannot capture applied key " << key; }
+    };
+    auto bind_recommendation = [&](ModelObject* object, bool global) {
+        if (!object || accepted_recommendations.empty()) return;
+        try {
+            auto& baseline = object->ai_recommendation;
+            for (const auto& [key, value] : accepted_recommendations) {
+                // A global edit does not apply through an existing object/plate override.
+                if (global && object->config.has(key)) continue;
+                bool plate_override = false;
+                if (global) {
+                    for (auto* plate : plater->get_partplate_list().get_plate_list()) {
+                        const auto objects = plate->get_objects_on_this_plate();
+                        if (std::find(objects.begin(), objects.end(), object) != objects.end() && plate->config()->has(key))
+                            plate_override = true;
+                    }
+                }
+                if (!plate_override) baseline.accept(key, value, object->ai_recommendation_volume_ids());
+            }
+        } catch (...) { BOOST_LOG_TRIVIAL(warning) << "[AIRecommendation] cannot save applied baseline"; }
+    };
 
     // ---- Per-object parameter path ----
     // Apply to object config when:
@@ -420,13 +692,21 @@ json SlicerBridge::DoApplyConfig(const json& params)
     // When no object is selected, always write to the global preset.
     const std::string scope_val = resolved_params.value("scope", "");
     const std::string object_name_val = resolved_params.value("object_name", "");
+    const std::string object_uid_val = resolved_params.value("object_uid", "");
 
     // Determine target object
     auto* model = plater ? &plater->model() : nullptr;
     ModelObject* target_object = nullptr;
 
-    if (model) {
-        if (!object_name_val.empty()) {
+    if (model && scope_val != "global") {
+        if (!object_uid_val.empty()) {
+            for (auto* obj : model->objects) {
+                if (obj && std::to_string(obj->id().id) == object_uid_val) {
+                    target_object = obj;
+                    break;
+                }
+            }
+        } else if (!object_name_val.empty()) {
             // Explicit object name — find it
             for (auto* obj : model->objects) {
                 if (!obj) continue;
@@ -438,12 +718,18 @@ json SlicerBridge::DoApplyConfig(const json& params)
         }
         // Only fall back to selected object — do NOT auto-target the sole scene object.
         // When nothing is selected the intent is global preset modification.
-        if (!target_object) {
+        if (!target_object && object_uid_val.empty()) {
             const int obj_idx = plater->get_selection().get_object_idx();
             if (obj_idx >= 0 && obj_idx < (int)model->objects.size())
                 target_object = model->objects[obj_idx];
         }
     }
+
+    // A recommendation tied to a model must never fall back to a different
+    // selection or the global preset after that model has been deleted.
+    if (scope_val != "global" && !object_uid_val.empty() && !target_object)
+        return {{"success", false}, {"error_code", "RECOMMENDATION_OBJECT_NOT_FOUND"},
+                {"message", "The recommended object no longer exists. Please recommend again."}};
 
     const bool apply_to_object = target_object != nullptr &&
         (scope_val == "object" || !object_name_val.empty() || target_object != nullptr);
@@ -456,6 +742,12 @@ json SlicerBridge::DoApplyConfig(const json& params)
 
         if (!target_object)
             return {{"success", false}, {"message", "Target object not found for per-object config"}};
+
+        // Model undo restores object config and attribution together. Global preset edits
+        // retain their existing undo behavior; do not create a metadata-only undo command.
+        std::unique_ptr<Plater::TakeSnapshot> recommendation_snapshot;
+        if (!recommend_id.empty())
+            recommendation_snapshot = std::make_unique<Plater::TakeSnapshot>(plater, std::string("Apply Recommended Parameters"));
 
         for (auto& [key, value] : resolved_params.items()) {
             if (kMetaKeys.count(key)) continue;
@@ -498,6 +790,7 @@ json SlicerBridge::DoApplyConfig(const json& params)
 
                 target_object->config.set_key_value(key, new_opt->clone());
                 std::string new_val = target_object->config.option(key)->serialize();
+                accept_recommendation(key, target_object->config.option(key));
 
                 if (new_val != old_val) {
                     changes.push_back({{"key", key}, {"old_value", old_val}, {"new_value", new_val}});
@@ -510,6 +803,7 @@ json SlicerBridge::DoApplyConfig(const json& params)
             }
         }
 
+        bind_recommendation(target_object, false);
         if (!changes.empty()) {
             wxGetApp().obj_list()->object_config_options_changed({target_object, nullptr});
             wxGetApp().plater()->update();
@@ -520,6 +814,9 @@ json SlicerBridge::DoApplyConfig(const json& params)
                 pp->switch_to_object_if_has_object_configs();
             }
         }
+
+        if (changes.empty() && !accepted_recommendations.empty())
+            plater->update(); // Refresh attribution through Print::apply even for same-value applications.
 
         // If every requested key was rejected as non-editable and nothing was
         // applied, fail the call so the agent replies in natural language
@@ -580,6 +877,7 @@ json SlicerBridge::DoApplyConfig(const json& params)
 
                 const float old_fval = opt->getFloat();
                 opt->set(new ConfigOptionFloat(new_fval));
+                accept_recommendation(key, opt);
                 bundle->save_flush_multiplier(*wxGetApp().app_config);
                 wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
                 plater->update_project_dirty_from_presets();
@@ -621,7 +919,14 @@ json SlicerBridge::DoApplyConfig(const json& params)
             else if (value.is_boolean())
                 str_val = value.get<bool>() ? "1" : "0";
 
-            apply_to_preset(key, str_val);
+            const bool applied_to_preset = apply_to_preset(key, str_val);
+            if (applied_to_preset) {
+                try {
+                    DynamicPrintConfig accepted;
+                    accepted.set_deserialize_strict(key, get_current_value(key));
+                    accept_recommendation(key, accepted.option(key));
+                } catch (...) { BOOST_LOG_TRIVIAL(warning) << "[AIRecommendation] cannot capture preset key " << key; }
+            }
 
             std::string new_val = get_current_value(key);
             if (new_val != old_val) {
@@ -683,6 +988,11 @@ json SlicerBridge::DoApplyConfig(const json& params)
             {"blocked_keys", blocked_keys}
         };
     }
+
+    if (model)
+        for (auto* object : model->objects) bind_recommendation(object, true);
+    if (changes.empty() && !accepted_recommendations.empty())
+        plater->update();
 
     // Notify plater with full config (same approach as UI code)
     if (!changes.empty()) {

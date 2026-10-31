@@ -3096,8 +3096,6 @@ void Sidebar::jump_to_option(size_t selected)
 // BBS. Move logic from Plater::on_extruders_change() to Sidebar::on_filaments_change().
 void Sidebar::on_filaments_change(size_t num_filaments, int deleted_filament_id)
 {
-    p->m_cx_panel_filament_content->resetFilamentToCFS();
-
     auto* app_plater = wxGetApp().plater();
     bool skeleton_matrix_changed = false;
     if (wxGetApp().preset_bundle != nullptr && app_plater != nullptr) {
@@ -3836,14 +3834,7 @@ void Sidebar::show_SEMM_buttons(bool bshow)
 void Sidebar::show_auto_mapping(bool bshow) 
 {
     if (p->m_auto_mapping_btn) {
-        const DM::Device device_data = DM::DataCenter::Ins().get_current_device_data();
-        std::string selected_printer_model;
-        if (wxGetApp().preset_bundle != nullptr) {
-            selected_printer_model =
-                wxGetApp().preset_bundle->printers.get_edited_preset().config.opt_string("printer_model");
-        }
-        const bool is_k3 = (device_data.valid && device_data.model == "F039") || selected_printer_model == "Creality K3";
-        p->m_auto_mapping_btn->Show(bshow && !is_k3);
+        p->m_auto_mapping_btn->Show(bshow);
         //Layout();
     }
 }
@@ -6752,7 +6743,8 @@ struct Plater::priv
     // Displays dialog window with list of warnings.
     // Returns true if user clicks OK.
     // Returns true if current_warnings vector is empty without showning the dialog
-    bool warnings_dialog(int plate_index = PLATE_ALL_IDX);
+    // With show_dialog=false, reject matching warnings without opening a modal.
+    bool warnings_dialog(int plate_index = PLATE_ALL_IDX, bool show_dialog = true);
 
     void on_action_printer(SimpleEvent&);
     void on_action_add(SimpleEvent&);
@@ -7065,7 +7057,7 @@ Plater::priv::priv(Plater* q, MainFrame* main_frame)
         "enable_support", "support_filament", "support_interface_filament",
         "support_top_z_distance", "support_bottom_z_distance", "raft_layers",
         "wipe_tower_rotation_angle", "wipe_tower_cone_angle", "wipe_tower_extra_spacing", "prime_tower_start_ironing",
-        "prime_tower_start_offset", "wipe_tower_extra_flow", "wipe_tower_max_purge_speed",
+        "prime_tower_start_offset", "prime_tower_toolchange_at_start", "wipe_tower_extra_flow", "wipe_tower_max_purge_speed",
         "wipe_tower_filament","best_object_pos","prime_tower_rib_wall"
         }))
     , sidebar(new Sidebar(q))
@@ -7124,6 +7116,16 @@ Plater::priv::priv(Plater* q, MainFrame* main_frame)
     // BBS: to be checked. Not follow patch.
     background_process.set_thumbnail_cb(
         [this](const ThumbnailsParams& params) { return this->generate_thumbnails(params, Camera::EType::Ortho); });
+    background_process.set_plate_object_bitmap_cb(
+        [this](const PlateObjectBitmapParams& params) {
+            PlateObjectBitmapData data;
+            const ThumbnailsParams thumbnail_params = {{}, false, true, false, true, params.plate_id, params.instances};
+            this->generate_thumbnail(data.top, params.width, params.height, thumbnail_params,
+                Camera::EType::Ortho, true, false);
+            this->generate_thumbnail(data.pick, params.width, params.height, thumbnail_params,
+                Camera::EType::Ortho, true, true);
+            return data;
+        });
     background_process.set_slicing_completed_event(EVT_SLICING_COMPLETED);
     background_process.set_finished_event(EVT_PROCESS_COMPLETED);
     background_process.set_export_began_event(EVT_EXPORT_BEGAN);
@@ -7928,7 +7930,23 @@ void Plater::priv::select_view_3D(const std::string& name, bool no_slice)
 
         Model::setExtruderParams(config, numExtruders);
         Model::setPrintSpeedTable(config, print_config);
-        set_current_panel(preview, no_slice);
+        // Finish showing and thawing Preview before opening a modal grouping dialog.
+        set_current_panel(preview, true);
+        if (!no_slice) {
+            q->CallAfter([this] {
+                if (current_panel != preview)
+                    return;
+
+                PartPlate* current_plate = partplate_list.get_curr_plate();
+                if (current_plate != nullptr && !current_plate->is_slice_result_valid() &&
+                    !sidebar->prepare_filament_nozzle_mapping_for_slice(false, false))
+                    return;
+
+                // The modal dialog dispatches events, including view changes.
+                if (current_panel == preview)
+                    set_current_panel(preview, false);
+            });
+        }
     } else if (name == "Assemble") {
         BOOST_LOG_TRIVIAL(info) << "select assemble view";
         set_current_panel(assemble_view, no_slice);
@@ -7944,11 +7962,6 @@ void Plater::priv::select_view_3D(const std::string& name, bool no_slice)
 void Plater::priv::select_next_view_3D()
 {
     if (current_panel == view3D) {
-        PartPlate* current_plate = partplate_list.get_curr_plate();
-        if (current_plate != nullptr && !current_plate->is_slice_result_valid() &&
-            !sidebar->prepare_filament_nozzle_mapping_for_slice(false, false))
-            return;
-
         wxGetApp().mainframe->select_tab(size_t(MainFrame::tpPreview));
         wxGetApp().mainframe->m_topbar->SetSelection(size_t(MainFrame::tpPreview));
     } else if (current_panel == preview) {
@@ -8288,7 +8301,9 @@ void Plater::priv::update_easy_mode_ai_layout()
     const bool is_easy_mode = wxGetApp().easy_mode();
     const bool should_show_embedded_ai = is_easy_mode && easy_mode_ai_dock_enabled();
     const bool mode_changed = !m_easy_ai_layout_initialized || m_last_easy_mode_state != is_easy_mode;
-
+    // Page entry is a native UI event; do not wait for the chat WebView bootstrap.
+    if (mode_changed && is_easy_mode)
+        wxGetApp().track_event("ai_assistant_page_view", "{}");
     if (should_show_embedded_ai) {
         ensure_embedded_ai_chat_panel();
         if (m_embedded_ai_chat_panel != nullptr && !m_embedded_ai_chat_panel->IsShown())
@@ -10486,7 +10501,7 @@ bool Plater::priv::run_textured_mesh_import_dialog(Slic3r::Model&           load
         return false;
     }
 
-    auto painted       = dlg.get_painted_mesh();
+    auto painted       = dlg.take_painted_mesh();
     auto final_matches = dlg.get_matches();
 
     if (painted.face_colors.empty() || final_matches.empty()) {
@@ -13494,7 +13509,7 @@ void Plater::priv::clear_warnings(int plate_index)
     }
     
 }
-bool Plater::priv::warnings_dialog(int plate_index)
+bool Plater::priv::warnings_dialog(int plate_index, bool show_dialog)
 {
     if (current_warnings.empty())
         return true;
@@ -13516,6 +13531,9 @@ bool Plater::priv::warnings_dialog(int plate_index)
 
     if (!has_warning)
         return true;
+
+    if (!show_dialog)
+        return false;
 
     std::string ssWarning = _u8L("has floating regions. Please re-orient the object or enable support generation.");
     std::string ssWarning2 = _u8L("appears to have floating areas, which may cause print failure.\nPlease reorient the model or enable supports.\n\n ");
@@ -13545,7 +13563,7 @@ bool Plater::priv::warnings_dialog(int plate_index)
     }
 
     // text += "\n\nDo you still wish to export?";
-    MessageDialog msg_window(this->q, from_u8(text), _L("warnings"), wxOK | wxCANCEL);
+    ChangeBtnRichMsgDlg msg_window(this->q, from_u8(text), false, _L("warnings"), wxOK | wxCANCEL);
     const auto    res = msg_window.ShowModal();
     return res == wxID_CANCEL;
 }
@@ -14018,8 +14036,11 @@ void Plater::priv::on_process_completed(SlicingProcessCompletedEvent& evt)
     }
 
     // BBS: set the current plater's slice result to valid
-    if (!this->background_process.empty())
-        this->background_process.get_current_plate()->update_slice_result_valid_state(evt.success());
+    if (!this->background_process.empty()) {
+        auto* plate = this->background_process.get_current_plate();
+        plate->update_slice_result_valid_state(evt.success());
+        plate->finish_ai_recommendation_slice(evt.success());
+    }
 
     // BBS: update the action button according to the current plate's status
     bool ready_to_slice = !this->partplate_list.get_curr_plate()->is_slice_result_valid();
@@ -16808,6 +16829,8 @@ int Plater::new_project(bool skip_confirm, bool silent, const wxString& project_
     get_notification_manager()->bbl_close_3mf_warn_notification();
     get_notification_manager()->close_notification_of_type(NotificationType::PlaterError);
     get_notification_manager()->close_notification_of_type(NotificationType::PlaterWarning);
+    get_notification_manager()->close_notification_of_type(NotificationType::ValidateError);
+    get_notification_manager()->close_notification_of_type(NotificationType::ValidateWarning);
     get_notification_manager()->close_notification_of_type(NotificationType::SlicingError);
     get_notification_manager()->close_notification_of_type(NotificationType::SlicingSeriousWarning);
     get_notification_manager()->close_notification_of_type(NotificationType::SlicingWarning);
@@ -17684,7 +17707,10 @@ void Plater::calib_pa(const Calib_Params& params)
     }
     switch (params.mode) {
     case CalibMode::Calib_PA_Line: add_model(false, Slic3r::resources_dir() + "/calib/pressure_advance/pressure_advance_test.stl"); break;
-    case CalibMode::Calib_PA_Pattern: _calib_pa_pattern(params); break;
+    case CalibMode::Calib_PA_Pattern:
+        if (!_calib_pa_pattern(params))
+            return;
+        break;
     case CalibMode::Calib_PA_Tower: _calib_pa_tower(params); break;
     default: break;
     }
@@ -17692,7 +17718,7 @@ void Plater::calib_pa(const Calib_Params& params)
     p->background_process.fff_print()->set_calib_params(params);
 }
 
-void Plater::_calib_pa_pattern(const Calib_Params& params)
+bool Plater::_calib_pa_pattern(const Calib_Params& params)
 {
     // add "handle" cube
     sidebar().obj_list()->load_generic_subobject("Cube", ModelVolumeType::INVALID);
@@ -17787,6 +17813,15 @@ void Plater::_calib_pa_pattern(const Calib_Params& params)
     const Vec3d                 plate_origin   = get_partplate_list().get_current_plate_origin();
     CalibPressureAdvancePattern pa_pattern(params, full_config, is_bbl_machine, model(), plate_origin);
 
+    const BoundingBoxf printable_bbox = get_extents(full_config.opt<ConfigOptionPoints>("printable_area")->values);
+    if (pa_pattern.print_size_x() > printable_bbox.size().x() || pa_pattern.print_size_y() > printable_bbox.size().y()) {
+        MessageDialog msg_dlg(nullptr,
+                              _L("The V-shape calibration pattern does not fit in the printable area. Please reduce the PA range or increase the PA step."),
+                              wxEmptyString, wxICON_WARNING | wxOK);
+        msg_dlg.ShowModal();
+        return false;
+    }
+
     // scale cube to suit test
     GizmoObjectManipulation& giz_obj_manip = p->view3D->get_canvas3d()->get_gizmos_manager().get_object_manipulation();
     giz_obj_manip.set_uniform_scaling(true);
@@ -17802,6 +17837,7 @@ void Plater::_calib_pa_pattern(const Calib_Params& params)
     pa_pattern.generate_custom_gcodes(full_config, is_bbl_machine, model(), plate_origin);
     model().calib_pa_pattern = std::make_unique<CalibPressureAdvancePattern>(pa_pattern);
     changed_objects({0});
+    return true;
 }
 
 void Plater::cut_horizontal(size_t obj_idx, size_t instance_idx, double z, ModelObjectCutAttributes attributes)
@@ -21286,6 +21322,17 @@ int Plater::export_gcode_3mf_headless(const fs::path& output_path_in, bool expor
         return 2;
     }
 
+    int plate_idx = get_partplate_list().get_curr_plate_index();
+    if (export_all)
+        plate_idx = PLATE_ALL_IDX;
+
+    // Headless callers cannot dismiss modal dialogs. Return the existing
+    // warning error before changing export state so they can use the 3MF fallback.
+    if (!export_all && !p->warnings_dialog(plate_idx, /*show_dialog*/ false)) {
+        err = "warnings_dialog rejected";
+        return 3;
+    }
+
     fs::path output_path = output_path_in;
 
     // 2) 瑙勮寖鎵╁睍鍚嶏紙涓庡師鍑芥暟涓€鑷达級
@@ -21317,22 +21364,12 @@ int Plater::export_gcode_3mf_headless(const fs::path& output_path_in, bool expor
     p->last_output_path     = output_path.string();
     p->last_output_dir_path = output_path.parent_path().string();
 
-    int plate_idx = get_partplate_list().get_curr_plate_index();
-    if (export_all)
-        plate_idx = PLATE_ALL_IDX;
-
     // 4) 鐪熸瀵煎嚭
     int ret = 0;
     if (!export_all && output_path.extension().string() == ".gcode") {
-        if (p->warnings_dialog(plate_idx)) {
-            p->show_warning_dialog_popup_window = false;
-            p->export_gcode(output_path, /*save_tmp*/ false);
-            p->show_warning_dialog_popup_window = false;
-            ret                                 = 0;
-        } else {
-            err = "warnings_dialog rejected";
-            return 3;
-        }
+        p->show_warning_dialog_popup_window = false;
+        p->export_gcode(output_path, /*save_tmp*/ false);
+        p->show_warning_dialog_popup_window = false;
     } else {
         ret = export_3mf(output_path, SaveStrategy::Silence | SaveStrategy::SplitModel | SaveStrategy::WithGcode | SaveStrategy::SkipModel,
                          plate_idx);
@@ -22829,6 +22866,19 @@ void Plater::reslice()
         p->m_is_slicing = true;
         this->SetDropTarget(nullptr);
 
+        // Attribute only a successfully applied recommendation on this actual slice plate.
+        if (auto* plate = get_partplate_list().get_curr_plate()) {
+            const std::string& recommend_id = plate->get_ai_recommend_id();
+            if (!recommend_id.empty() && wxGetApp().preset_bundle) {
+                const auto* presets = wxGetApp().preset_bundle;
+                nlohmann::json tracking = {
+                    {"recommend_id", recommend_id},
+                    {"printer", presets->printers.get_edited_preset().name},
+                    {"process", presets->prints.get_edited_preset().name}
+                };
+                wxGetApp().track_event("ai_slice_param_start", tracking.dump());
+            }
+        }
         // upload analytics data here
         AnalyticsDataUploadManager::getInstance().triggerUploadTasks(AnalyticsUploadTiming::ON_SLICE_PLATE_CMD,
                                                                     {AnalyticsDataEventType::ANALYTICS_SLICE_PLATE});
@@ -23482,7 +23532,8 @@ ZaaUiPlanContext zaa_build_plan_context(Plater& plater, const ZaaUiNormalization
 
     DynamicPrintConfig effective_global = *print_tab->get_config();
     if (request.scope == ZaaUiChangeScope::Global && changed_config != nullptr) {
-        for (const char* key : {"zaa_enabled", "seam_slope_type", "spiral_mode", "enable_mixed_color_sublayer"})
+        for (const char* key : {"zaa_enabled", "seam_slope_type", "spiral_mode", "enable_mixed_color_sublayer", "enable_arc_fitting",
+                               "max_volumetric_extrusion_rate_slope", "smooth_speed_discontinuity_area"})
             if (changed_config->has(key))
                 effective_global.set_key_value(key, changed_config->option(key)->clone());
     }
@@ -23491,7 +23542,10 @@ ZaaUiPlanContext zaa_build_plan_context(Plater& plater, const ZaaUiNormalization
         effective_global.opt_bool("zaa_enabled"),
         effective_global.opt_enum<SeamScarfType>("seam_slope_type") != SeamScarfType::None,
         effective_global.opt_bool("spiral_mode"),
-        effective_global.opt_bool("enable_mixed_color_sublayer")
+        effective_global.opt_bool("enable_mixed_color_sublayer"),
+        effective_global.opt_bool("enable_arc_fitting"),
+        effective_global.opt_float("max_volumetric_extrusion_rate_slope") > 0.,
+        effective_global.opt_bool("smooth_speed_discontinuity_area")
     };
 
     std::unordered_set<size_t> scoped_ids;
@@ -23529,29 +23583,43 @@ wxString zaa_feature_name(const std::string& key)
         return _L("Spiral vase");
     if (key == "zaa_enabled")
         return _L("Z contouring");
+    if (key == "enable_arc_fitting")
+        return _L("Arc fitting");
     if (key == "seam_slope_type")
         return _L("Scarf joint seam (beta)");
     return _L("Mixed color sublayer");
 }
 
-void zaa_append_action(wxString& actions, const wxString& feature, const wxString& scope)
+void zaa_append_action_text(wxString& actions, const wxString& action)
 {
     if (!actions.empty())
         actions += "\n";
-    actions += "  - " + format_wxstr(_L("Disable \"%1%\" (%2%)"), feature, scope);
+    actions += "  - " + action;
+}
+
+void zaa_append_action(wxString& actions, const wxString& feature, const wxString& scope = wxEmptyString)
+{
+    zaa_append_action_text(actions, scope.empty() ? format_wxstr(_L("Disable \"%1%\""), feature) :
+                                                  format_wxstr(_L("Disable \"%1%\" (%2%)"), feature, scope));
 }
 
 wxString zaa_plan_actions(const ZaaUiNormalizationPlan& plan)
 {
     wxString actions;
     if (plan.disable_global_spiral)
-        zaa_append_action(actions, zaa_feature_name("spiral_mode"), _L("Global"));
+        zaa_append_action(actions, zaa_feature_name("spiral_mode"));
     if (plan.disable_global_zaa)
-        zaa_append_action(actions, zaa_feature_name("zaa_enabled"), _L("Global"));
+        zaa_append_action(actions, zaa_feature_name("zaa_enabled"));
+    if (plan.disable_global_arc_fitting)
+        zaa_append_action_text(actions, format_wxstr(_L("Uncheck \"%1%\""), zaa_feature_name("enable_arc_fitting")));
+    if (plan.disable_global_extrusion_smoothing)
+        zaa_append_action_text(actions, format_wxstr(_L("Set \"%1%\" to 0 (disabled)"), _L("Extrusion rate smoothing")));
+    if (plan.disable_global_speed_smoothing)
+        zaa_append_action_text(actions, format_wxstr(_L("Uncheck \"%1%\""), _L("Smooth speed discontinuity area (Beta)")));
     if (plan.disable_global_scarf)
-        zaa_append_action(actions, zaa_feature_name("seam_slope_type"), _L("Global"));
+        zaa_append_action(actions, zaa_feature_name("seam_slope_type"));
     if (plan.disable_global_mixed)
-        zaa_append_action(actions, zaa_feature_name("enable_mixed_color_sublayer"), _L("Global"));
+        zaa_append_action(actions, zaa_feature_name("enable_mixed_color_sublayer"));
     if (!plan.spiral_false_object_ids.empty())
         zaa_append_action(actions, zaa_feature_name("spiral_mode"), _L("affected Plate setting(s)"));
     if (!plan.zaa_false_object_ids.empty())
@@ -23561,6 +23629,20 @@ wxString zaa_plan_actions(const ZaaUiNormalizationPlan& plan)
         zaa_append_action(actions, zaa_feature_name("seam_slope_type"),
                           format_wxstr(_L("%1% object(s)"), plan.scarf_none_object_ids.size()));
     return actions;
+}
+
+wxString zaa_conflict_message(const ZaaUiNormalizationRequest& request, const ZaaUiNormalizationPlan& plan)
+{
+    if (request.config_load)
+        return _L("The loaded configuration contains conflicting process settings. The following settings will be turned off:") +
+               "\n\n" + zaa_plan_actions(plan);
+
+    wxString message = format_wxstr(_L("Enabling \"%1%\" conflicts with the following active settings."),
+                                    zaa_feature_name(request.changed_key));
+    message += "\n\n" + _L("To keep the feature you just enabled, Creality Print will make the following changes:");
+    message += "\n" + zaa_plan_actions(plan);
+    message += "\n\n" + _L("Apply these changes?");
+    return message;
 }
 
 void zaa_disable_changed_feature(const ZaaUiNormalizationRequest& request, DynamicPrintConfig* changed_config)
@@ -23591,6 +23673,9 @@ wxString Plater::get_zaa_ui_conflict_message(const ZaaUiNormalizationRequest& re
             return _L("This object has an active Scarf joint seam setting stored at Volume, Material, or Layer range scope. It cannot be disabled safely, so the object settings were not changed and slicing this Plate will remain blocked until the conflict is resolved.");
         return _L("An active Scarf joint seam setting is stored at Volume, Material, or Layer range scope and cannot be disabled safely by this action.");
     }
+
+    if (context.plan.arc_fitting_conflict)
+        return zaa_conflict_message(request, context.plan);
 
     wxString message = spiral_already_enabled ?
         _L("To use this object on a Plate with Spiral vase enabled, the following conflicting settings will be disabled:") :
@@ -23651,7 +23736,8 @@ bool Plater::apply_zaa_ui_normalization(const ZaaUiNormalizationRequest& request
         *changed_feature_rejected = false;
     if (!request.changed_feature_enabled ||
         (request.changed_key != "zaa_enabled" && request.changed_key != "enable_mixed_color_sublayer" &&
-         request.changed_key != "seam_slope_type" && request.changed_key != "spiral_mode"))
+         request.changed_key != "seam_slope_type" && request.changed_key != "spiral_mode" &&
+         request.changed_key != "enable_arc_fitting"))
         return false;
 
     const auto reject_reentrant_request = [&] {
@@ -23700,14 +23786,17 @@ bool Plater::apply_zaa_ui_normalization(const ZaaUiNormalizationRequest& request
         return true;
     }
 
-    if (!conflict_already_confirmed) {
-        wxString message = format_wxstr(_L("Enabling \"%1%\" conflicts with the following active settings."),
-                                        zaa_feature_name(request.changed_key));
-        message += "\n\n" + _L("To keep the feature you just enabled, Creality Print will make the following changes:");
-        message += "\n" + zaa_plan_actions(plan);
-        message += "\n\n" + _L("Apply these changes?");
-        MessageDialog dialog(this, message, _L("Resolve process parameter conflicts"),
-                             wxICON_WARNING | wxYES | wxNO);
+    if (plan.arc_fitting_conflict && request.config_load) {
+        MessageDialog dialog(wxGetApp().mainframe, zaa_conflict_message(request, plan),
+                             _L("Warning"), wxICON_WARNING | wxOK);
+        dialog.ShowModal();
+    } else if (!conflict_already_confirmed) {
+        wxWindow* dialog_parent = this;
+        if (plan.arc_fitting_conflict)
+            dialog_parent = wxGetApp().mainframe;
+        MessageDialog dialog(dialog_parent, zaa_conflict_message(request, plan),
+                             _L("Resolve process parameter conflicts"), wxICON_WARNING | wxYES | wxNO);
+        dialog.SetEscapeId(wxID_NO);
         if (dialog.ShowModal() != wxID_YES) {
             zaa_disable_changed_feature(request, changed_config);
             if (changed_feature_rejected != nullptr)
@@ -23719,7 +23808,7 @@ bool Plater::apply_zaa_ui_normalization(const ZaaUiNormalizationRequest& request
     if (!snapshot_already_taken)
         take_snapshot(_u8L("Resolve process parameter conflicts"));
 
-    // A local winner may have a global loser (currently Mixed color sublayer).
+    // A local winner may have global losers such as Arc fitting or Mixed color sublayer.
     // Write the edited preset directly, but defer its UI refresh until the
     // current Object/Plate callback has committed the winner. Tab::load_config
     // refreshes ObjectSettings synchronously and would otherwise replace the
@@ -23736,6 +23825,14 @@ bool Plater::apply_zaa_ui_normalization(const ZaaUiNormalizationRequest& request
         set_global_bool("spiral_mode", false);
     if (plan.disable_global_zaa)
         set_global_bool("zaa_enabled", false);
+    if (plan.disable_global_arc_fitting)
+        set_global_bool("enable_arc_fitting", false);
+    if (plan.disable_global_speed_smoothing)
+        set_global_bool("smooth_speed_discontinuity_area", false);
+    if (plan.disable_global_extrusion_smoothing) {
+        global_target->set_key_value("max_volumetric_extrusion_rate_slope", new ConfigOptionFloat(0.));
+        live_global_changed = live_global_changed || global_target == live_global;
+    }
     if (plan.disable_global_scarf) {
         global_target->set_key_value("seam_slope_type",
                                      new ConfigOptionEnum<SeamScarfType>(SeamScarfType::None));
@@ -25107,17 +25204,20 @@ void Plater::open_platesettings_dialog(wxCommandEvent& evt)
         dlg.sync_print_seq(0);
 
     auto first_layer_print_seq = curr_plate->get_first_layer_print_sequence();
-    if (first_layer_print_seq.empty())
-        dlg.sync_first_layer_print_seq(0);
-    else
-        dlg.sync_first_layer_print_seq(1, curr_plate->get_first_layer_print_sequence());
+    const ConfigOptionEnum<LayerSeq>* first_layer_choice =
+        curr_plate->config()->option<ConfigOptionEnum<LayerSeq>>("first_layer_sequence_choice");
+    const int first_layer_selection = first_layer_choice != nullptr
+        ? int(first_layer_choice->value)
+        : (first_layer_print_seq.empty() ? int(flsAuto) : int(flsCutomize));
+    dlg.sync_first_layer_print_seq(first_layer_selection, first_layer_print_seq);
 
     auto other_layers_print_seq = curr_plate->get_other_layers_print_sequence();
-    if (other_layers_print_seq.empty())
-        dlg.sync_other_layers_print_seq(0, {});
-    else {
-        dlg.sync_other_layers_print_seq(1, curr_plate->get_other_layers_print_sequence());
-    }
+    const ConfigOptionEnum<LayerSeq>* other_layers_choice =
+        curr_plate->config()->option<ConfigOptionEnum<LayerSeq>>("other_layers_sequence_choice");
+    const int other_layers_selection = other_layers_choice != nullptr
+        ? int(other_layers_choice->value)
+        : (other_layers_print_seq.empty() ? int(flsAuto) : int(flsCutomize));
+    dlg.sync_other_layers_print_seq(other_layers_selection, other_layers_print_seq);
 
     dlg.sync_spiral_mode(curr_plate->get_spiral_vase_mode(), !curr_plate->has_spiral_mode_config());
 
@@ -25132,12 +25232,24 @@ void Plater::open_platesettings_dialog(wxCommandEvent& evt)
         }
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format("select bed type %1% for plate %2% at plate side") % bt_sel % plate_index;
 
-        if (dlg.get_first_layer_print_seq_choice() != 0)
+        const LayerSeq first_layer_selection = LayerSeq(dlg.get_first_layer_print_seq_choice());
+        if (first_layer_selection == flsAuto)
+            curr_plate->config()->erase("first_layer_sequence_choice");
+        else
+            curr_plate->config()->set_key_value(
+                "first_layer_sequence_choice", new ConfigOptionEnum<LayerSeq>(first_layer_selection));
+        if (first_layer_selection == flsCutomize)
             curr_plate->set_first_layer_print_sequence(dlg.get_first_layer_print_seq());
         else
             curr_plate->set_first_layer_print_sequence({});
 
-        if (dlg.get_other_layers_print_seq_choice() != 0)
+        const LayerSeq other_layers_selection = LayerSeq(dlg.get_other_layers_print_seq_choice());
+        if (other_layers_selection == flsAuto)
+            curr_plate->config()->erase("other_layers_sequence_choice");
+        else
+            curr_plate->config()->set_key_value(
+                "other_layers_sequence_choice", new ConfigOptionEnum<LayerSeq>(other_layers_selection));
+        if (other_layers_selection == flsCutomize)
             curr_plate->set_other_layers_print_sequence(dlg.get_other_layers_print_seq_infos());
         else
             curr_plate->set_other_layers_print_sequence({});
@@ -26184,12 +26296,29 @@ void Sidebar::update_mixed_filament_panel(bool sync_manager)
         auto *header_sizer = new wxBoxSizer(wxHORIZONTAL);
         row->SetCursor(wxCursor(wxCURSOR_ARROW));
 
-        // Swatch with virtual filament ID overlay (15% smaller with rounded corners)
-        auto *swatch = new wxPanel(row, wxID_ANY, wxDefaultPosition, wxSize(FromDIP(19), FromDIP(16)), wxBORDER_NONE);
-        const wxColour swatch_color(mf.display_color);
+        // Match the component badge size, with a virtual filament ID overlay and rounded corners.
+        auto *swatch = new wxPanel(row, wxID_ANY, wxDefaultPosition, wxSize(FromDIP(20), FromDIP(20)), wxBORDER_NONE);
+        wxColour swatch_color(mf.display_color);
+        const bool has_two_components = mf.gradient_component_ids.empty() ||
+            decode_gradient_slots(mf.gradient_component_ids).size() == 2;
+        const bool show_gradient = mf.gradient_enabled && has_two_components && !has_warning &&
+            mf.component_a >= 1 && mf.component_a <= palette.size() &&
+            mf.component_b >= 1 && mf.component_b <= palette.size();
+        wxColour gradient_from, gradient_to;
+        if (show_gradient) {
+            // Like Bambu Studio's mixed-filament ID badge, show a left-to-right
+            // RGB ramp between the original component colors. This is a mode
+            // indicator, not a preview of the physically blended print color.
+            const int direction = infer_gradient_direction_from_curve(mf.gradient_direction, mf.gradient_curve);
+            gradient_from = palette[(direction == 0 ? mf.component_a : mf.component_b) - 1];
+            gradient_to = palette[(direction == 0 ? mf.component_b : mf.component_a) - 1];
+            swatch_color = wxColour((gradient_from.Red() + gradient_to.Red()) / 2,
+                                    (gradient_from.Green() + gradient_to.Green()) / 2,
+                                    (gradient_from.Blue() + gradient_to.Blue()) / 2);
+        }
         swatch->SetBackgroundColour(row_bg_used);
-        swatch->SetMinSize(wxSize(FromDIP(19), FromDIP(16)));
-        swatch->Bind(wxEVT_PAINT, [swatch, mixed_filament_id, swatch_color, row_bg_used](wxPaintEvent&) {
+        swatch->SetMinSize(wxSize(FromDIP(20), FromDIP(20)));
+        swatch->Bind(wxEVT_PAINT, [swatch, mixed_filament_id, swatch_color, show_gradient, gradient_from, gradient_to, row_bg_used](wxPaintEvent&) {
             wxPaintDC pdc(swatch);
             wxGCDC dc(pdc);
             dc.SetBackground(wxBrush(row_bg_used));
@@ -26197,7 +26326,13 @@ void Sidebar::update_mixed_filament_panel(bool sync_manager)
             wxSize ws = swatch->GetSize();
             dc.SetBrush(wxBrush(swatch_color));
             dc.SetPen(*wxTRANSPARENT_PEN);
-            dc.DrawRoundedRectangle(0, 0, ws.x, ws.y, 3);
+            wxGraphicsContext *gc = dc.GetGraphicsContext();
+            if (show_gradient && gc != nullptr) {
+                gc->SetBrush(gc->CreateLinearGradientBrush(0, 0, ws.x, 0, gradient_from, gradient_to));
+                gc->DrawRoundedRectangle(0, 0, ws.x, ws.y, 3);
+            } else {
+                dc.DrawRoundedRectangle(0, 0, ws.x, ws.y, 3);
+            }
             int luminance = (swatch_color.Red() * 299 + swatch_color.Green() * 587 + swatch_color.Blue() * 114) / 1000;
             dc.SetTextForeground(luminance < 140 ? *wxWHITE : *wxBLACK);
             dc.SetFont(wxFont(8, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));

@@ -24,6 +24,8 @@ public:
     std::string display_name_with_material_alias(const Preset& preset, bool keep_printer_suffix = true);
     std::string display_name_with_material_alias(const std::string& preset_name, bool keep_printer_suffix = true);
     bool material_alias_matches_preset_name(const std::string& preset_name, const std::string& alias);
+    // Returns true only when changed content was successfully written.
+    // Unchanged content preserves the file and alias cache and returns false.
     bool save_official_material_list(const nlohmann::json& materials);
 
 private:

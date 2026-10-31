@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-20 21:25+0800\n"
+"POT-Creation-Date: 2026-10-30 16:28+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2291,6 +2291,48 @@ msgid "Completed"
 msgstr ""
 
 msgid "No step selected"
+msgstr ""
+
+#, possible-boost-format
+msgid "Set \"%1%\" to 0 (disabled)"
+msgstr ""
+
+msgid "Extrusion rate smoothing"
+msgstr ""
+
+#, possible-boost-format
+msgid "Uncheck \"%1%\""
+msgstr ""
+
+msgid "Smooth speed discontinuity area (Beta)"
+msgstr ""
+
+msgid "Arc fitting"
+msgstr ""
+
+#, possible-boost-format
+msgid "Enabling \"%1%\" conflicts with the following active settings."
+msgstr ""
+
+msgid ""
+"To keep the feature you just enabled, Creality Print will make the following "
+"changes:"
+msgstr ""
+
+msgid "Apply these changes?"
+msgstr ""
+
+msgid ""
+"The loaded configuration enables arc fitting together with incompatible "
+"smoothing settings.\n"
+"\n"
+"Choose Yes to keep arc fitting and turn off the settings listed below. "
+"Choose No to keep those settings and turn off arc fitting."
+msgstr ""
+
+msgid ""
+"Arc fitting and extrusion rate smoothing cannot be enabled at the same time. "
+"Arc fitting has been turned off."
 msgstr ""
 
 msgid ""
@@ -5121,6 +5163,11 @@ msgid ""
 "import it."
 msgstr ""
 
+msgid ""
+"The V-shape calibration pattern does not fit in the printable area. Please "
+"reduce the PA range or increase the PA step."
+msgstr ""
+
 msgid "Import SLA archive"
 msgstr ""
 
@@ -5298,10 +5345,11 @@ msgid "Mixed color sublayer"
 msgstr ""
 
 #, possible-boost-format
-msgid "Disable \"%1%\" (%2%)"
+msgid "Disable \"%1%\""
 msgstr ""
 
-msgid "Global"
+#, possible-boost-format
+msgid "Disable \"%1%\" (%2%)"
 msgstr ""
 
 msgid "affected Plate setting(s)"
@@ -5309,6 +5357,11 @@ msgstr ""
 
 #, possible-boost-format
 msgid "%1% object(s)"
+msgstr ""
+
+msgid ""
+"The loaded configuration contains conflicting process settings. The "
+"following settings will be turned off:"
 msgstr ""
 
 msgid ""
@@ -5339,18 +5392,6 @@ msgid ""
 "The feature was not enabled because an active Scarf joint seam setting is "
 "stored at Volume, Material, or Layer range scope. Disable that lower-scope "
 "setting first, then try again."
-msgstr ""
-
-#, possible-boost-format
-msgid "Enabling \"%1%\" conflicts with the following active settings."
-msgstr ""
-
-msgid ""
-"To keep the feature you just enabled, Creality Print will make the following "
-"changes:"
-msgstr ""
-
-msgid "Apply these changes?"
 msgstr ""
 
 msgid ""
@@ -5673,6 +5714,9 @@ msgid "End"
 msgstr ""
 
 msgid "Customize"
+msgstr ""
+
+msgid "Gray safe"
 msgstr ""
 
 msgid "Other layer filament sequence"
@@ -6010,6 +6054,9 @@ msgstr ""
 msgid "Choose an STL file to import bed model from:"
 msgstr ""
 
+msgid "Click to edit ratio"
+msgstr ""
+
 msgid "Edit Mixed Filament"
 msgstr ""
 
@@ -6306,6 +6353,9 @@ msgid "Jump to webpage"
 msgstr ""
 
 msgid "Keyboard Shortcuts"
+msgstr ""
+
+msgid "Global"
 msgstr ""
 
 msgid "Toolbar"
@@ -7432,6 +7482,12 @@ msgid ""
 "PA step: >= 0.001\n"
 "bed temp: >= 1\n"
 "bed temp: <= 200"
+msgstr ""
+
+#, possible-c-format, possible-boost-format
+msgid ""
+"The V-shape mode supports up to %d patterns. Please reduce the PA range or "
+"increase the PA step."
 msgstr ""
 
 msgid "Temperature calibration"
@@ -9335,6 +9391,9 @@ msgstr ""
 msgid "Current preset first layer height: %s mm, layer height: %s mm"
 msgstr ""
 
+msgid "No compatible Hyper PLA preset is available for the current printer."
+msgstr ""
+
 msgid "Choose SLA archive:"
 msgstr ""
 
@@ -9761,6 +9820,12 @@ msgstr ""
 msgid "print started"
 msgstr ""
 
+msgid "Difference explanations"
+msgstr ""
+
+msgid "AI support recommendations"
+msgstr ""
+
 msgid "AI Chat Assistant"
 msgstr ""
 
@@ -10069,18 +10134,8 @@ msgid "Click to reset all settings to the last saved preset."
 msgstr ""
 
 msgid ""
-"Prime tower is required for smooth timeplase. There may be flaws on the "
-"model without prime tower. Are you sure you want to disable prime tower?"
-msgstr ""
-
-msgid ""
 "Smooth timelapse needs a prime tower on every layer, which is not compatible "
 "with \"No sparse layers\". \"No sparse layers\" has been turned off."
-msgstr ""
-
-msgid ""
-"Prime tower is required for smooth timelapse. There may be flaws on the "
-"model without prime tower. Do you want to enable prime tower?"
 msgstr ""
 
 msgid ""
@@ -10241,6 +10296,9 @@ msgid "Travel speed"
 msgstr ""
 
 msgid "Jerk(XY)"
+msgstr ""
+
+msgid "Recommend supports"
 msgstr ""
 
 msgid "Raft"
@@ -10694,10 +10752,10 @@ msgstr ""
 msgid "%s info"
 msgstr ""
 
-msgid "Adjust Model"
+msgid "Cancel Export"
 msgstr ""
 
-msgid "Continue Export (Not Recommended)"
+msgid "Continue Export"
 msgstr ""
 
 #, possible-c-format, possible-boost-format
@@ -11558,6 +11616,18 @@ msgstr ""
 msgid "The nozzle variant parameters are invalid."
 msgstr ""
 
+msgid "You need to select at least one filament preset."
+msgstr ""
+
+msgid "You need to select at least one process preset."
+msgstr ""
+
+msgid "Create filament presets failed. As follows:\n"
+msgstr ""
+
+msgid "Create process presets failed. As follows:\n"
+msgstr ""
+
 msgid "Create Printer"
 msgstr ""
 
@@ -11670,18 +11740,6 @@ msgid ""
 "and filament and process presets without the same preset name will be "
 "reserve.\n"
 "\tCancel: Do not create a preset, return to the creation interface."
-msgstr ""
-
-msgid "You need to select at least one filament preset."
-msgstr ""
-
-msgid "You need to select at least one process preset."
-msgstr ""
-
-msgid "Create filament presets failed. As follows:\n"
-msgstr ""
-
-msgid "Create process presets failed. As follows:\n"
 msgstr ""
 
 msgid "Based on"
@@ -12322,6 +12380,9 @@ msgid "Right click to show more operation"
 msgstr ""
 
 msgid "Advance parameters"
+msgstr ""
+
+msgid "Explain parameter differences"
 msgstr ""
 
 msgid "View all object's settings"
@@ -13099,6 +13160,12 @@ msgstr ""
 msgid "ZAA path ordinal changed between validation and registration"
 msgstr ""
 
+msgid "Invalid wipe tower wall coordinates for filament change."
+msgstr ""
+
+msgid "No valid wipe tower wall segment is available for filament change."
+msgstr ""
+
 msgid "Restoring support painting"
 msgstr ""
 
@@ -13247,6 +13314,11 @@ msgid " is too close to others, and collisions may be caused.\n"
 msgstr ""
 
 msgid " is too close to exclusion area, and collisions will be caused.\n"
+msgstr ""
+
+msgid ""
+"Arc fitting and smooth speed discontinuity area cannot be enabled at the "
+"same time. Disable one of them before slicing."
 msgstr ""
 
 msgid ""
@@ -14083,10 +14155,11 @@ msgid ""
 "be calculated based on the bridge_speed. Default value is 150%."
 msgstr ""
 
-msgid "Smooth speed discontinuity area (Beta)"
-msgstr ""
-
-msgid "Add the speed transition between discontinuity area."
+msgid ""
+"Add the speed transition between discontinuity area.\n"
+"\n"
+"Note: this feature and arc fitting are mutually exclusive. Enabling either "
+"feature will ask for confirmation before turning off the other."
 msgstr ""
 
 msgid "Smooth coefficient"
@@ -15585,9 +15658,6 @@ msgid ""
 "layers. Note that this is an experimental parameter."
 msgstr ""
 
-msgid "Arc fitting"
-msgstr ""
-
 msgid ""
 "Enable this to get a G-code file which has G2 and G3 moves. The fitting "
 "tolerance is same as the resolution. \n"
@@ -15833,6 +15903,16 @@ msgid ""
 "overlapping sections.default is as same as infill density."
 msgstr ""
 
+msgid "Minimum skeleton infill density"
+msgstr ""
+
+msgid ""
+"Minimum skeleton infill density when the prime tower is disabled. The slicer "
+"may increase the actual skeleton infill density to accommodate flushing "
+"volume. When automatic density planning is inactive, this value is used as "
+"the skeleton infill density."
+msgstr ""
+
 msgid "Skin infill density"
 msgstr ""
 
@@ -16055,13 +16135,29 @@ msgstr ""
 msgid "Minimum surface slope for wall lowering"
 msgstr ""
 
-msgid "Sets the minimum slope for additional wall lowering, applied only to paths that pass the Z-layer anti-aliasing filter. The eligible slope range varies with layer height. Values that are too high may have no effect. Set to 0 to disable this compensation.\n\nFor example, with a 0.20 mm layer height and a 0.42 mm outer-wall line width, values of 35° or higher generally produce no additional lowering. The 35° value is not a fixed upper limit."
+msgid ""
+"Sets the minimum slope for additional wall lowering, applied only to paths "
+"that pass the Z-layer anti-aliasing filter. The eligible slope range varies "
+"with layer height. Values that are too high may have no effect. Set to 0 to "
+"disable this compensation.\n"
+"\n"
+"For example, with a 0.20 mm layer height and a 0.42 mm outer-wall line "
+"width, values of 35° or higher generally produce no additional lowering. The "
+"35° value is not a fixed upper limit."
 msgstr ""
 
 msgid "ZAA slice-plane offset"
 msgstr ""
 
-msgid "Sets the Z offset of the slicing plane relative to the bottom of each layer, affecting the dynamic layer thickness. When set to 0, the system automatically selects a suitable offset based on the layer height, including adaptive layer heights. The first layer is always sliced at its midplane.\n\nA larger value allows less downward adjustment and more upward adjustment of paths, increasing the risk of interference with higher paths. Keeping the default value is recommended."
+msgid ""
+"Sets the Z offset of the slicing plane relative to the bottom of each layer, "
+"affecting the dynamic layer thickness. When set to 0, the system "
+"automatically selects a suitable offset based on the layer height, including "
+"adaptive layer heights. The first layer is always sliced at its midplane.\n"
+"\n"
+"A larger value allows less downward adjustment and more upward adjustment of "
+"paths, increasing the risk of interference with higher paths. Keeping the "
+"default value is recommended."
 msgstr ""
 
 msgid "Lock top-surface fill direction"
@@ -16286,9 +16382,6 @@ msgid ""
 "layer hight when enable adaptive layer height"
 msgstr ""
 
-msgid "Extrusion rate smoothing"
-msgstr ""
-
 msgid ""
 "This parameter smooths out sudden extrusion rate changes that happen when "
 "the printer transitions from printing a high flow (high speed/larger width) "
@@ -16315,7 +16408,8 @@ msgid ""
 "\n"
 "This feature is known as Pressure Equalizer in Prusa slicer.\n"
 "\n"
-"Note: this parameter disables arc fitting."
+"Note: this feature and arc fitting are mutually exclusive. Enabling either "
+"feature will ask for confirmation before turning off the other."
 msgstr ""
 
 msgid "mm³/s²"
@@ -16332,7 +16426,20 @@ msgid ""
 "Default value of 3 works well for most cases. If your printer is stuttering, "
 "increase this value to reduce the number of adjustments made\n"
 "\n"
-"Allowed values: 0.5-5"
+"Allowed values: 0.5-5\n"
+"\n"
+"Adjacent segments with the same output speed may be merged. Merged segments "
+"can exceed this length."
+msgstr ""
+
+msgid "Apply only on external features"
+msgstr ""
+
+msgid ""
+"Applies extrusion rate smoothing only on external perimeters and overhangs. "
+"This can help reduce artefacts due to sharp speed transitions on externally "
+"visible overhangs without impacting the print speed of features that will "
+"not be visible to the user."
 msgstr ""
 
 msgid "Material shortage recovery after overhang(Beta)"
@@ -16540,6 +16647,16 @@ msgid ""
 "Don't retract when the travel is in infill area absolutely. That means the "
 "oozing can't been seen. This can reduce times of retraction for complex "
 "model and save printing time, but make slicing and G-code generating slower"
+msgstr ""
+
+msgid "Wait for nozzle temperature after filament change"
+msgstr ""
+
+msgid ""
+"Enable automatic nozzle temperature waiting after filament changes during "
+"multi-nozzle printing. Requires ooze prevention to be enabled. Disabled by "
+"default. Disabling ooze prevention or this option omits this automatic wait. "
+"Temperature commands in start and custom G-code are unaffected."
 msgstr ""
 
 msgid ""
@@ -17239,6 +17356,14 @@ msgid ""
 "with the print."
 msgstr ""
 
+msgid "Extra interlayer wipe layers"
+msgstr ""
+
+msgid ""
+"Number of consecutive single-color layers that use a serpentine wipe path on "
+"the prime tower."
+msgstr ""
+
 msgid "Prime all printing extruders"
 msgstr ""
 
@@ -17860,8 +17985,9 @@ msgstr ""
 
 msgid ""
 "When flushing into objects skeleton is enabled, force the bottom N object "
-"layers to purge on the prime tower before printing fill or skeleton, then "
-"skin and walls. This does not change bottom shell layers."
+"layers to purge on the prime tower before printing skeleton, then walls in "
+"the configured order, then skin and surface fill. This does not change "
+"bottom shell layers."
 msgstr ""
 
 msgid "Top fill flush layers"
@@ -17869,8 +17995,9 @@ msgstr ""
 
 msgid ""
 "When flushing into objects skeleton is enabled, force the top N object "
-"layers to purge on the prime tower before printing fill or skeleton, then "
-"skin and walls. This does not change top shell layers."
+"layers to purge on the prime tower before printing skeleton, then walls in "
+"the configured order, then skin and surface fill. This does not change top "
+"shell layers."
 msgstr ""
 
 msgid "Skeleton wipe speed"
@@ -17880,6 +18007,15 @@ msgid ""
 "When flushing into objects skeleton is enabled, set the speed for slowed "
 "skeleton paths after a material change. Percent values are calculated from "
 "the speed each skeleton path would normally use."
+msgstr ""
+
+msgid "Extra length on restart without prime tower"
+msgstr ""
+
+msgid ""
+"When the prime tower is disabled, this additional length is added to the "
+"printer or filament extra length on restart after a material change. It has "
+"no effect when the prime tower is enabled."
 msgstr ""
 
 msgid "Print prime volume into solid skeleton"
@@ -18032,6 +18168,9 @@ msgstr ""
 msgid ""
 "Moves the start of the prime tower purge path inward along the first purge "
 "line. This keeps startup blobs inside the tower."
+msgstr ""
+
+msgid "In-tower filament change"
 msgstr ""
 
 msgid "Bottom corner rib length"

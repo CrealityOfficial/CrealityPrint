@@ -1035,13 +1035,29 @@ void GLVolume::simple_render(GLShaderProgram*        shader,
 
 void GLVolume::setup_instance_offsets(const std::vector<Vec3f>& instances_offsets)
 {
+    // Keep the same local-space offsets on the CPU for camera clipping bounds.
+    m_volume_preview_offsets = instances_offsets;
     if (GUI::wxGetApp().is_gl_version_greater_or_equal_to(3, 3)) {
         model.send_instance_data_to_gpu(instances_offsets);
     }
-    else
-    {
-        m_volume_preview_offsets = instances_offsets;
+}
+
+BoundingBoxf3 GLVolume::clone_preview_bounding_box() const
+{
+    BoundingBoxf3 result;
+    if (m_volume_preview_offsets.empty() || !bounding_box().defined)
+        return result;
+
+    const Transform3d matrix = world_matrix();
+    const BoundingBoxf3 source_box = bounding_box().transformed(matrix);
+    for (const Vec3f& offset : m_volume_preview_offsets) {
+        BoundingBoxf3 clone_box = source_box;
+        // The shaders transform (vertex + offset); apply the linear part to
+        // the offset so rotation, scale and mirroring match the rendered copy.
+        clone_box.translate(matrix.linear() * offset.cast<double>());
+        result.merge(clone_box);
     }
+    return result;
 }
 
 //used in the object clone operartion for rendering the ready clone shell preview

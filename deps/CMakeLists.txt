@@ -59,6 +59,7 @@ endif ()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     option(DEP_WX_GTK3 "Build wxWidgets against GTK3" OFF)
+    option(DEP_PANGO_RUNTIME "Build the private Pango runtime used by Linux GUI packaging" ON)
 else() 
     if(POLICY CMP0135) # DOWNLOAD_EXTRACT_TIMESTAMP
         cmake_policy(SET CMP0135 NEW)
@@ -460,7 +461,7 @@ endif()
     
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND _dep_list "dep_metartc")
-    if (NOT FLATPAK)
+    if (NOT FLATPAK AND DEP_PANGO_RUNTIME)
         include(Pango/Pango.cmake)
         list(APPEND _dep_list dep_Pango)
     endif ()

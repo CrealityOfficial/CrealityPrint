@@ -15,6 +15,7 @@
 #include "ExtrusionEntity.hpp"
 #include "Fill.hpp"
 #include "FillBase.hpp"
+#include "FillPlanePath.hpp"
 #include "FillRectilinear.hpp"
 #include "FillLightning.hpp"
 #include "FillCross.hpp"
@@ -30,6 +31,18 @@ namespace Slic3r {
 static float lockedzag_skin_depth_for_layer_region(const LayerRegion& layerm, const Surface* surface = nullptr)
 {
     const PrintRegionConfig& region_config = layerm.region().config();
+    const Layer* layer = layerm.layer();
+    // Single-filament jobs do not enter multicolor packing. Native skin/skeleton
+    // infill must still release the unused protection band, so its skeleton is
+    // generated over the full fill area with the normal wall overlap.
+    if (region_config.sparse_infill_pattern.value == ipLockedZag &&
+        (surface == nullptr || surface->surface_type == stInternal) &&
+        layer != nullptr && layer->object() != nullptr && layer->object()->print() != nullptr &&
+        no_wipe_tower_single_filament_skin_disabled(*layer->object()->print()))
+        return 0.f;
+
+    // A confirmed zero disables skin on regions that received no purge volume.
+    // Read the plan before falling back to the provisional host-color depth.
     if (surface != nullptr) {
         if (const float* resolved_skin_mm = layerm.layer()->object()->print()->lockedzag_skin_infill_depth(layerm, *surface))
             return *resolved_skin_mm;
@@ -37,16 +50,33 @@ static float lockedzag_skin_depth_for_layer_region(const LayerRegion& layerm, co
         return *resolved_skin_mm;
     }
 
+    if (layer != nullptr && layer->object() != nullptr && layer->object()->print() != nullptr &&
+        no_wipe_tower_no_purge_mode_enabled(*layer->object()->print()) &&
+        (surface == nullptr || surface->surface_type == stInternal))
+        return no_wipe_tower_skin_infill_depth(layer->object()->print()->config(), region_config);
 
     return static_cast<float>(region_config.skin_infill_depth);
 }
 
 static float sparse_infill_density_for_surface(const LayerRegion& layerm, const Surface& surface)
 {
-    if (const float* resolved_density = layerm.layer()->object()->print()->layer_filament_wipe_packing_sparse_infill_density(layerm, surface))
-        return *resolved_density;
+    const PrintRegionConfig& region_config = layerm.region().config();
+    const Print* print = layerm.layer()->object()->print();
+    const bool skeleton_packing =
+        no_wipe_tower_no_purge_mode_enabled(*print) ||
+        flush_into_skeleton_packing_mode_enabled(*print);
+    const bool use_skeleton_floor = skeleton_packing &&
+        surface.surface_type == stInternal &&
+        !print->layer_filament_wipe_packing_force_plain_infill(layerm, surface);
+    const float skeleton_density = configured_skeleton_infill_density_percent(layerm.layer()->object()->print()->config(), region_config);
 
-    return static_cast<float>(layerm.region().config().sparse_infill_density);
+    if (const float* resolved_density = print->layer_filament_wipe_packing_sparse_infill_density(layerm, surface))
+        return use_skeleton_floor ? std::max(skeleton_density, *resolved_density) : *resolved_density;
+
+    if (use_skeleton_floor)
+        return skeleton_density;
+
+    return static_cast<float>(region_config.sparse_infill_density);
 }
 
 static InfillPattern no_wipe_tower_plain_sparse_infill_pattern(const PrintRegionConfig& region_config)
@@ -120,6 +150,8 @@ struct SurfaceFillParams
     bool symmetric_infill_y_axis = false;
     bool solid_skeleton_wipe_path = false;
     size_t solid_skeleton_start_corner = 0;
+    // Independently budgeted regions must not merge when their settings match.
+    size_t backpack_region = 0;
 
     // Params for Lateral honeycomb
     float infill_overhang_angle = 45.f;
@@ -160,6 +192,7 @@ struct SurfaceFillParams
 		RETURN_COMPARE_NON_EQUAL(infill_lock_depth);
         RETURN_COMPARE_NON_EQUAL_TYPED(unsigned, solid_skeleton_wipe_path);
         RETURN_COMPARE_NON_EQUAL(solid_skeleton_start_corner);
+        RETURN_COMPARE_NON_EQUAL(backpack_region);
         RETURN_COMPARE_NON_EQUAL(skin_infill_depth);
         RETURN_COMPARE_NON_EQUAL(infill_overhang_angle);
         RETURN_COMPARE_NON_EQUAL_TYPED(unsigned, skin_pattern);
@@ -194,6 +227,7 @@ struct SurfaceFillParams
 				this->infill_lock_depth      ==  rhs.infill_lock_depth &&
                 this->solid_skeleton_wipe_path == rhs.solid_skeleton_wipe_path &&
                 this->solid_skeleton_start_corner == rhs.solid_skeleton_start_corner &&
+                this->backpack_region == rhs.backpack_region &&
                 this->skin_infill_depth == rhs.skin_infill_depth &&
                 this->infill_overhang_angle == rhs.infill_overhang_angle &&
                 this->skin_pattern == rhs.skin_pattern &&
@@ -685,23 +719,14 @@ struct LockedZagSimulationOverride
 
 static float layer_filament_wipe_skin_depth_mm(const LayerRegion& layer_region)
 {
-    const PrintRegionConfig& region_config = layer_region.region().config();
-    const float configured_depth = static_cast<float>(region_config.skin_infill_depth);
-    if (configured_depth > EPSILON)
-        return configured_depth;
-
+    // Measure a prospective receiver with its required protection band. The
+    // confirmed plan may remove skin from unused regions, but that extra area
+    // must not overestimate the capacity of a region that will need skin.
     const Layer* layer = layer_region.layer();
-    if (layer == nullptr || layer->object() == nullptr || layer->object()->print() == nullptr)
-        return 0.f;
-
-    const PrintConfig& print_config = layer->object()->print()->config();
-    if (print_config.nozzle_diameter.values.empty())
-        return 0.f;
-
-    const unsigned int extruder = layer_region.region().extruder(frInfill);
-    const size_t nozzle_idx = std::min<size_t>(get_physical_nozzle_index(print_config, extruder > 0 ? extruder - 1 : 0),
-                                               print_config.nozzle_diameter.values.size() - 1);
-    return float(2. * print_config.nozzle_diameter.get_at(nozzle_idx));
+    if (layer != nullptr && layer->object() != nullptr && layer->object()->print() != nullptr &&
+        no_wipe_tower_no_purge_mode_enabled(*layer->object()->print()))
+        return no_wipe_tower_skin_infill_depth(layer->object()->print()->config(), layer_region.region().config());
+    return std::max(0.f, static_cast<float>(layer_region.region().config().skin_infill_depth));
 }
 
 std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_param,
@@ -720,8 +745,9 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
     const size_t solid_skeleton_protected_layers = 2;
     const bool solid_skeleton_protected_layer = layer.id() < solid_skeleton_protected_layers;
     const bool solid_skeleton_mode = layer.object()->print()->has_prime_volume_solid_skeleton() && !solid_skeleton_protected_layer;
+    const bool no_wipe_tower_no_purge_mode = no_wipe_tower_no_purge_mode_enabled(*layer.object()->print());
     const bool skeleton_packing_mode = flush_into_skeleton_packing_mode_enabled(*layer.object()->print());
-    const bool force_locked_zag_mode = solid_skeleton_mode || skeleton_packing_mode;
+    const bool force_locked_zag_mode = solid_skeleton_mode || no_wipe_tower_no_purge_mode || skeleton_packing_mode;
     const size_t solid_skeleton_start_corner = solid_skeleton_mode ? ((layer.id() >= solid_skeleton_protected_layers ? layer.id() - solid_skeleton_protected_layers : 0) % 4) : 0;
 
 	auto append_flow_param = [](std::map<Flow, ExPolygons> &flow_params, Flow flow, const ExPolygon &exp) {
@@ -758,7 +784,9 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
                     (surface.is_top() ? frTopSolidInfill : (surface.is_solid() ? frSolidInfill : frInfill));
 		        bool     is_bridge 	    = !simulate_solid_as_sparse && layer.id() > 0 && surface.is_bridge();
 		        params.extruder 	 = layerm.region().extruder(extrusion_role);
-                const bool no_wipe_tower_plain_infill = !simulate_wipe_skeleton && skeleton_packing_mode &&
+                const bool no_wipe_tower_plain_infill = !simulate_wipe_skeleton &&
+                    !(no_wipe_tower_no_purge_mode && region_config.locked_skin_infill_pattern.value == ipConcentric) &&
+                    (no_wipe_tower_no_purge_mode || skeleton_packing_mode) &&
                     surface.surface_type == stInternal &&
                     layer.object()->print()->layer_filament_wipe_packing_force_plain_infill(layerm, surface);
                 const InfillPattern sparse_pattern = no_wipe_tower_plain_infill ?
@@ -766,8 +794,9 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
                 params.pattern    = simulate_wipe_skeleton ? ipLockedZag :
                                     ((force_locked_zag_mode && !no_wipe_tower_plain_infill) ? ipLockedZag : sparse_pattern);
 		        params.density       = simulate_wipe_skeleton ?
-                    std::max(float(region_config.sparse_infill_density.value), simulation->skeleton_density_percent) :
+                    std::max(configured_skeleton_infill_density_percent(layerm.layer()->object()->print()->config(), region_config), simulation->skeleton_density_percent) :
                     sparse_infill_density_for_surface(layerm, surface);
+                params.backpack_region = no_wipe_tower_no_purge_mode && surface.surface_type == stInternal ? region_id + 1 : 0;
                 params.multiline     = int(region_config.fill_multiline);
                 params.lateral_lattice_angle_1 = region_config.lateral_lattice_angle_1;
                 params.lateral_lattice_angle_2 = region_config.lateral_lattice_angle_2;
@@ -782,10 +811,12 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
                     params.skin_infill_depth = scale_(simulate_wipe_skeleton ?
                         layer_filament_wipe_skin_depth_mm(layerm) :
                         lockedzag_skin_depth_for_layer_region(layerm, &surface));
+                    params.skin_pattern      = region_config.locked_skin_infill_pattern.value;
+                    params.skeleton_pattern  = solid_skeleton_mode ? ipAlignedRectilinear :
+                                                                          region_config.locked_skeleton_infill_pattern.value;
                     // Keep the configured skin pattern when flushing into the skeleton.
                     // Only the hidden skeleton pattern is specialized for this mode.
                     const bool flush_into_skeleton = object_config.flush_into_skeleton.value;
-                    params.skin_pattern = region_config.locked_skin_infill_pattern.value;
                     params.skeleton_pattern = flush_into_skeleton
                         ? ipGrid
                         : (solid_skeleton_mode ? ipAlignedRectilinear :
@@ -912,12 +943,15 @@ std::vector<SurfaceFill> group_fills(const Layer &layer, LockRegionParam &lock_p
 					// add skeleton flow
 					append_flow_param(lock_param.skeleton_flow_params, skeleton_flow, surface.expolygon);
 
-                    // A purge skeleton is dimensioned from purge volume and must be
-					// solid. Normal LockedZag keeps its configured skeleton density.
-					append_density_param(lock_param.skeleton_density_params,
-                        solid_skeleton_mode ? 1.f : float(0.01 * region_config.skeleton_infill_density),
+                    // Keep exactly one skeleton density per surface. In no-tower packing
+                    // modes params.density is the planner's final density; appending it
+                    // in addition to the configured density would generate two overlapping
+                    // skeleton grids whenever the values differ.
+                    append_density_param(lock_param.skeleton_density_params,
+                        solid_skeleton_mode ? 1.f :
+                        (no_wipe_tower_no_purge_mode ? float(0.01 * params.density) :
+                                                          0.01f * configured_skeleton_infill_density_percent(object->print()->config(), region_config)),
                         surface.expolygon);
-
                     append_density_param(lock_param.skin_density_params,
                                          float(0.01 * region_config.skin_infill_density),
                                          surface.expolygon);
@@ -1243,12 +1277,13 @@ LockedZagSkeletonSimulation::LockedZagSkeletonSimulation(const Layer& layer, boo
         if (!cached_surface.parts.empty())
             m_impl->surfaces.emplace_back(std::move(cached_surface));
     }
+
 }
 
 LockedZagSkeletonSimulation::~LockedZagSkeletonSimulation() = default;
 
 LockedZagSkeletonMetricsByRegion LockedZagSkeletonSimulation::simulate(
-    float skeleton_density_percent) const
+    float skeleton_density_percent, const LayerRegion* only_region) const
 {
     LockedZagSkeletonMetricsByRegion result;
     if (!m_impl || m_impl->layer == nullptr)
@@ -1261,7 +1296,7 @@ LockedZagSkeletonMetricsByRegion LockedZagSkeletonSimulation::simulate(
 
     for (const LockedZagCachedSurface& cached_surface : m_impl->surfaces) {
         const LayerRegion* layer_region = cached_surface.layer_region;
-        if (layer_region == nullptr)
+        if (layer_region == nullptr || (only_region != nullptr && layer_region != only_region))
             continue;
 
         std::unique_ptr<Fill> skeleton_f(
@@ -1281,7 +1316,7 @@ LockedZagSkeletonMetricsByRegion LockedZagSkeletonSimulation::simulate(
         skeleton_f->link_max_length = 0;
         skeleton_f->loop_clipping   = coord_t(scale_(layer_region->region().config().seam_gap.get_abs_value(
             cached_surface.params.flow.nozzle_diameter())));
-        if (cached_surface.params.solid_skeleton_wipe_path)
+        if (print_config.flush_into_solid_skeleton.value || cached_surface.params.solid_skeleton_wipe_path)
             // LockedZag adds another 90 degrees to the skeleton pattern.
             skeleton_f->angle = float(M_PI / 2.);
 
@@ -1410,6 +1445,7 @@ LockedZagSkeletonMetricsByRegion simulate_layer_filament_wipe_locked_zag(
         params.locked_zag = true;
         params.infill_lock_depth = surface_fill.params.infill_lock_depth;
         params.skin_infill_depth = surface_fill.params.skin_infill_depth;
+        params.skin_inside_out = no_wipe_tower_no_purge_mode_enabled(*layer.object()->print());
         filler->set_lock_region_param(lock_param);
         filler->set_skin_and_skeleton_pattern(surface_fill.params.skin_pattern,
                                               surface_fill.params.skeleton_pattern);
@@ -1436,12 +1472,17 @@ LockedZagSkeletonMetricsByRegion simulate_layer_filament_wipe_locked_zag(
 
         LockedZagSkeletonMetrics& metrics = result[layer_region];
         for (const ExtrusionEntity* entity : simulated_entities.entities) {
-            if (entity == nullptr || entity->role() != erInternalInfill)
+            if (entity == nullptr)
                 continue;
-            Polylines skeleton_polylines;
-            entity->collect_polylines(skeleton_polylines);
-            for (const Polyline& polyline : skeleton_polylines)
-                metrics.trajectory_length_mm += unscale<double>(polyline.length());
+            // Skin is a protective model feature, never purge capacity.
+            if (entity->role() != erInternalInfill)
+                continue;
+            Polylines paths;
+            entity->collect_polylines(paths);
+            double path_length_mm = 0.;
+            for (const Polyline& polyline : paths)
+                path_length_mm += unscale<double>(polyline.length());
+            metrics.trajectory_length_mm += path_length_mm;
             metrics.extrusion_volume_mm3 += entity->total_volume();
         }
     }
@@ -1473,6 +1514,11 @@ void export_group_fills_to_svg(const char *path, const std::vector<SurfaceFill> 
 // friend to Layer
 void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive::Octree* support_fill_octree, const Point offset, FillLightning::Generator* lightning_generator)
 {
+    const auto check_cancel = [print = this->object()->print()] {
+        if (print->canceled())
+            throw CanceledException();
+    };
+    check_cancel();
 	for (LayerRegion *layerm : m_regions)
 	{
 		layerm->fills.clear();
@@ -1498,6 +1544,8 @@ void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive:
     for (SurfaceFill &surface_fill : surface_fills) {
         // Create the filler object.
         std::unique_ptr<Fill> f = std::unique_ptr<Fill>(Fill::new_from_type(surface_fill.params.pattern));
+        if (auto *hilbert = dynamic_cast<FillHilbertCurve *>(f.get()))
+            hilbert->set_cancel_callback(check_cancel);
         f->set_bounding_box(bbox);
         f->set_bounding_box_height(this->object()->height());
         f->layer_id = this->id();
@@ -1767,6 +1815,7 @@ void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive:
 			params.locked_zag = true;
             params.infill_lock_depth = surface_fill.params.infill_lock_depth;
             params.skin_infill_depth = surface_fill.params.skin_infill_depth;
+            params.skin_inside_out = no_wipe_tower_no_purge_mode_enabled(*this->object()->print());
             f->set_lock_region_param(lock_param);
             f->set_skin_and_skeleton_pattern(surface_fill.params.skin_pattern, surface_fill.params.skeleton_pattern);
         }
@@ -1785,6 +1834,7 @@ void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive:
 		if (surface_fill.params.pattern == ipGrid)
 			params.can_reverse = false;
 		for (ExPolygon& expoly : surface_fill.expolygons) {
+            check_cancel();
 
       f->no_overlap_expolygons = intersection_ex(surface_fill.no_overlap_expolygons, ExPolygons() = {expoly}, ApplySafetyOffset::Yes);
             if (params.symmetric_infill_y_axis) {
@@ -1803,6 +1853,7 @@ void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive:
 			f->fill_surface_extrusion(&surface_fill.surface,
 				params,
 				m_regions[surface_fill.region_id]->fills.entities);
+            check_cancel();
 		}
     }
 

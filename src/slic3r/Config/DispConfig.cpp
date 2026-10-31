@@ -156,9 +156,9 @@ GLTexture* DispConfig::getTexture(TextureType tt, bool hover, bool sel, int half
             if (auto* bundle = wxGetApp().preset_bundle; bundle != nullptr) {
                 const std::string model_name = bundle->printers.get_selected_preset().config.opt_string("printer_model");
                 const auto        vendor_type = bundle->get_current_vendor_type();
-                // SPARKX i7 uses dedicated bed icons.
-                const bool is_sparkx_i7 = (model_name == "SPARKX i7");
-                if (vendor_type == VendorType::Creality && is_sparkx_i7) {
+                // SPARKX i7 and SPARKX i8 share the dedicated F022 bed icons.
+                const bool uses_f022_bed = (model_name == "SPARKX i7" || model_name == "SPARKX i8");
+                if (vendor_type == VendorType::Creality && uses_f022_bed) {
                     base_name = (tt == e_tt_bed_texture) ? std::string("texture_F022.png") : std::string("smooth_F022.png");
                 }
             }

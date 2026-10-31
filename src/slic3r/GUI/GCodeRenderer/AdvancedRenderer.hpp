@@ -170,7 +170,7 @@ namespace Slic3r {
                 Layer& set_z(float z);
                 float get_z() const;
 
-                void init_sgments(const std::vector<size_t>& sid_to_mid, const std::vector<std::vector<size_t>>& sid_to_seamMoveId, const GCodeProcessorResult& gcode_result);
+                void init_sgments(const std::vector<size_t>& sid_to_mid, const std::vector<std::vector<size_t>>& sid_to_seamMoveId, const GCodeProcessorResult& gcode_result, bool lite_mode);
 
                 bool is_valid() const;
                 void set_vaild(bool is_valid);

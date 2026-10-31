@@ -51,10 +51,22 @@ public:
                          float        purge_volume      = 0.f,
                          bool         flush_into_skeleton = false,
                          bool         round_wipe_wall     = false,
-                         const std::optional<FilamentChangeTopology>& topology = std::nullopt);
+                         bool         extra_interlayer_wipe = false);
+    void plan_toolchange(float        z_par,
+                         float        layer_height_par,
+                         unsigned int old_tool,
+                         unsigned int new_tool,
+                         float        wipe_volume,
+                         float        purge_volume,
+                         bool         flush_into_skeleton,
+                         bool         round_wipe_wall,
+                         const std::optional<FilamentChangeTopology>& topology);
 
 	// Iterates through prepared m_plan, generates ToolChangeResults and appends them to "result"
 	void generate(std::vector<std::vector<WipeTower::ToolChangeResult>> &result);
+
+    // A camera tower follows model extrusion without changing or purging filament.
+    void plan_timelapse_layer(float print_z, float layer_height, unsigned int tool);
 
     float get_depth() const { return m_wipe_tower_depth; }
 	std::vector<std::pair<float, float>> get_z_and_depth_pairs() const;
@@ -169,13 +181,17 @@ public:
     void update_all_layer_depth(float wipe_tower_depth);
     int  get_wall_filament_for_all_layer();
     bool is_valid_last_layer(int tool) const;
+    WipeTower::ToolChangeResult extra_interlayer_wipe(WipeTower::WipeTowerBlock& block, int filament_id);
     WipeTower::ToolChangeResult finish_block(const WipeTower::WipeTowerBlock& block, int filament_id, bool extrude_fill = true);
     WipeTower::ToolChangeResult finish_block_solid(const WipeTower::WipeTowerBlock& block,
                                                    int                   filament_id,
                                                    bool                  extrude_fill    = true,
                                                    bool                  interface_solid = false);
-	WipeTower::ToolChangeResult finish_layer_new(bool extrude_perimeter = true, bool extrude_fill = true, bool extrude_fill_wall = true);
+    WipeTower::ToolChangeResult finish_layer_new(bool extrude_perimeter = true, bool extrude_fill = true,
+                                                 bool extrude_fill_wall = true, bool continuous_serpentine = false);
     Vec2f                       get_next_pos(const WipeTower::box_coordinates& cleaning_box, float wipe_length, size_t tool);
+    WipeTower::box_coordinates layer_wall_box(float perimeter_width, bool sparse_fill) const;
+    Vec2f adjust_corner_rib_entry(const Vec2f& entry, const WipeTower::box_coordinates& cleaning_box, size_t tool);
 
 	Polygon generate_support_wall_new(WipeTowerWriterCreality&          writer,
                                       const WipeTower::box_coordinates& wt_box,
@@ -288,6 +304,7 @@ private:
 	float			m_extra_spacing   = 1.f;
     PrimeTowerStartIroningType m_start_ironing_type = PrimeTowerStartIroningType::ptsiReciprocating;
     float           m_start_offset           = 0.f;
+    bool            m_toolchange_at_start    = false;
     float           m_wipe_tower_corner_rib_length = 0.f;
 
     bool is_first_layer() const { return size_t(m_layer_info - m_plan.begin()) == m_first_layer_idx; }
@@ -348,6 +365,12 @@ private:
 		float extra_spacing;
         bool  extruder_fill{true};
         bool  round_wipe_wall{false};
+        bool  extra_interlayer_wipe{false};
+        float extra_interlayer_wipe_volume{0.f};
+        float extra_interlayer_wipe_depth{0.f};
+        float extra_interlayer_wipe_start_depth{0.f};
+        size_t extra_interlayer_wipe_tool{size_t(-1)};
+        std::optional<size_t> timelapse_tool;
 		float toolchanges_depth() const { float sum = 0.f; for (const auto &a : tool_changes) sum += a.required_depth; return sum; }
 
 		std::vector<ToolChange> tool_changes;
@@ -381,6 +404,7 @@ private:
 		WipeTowerWriterCreality &writer,
         const size_t		new_tool,
 		const std::string& 		new_material,
+        const Vec2f&          purge_start_pos_zero,
         const Vec2f&          purge_start_pos);
 
 	void toolchange_Wipe(

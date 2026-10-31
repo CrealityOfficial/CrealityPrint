@@ -80,7 +80,7 @@ inline BoundaryEdgeStats ComputeBoundaryEdgeStats(const cgalutils::CGALMesh& cga
 // Unconditionally close every boundary cycle of the mesh and repair non-manifold
 // vertices. The caller (e.g. RepairMesh) is expected to gate this call based on
 // boundary statistics; entering this function always triggers triangulation.
-inline void CloseBoundariesAndRepairManifoldness(cgalutils::CGALMesh& cgal_mesh)
+inline std::size_t CloseBoundariesAndRepairManifoldness(cgalutils::CGALMesh& cgal_mesh)
 {
     using CGALMesh = cgalutils::CGALMesh;
     using HalfedgeDescriptor = boost::graph_traits<CGALMesh>::halfedge_descriptor;
@@ -92,13 +92,16 @@ inline void CloseBoundariesAndRepairManifoldness(cgalutils::CGALMesh& cgal_mesh)
     std::vector<HalfedgeDescriptor> border_cycles;
     PMP::extract_boundary_cycles(cgal_mesh, std::back_inserter(border_cycles));
 
+    std::size_t patch_face_count = 0;
     for (const HalfedgeDescriptor h : border_cycles) {
         std::vector<FaceDescriptor> patch_faces;
         PMP::triangulate_hole(cgal_mesh, h, std::back_inserter(patch_faces));
+        patch_face_count += patch_faces.size();
     }
 
     PMP::remove_degenerate_faces(cgal_mesh);
     PMP::duplicate_non_manifold_vertices(cgal_mesh);
+    return patch_face_count;
 }
 
 inline bool RepairMesh(const TriMesh& mesh,
@@ -210,17 +213,25 @@ inline bool RepairMesh(const TriMesh& mesh,
 
     if (can_repair_holes) {
         const auto t0 = Clock::now();
-        CloseBoundariesAndRepairManifoldness(cgal_mesh);
-        BOOST_LOG_TRIVIAL(info) << "TextureToColor: RepairMesh stage=close_boundaries took="
-                                << elapsed_ms(t0) << " ms";
+        const std::size_t faces_before = cgal_mesh.number_of_faces();
+        const std::size_t patch_faces = CloseBoundariesAndRepairManifoldness(cgal_mesh);
+        BOOST_LOG_TRIVIAL(warning) << "[TEXTURE_IMPORT_TIMING] internal_repair stage=close_boundaries"
+                                   << " elapsed_ms=" << elapsed_ms(t0)
+                                   << " total_boundary_edges=" << stats.total_boundary_edges
+                                   << " max_cycle_edges=" << stats.max_cycle_edges
+                                   << " cycle_count=" << stats.cycle_count
+                                   << " max_hole_edges=" << setting.max_hole_edges
+                                   << " patch_faces=" << patch_faces
+                                   << " faces_before=" << faces_before
+                                   << " faces_after=" << cgal_mesh.number_of_faces();
     } else {
-        BOOST_LOG_TRIVIAL(info)
-            << "TextureToColor: RepairMesh skip hole closing"
-            << ", total_boundary_edges=" << stats.total_boundary_edges
-            << " (limit=" << setting.max_boundary_edges << ")"
-            << ", max_cycle_edges=" << stats.max_cycle_edges
-            << " (limit=" << setting.max_hole_edges << ")"
-            << ", cycle_count=" << stats.cycle_count;
+        BOOST_LOG_TRIVIAL(warning)
+            << "[TEXTURE_IMPORT_TIMING] internal_repair stage=close_boundaries skipped=true"
+            << " total_boundary_edges=" << stats.total_boundary_edges
+            << " total_limit=" << setting.max_boundary_edges
+            << " max_cycle_edges=" << stats.max_cycle_edges
+            << " component_limit=" << setting.max_hole_edges
+            << " cycle_count=" << stats.cycle_count;
     }
 
     if (progress_callback) {

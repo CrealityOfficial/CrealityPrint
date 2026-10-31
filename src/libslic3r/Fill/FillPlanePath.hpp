@@ -2,12 +2,26 @@
 #define slic3r_FillPlanePath_hpp_
 
 #include <map>
+#include <functional>
 
 #include "../libslic3r.h"
 
 #include "FillBase.hpp"
 
 namespace Slic3r {
+
+namespace Hilbert {
+// Drop only small compact triangular residuals separated from all infill edges.
+// Surviving regions must still use the original gap extrusion width thresholds.
+void filter_corner_gaps(ExPolygons &areas, const ExPolygons &boundary, double bead_width,
+                        const std::function<void()> &throw_if_canceled = {});
+
+// Clip a non-self-intersecting, axis-aligned Hilbert polyline. The block size
+// controls work granularity, not geometric resolution. It is independent of the
+// scheduler's concurrency so that output remains deterministic.
+Polylines clip(const Polyline &polyline, const ExPolygon &boundary, size_t block_size = 65536,
+               const std::function<void()> &throw_if_canceled = {});
+}
 
 // The original Perl code used path generators from Math::PlanePath library:
 // http://user42.tuxfamily.org/math-planepath/
@@ -71,10 +85,15 @@ class FillHilbertCurve : public FillPlanePath
 public:
     Fill* clone() const override { return new FillHilbertCurve(*this); };
     ~FillHilbertCurve() override = default;
+    void set_cancel_callback(std::function<void()> callback) { m_cancel_callback = std::move(callback); }
+    const std::function<void()> &cancel_callback() const { return m_cancel_callback; }
+    void throw_if_canceled() const { if (m_cancel_callback) m_cancel_callback(); }
 
 protected:
     bool centered() const override { return false; }
     void generate(coord_t min_x, coord_t min_y, coord_t max_x, coord_t max_y, const double resolution, InfillPolylineOutput &output) override;
+private:
+    std::function<void()> m_cancel_callback;
 };
 
 class FillOctagramSpiral : public FillPlanePath

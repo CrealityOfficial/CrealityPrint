@@ -298,7 +298,6 @@ public:
 	void reset_filament_sync_state();
     void reset_device_filament_mapping_to_cfs();
     std::string get_filament_map_string();
-    void resetFilamentToCFS();
     void updateLastFilament(const std::vector<std::string>& presetName);
 	void on_sync_one_filament(int filament_index, const std::string& new_filament_color, const std::string& new_filament_name, const wxString& sync_label);
     void sync_box_filament_state(int filament_index, const std::string& new_filament_color, const wxString& sync_label);

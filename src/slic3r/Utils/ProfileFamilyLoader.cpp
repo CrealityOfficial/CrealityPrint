@@ -196,8 +196,16 @@ void ProfileFamilyLoader::request(bool force_reload)
 
     m_first_frame_loading = true;
     m_ret = std::async(std::launch::async, [this]()->int {
-        auto ret = LoadProfile(m_profile_json, m_machine_json, m_load_curstom_from_bundle);
+        // Build a snapshot off-thread, then publish it atomically. Readers can
+        // continue using the previous complete cache during a background refresh.
+        json profile_json;
+        json machine_json;
+        bool load_custom_from_bundle = false;
+        auto ret = LoadProfile(profile_json, machine_json, load_custom_from_bundle);
         std::lock_guard<std::mutex> lock(m_state_mutex);
+        m_profile_json = std::move(profile_json);
+        m_machine_json = std::move(machine_json);
+        m_load_curstom_from_bundle = load_custom_from_bundle;
         m_first_frame_loading = false;
         m_first_frame_loaded  = true;
         return ret;
@@ -229,6 +237,7 @@ void ProfileFamilyLoader::wait_until_loaded()
 
 bool ProfileFamilyLoader::data_empty() 
 { 
+    std::lock_guard<std::mutex> lock(m_state_mutex);
     return m_machine_json.empty() || m_profile_json.empty();
 }
 

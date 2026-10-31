@@ -43,6 +43,15 @@ add_executable(topbar_layout_tests gui/topbar_layout_tests.cpp)
 target_compile_features(topbar_layout_tests PRIVATE cxx_std_17)
 add_test(NAME topbar_layout_tests COMMAND topbar_layout_tests)
 
+add_executable(preview_layer_range_tests gui/preview_layer_range_tests.cpp)
+target_compile_features(preview_layer_range_tests PRIVATE cxx_std_17)
+add_test(NAME preview_layer_range_tests COMMAND preview_layer_range_tests)
+
+# Wipe tower gap merging has no GUI or slicing dependencies.
+add_executable(wipe_tower_wall_intervals_tests libslic3r/wipe_tower_wall_intervals_tests.cpp)
+target_compile_features(wipe_tower_wall_intervals_tests PRIVATE cxx_std_17)
+add_test(NAME wipe_tower_wall_intervals_tests COMMAND wipe_tower_wall_intervals_tests)
+
 # Hidden real-control regression for window buttons disappearing during resize.
 if (WIN32 AND SLIC3R_GUI)
     find_package(wxWidgets 3.3 CONFIG REQUIRED COMPONENTS core base aui)
@@ -60,3 +69,16 @@ if (WIN32 AND SLIC3R_GUI)
     target_link_libraries(parameter_window_lifetime_tests PRIVATE ${wxWidgets_LIBRARIES})
     add_test(NAME parameter_window_lifetime_tests COMMAND parameter_window_lifetime_tests)
 endif()
+
+# Exercise message-size fallback across real asynchronous WebSocket connections.
+add_executable(websocket_read_limit_tests websocket_proxy/websocket_read_limit_test.cpp)
+target_compile_features(websocket_read_limit_tests PRIVATE cxx_std_17)
+target_include_directories(websocket_read_limit_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_compile_definitions(websocket_read_limit_tests PRIVATE BOOST_ALL_NO_LIB)
+find_package(Threads REQUIRED)
+target_link_libraries(websocket_read_limit_tests PRIVATE Boost::headers Threads::Threads)
+if (WIN32)
+    target_link_libraries(websocket_read_limit_tests PRIVATE ws2_32 mswsock)
+endif()
+add_test(NAME websocket_read_limit_tests COMMAND websocket_read_limit_tests)
+set_tests_properties(websocket_read_limit_tests PROPERTIES TIMEOUT 30)

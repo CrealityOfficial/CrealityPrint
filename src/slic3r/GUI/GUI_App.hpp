@@ -346,6 +346,7 @@ private:
     bool            isAlpha();
     bool            isDevelopParams(const std::string key);
 	std::string     getDevelopParamsType(const std::string key);
+    static std::string strip_extruder_index_suffix(const std::string& key);
     const std::map<std::string, std::string> getUserKeys();
     void            check_filaments_in_blacklist(std::string tag_supplier, std::string tag_material, bool& in_blacklist, std::string& action, std::string& info);
     std::string     get_local_models_path();
@@ -642,6 +643,7 @@ private:
     bool            can_load_project();
     bool            check_print_host_queue();
     bool            checked_tab(Tab* tab);
+    bool            ensure_active_printer_filaments();
     //BBS: add preset combox re-active logic
     void            load_current_presets(bool active_preset_combox = false, bool check_printer_presets = true);
     std::vector<std::string> &get_delete_cache_presets();
@@ -738,7 +740,7 @@ private:
     // BBS
     int             filaments_cnt() const;
     PrintSequence   global_print_sequence() const;
-    bool check_machine_list();
+    bool check_machine_list(bool* machine_list_updated = nullptr);
     void start_async_material_list_update();
     // Re-download machineList.json for the current login region and refresh the machine
     // list cached by ProfileFamilyLoader. Returns immediately; the work runs on a
