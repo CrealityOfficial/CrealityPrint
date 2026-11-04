@@ -6515,6 +6515,15 @@ void ObjectList::render_plate_tree_by_ImGui()
     m_table_data.table_offset_y = ImGui::GetItemRectMin().y;
     // ImGui::Text("Table Height: %.2f", table_size.y);
     ImGui::PopStyleColor(3);
+
+    // Rows report a right click on press. Open the menu once the button is up: on GTK, a menu
+    // opened from a posted event has no activation time, so the release would close it.
+    if (m_context_menu_pending && !ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+        m_context_menu_pending = false;
+        auto event = IntEvent(EVT_OBJ_LIST_COLUMN_SELECT, 0);
+        event.SetEventObject(this);
+        wxPostEvent(this, event);
+    }
 }
 
 void ObjectList::render_plate(ObjectDataViewModelNode* plate)
@@ -6615,10 +6624,7 @@ void ObjectList::render_plate(ObjectDataViewModelNode* plate)
         }
 
         if (right_clicked) {
-            // show_context_menu(true);
-            auto event = IntEvent(EVT_OBJ_LIST_COLUMN_SELECT, 0);
-            event.SetEventObject(this);
-            wxPostEvent(this, event);
+            m_context_menu_pending = true;
         }
     }
 
@@ -7639,10 +7645,7 @@ void ObjectList::handle_obj_list_select_event(bool                     left_clic
             select_node(node, node_selected);
         }
 
-        // show_context_menu(true);
-        auto event = IntEvent(EVT_OBJ_LIST_COLUMN_SELECT, 0);
-        event.SetEventObject(this);
-        wxPostEvent(this, event);
+        m_context_menu_pending = true;
     }
 
     if (left_clicked && node_selected && selecteds.size() == 1 && !shift_press) {
