@@ -24514,3 +24514,82 @@ msgstr "취소됨"
 
 #~ msgid "Export to Local"
 #~ msgstr "Export to Local"
+
+#: src/slic3r/GUI/GUI_App.cpp:8124 src/slic3r/GUI/GUI_App.cpp:8131 src/slic3r/GUI/GUI_App.cpp:8493
+msgid "Updating parameter packages..."
+msgstr "매개변수 패키지 업데이트 중..."
+
+#: src/slic3r/GUI/GUI_App.cpp:8134
+msgid "Failed to update parameter packages. Please try again."
+msgstr "매개변수 패키지를 업데이트하지 못했습니다. 다시 시도해 주세요."
+
+#: src/slic3r/GUI/GUI_App.cpp:8135 src/slic3r/GUI/GUI_App.cpp:8138
+msgid "Parameter update"
+msgstr "매개변수 업데이트"
+
+#: src/slic3r/GUI/GUI_App.cpp:8499
+#, c-format
+msgid "Updated to %s"
+msgstr "%s 버전으로 업데이트되었습니다"
+
+#: src/slic3r/GUI/GUI_App.cpp:8501
+msgid "Update content:"
+msgstr "업데이트 내용:"
+
+#: src/slic3r/GUI/GUI_App.cpp:8502
+msgid "No update description was provided."
+msgstr "업데이트 설명이 제공되지 않았습니다."
+
+#: src/slic3r/GUI/GUI_App.cpp:8505
+msgid "The update will be applied when you create or reopen a project."
+msgstr "프로젝트를 새로 만들거나 다시 열면 업데이트가 적용됩니다."
+
+#: src/slic3r/GUI/GUI_App.cpp:8507
+msgid "The update will be applied after slicing finishes."
+msgstr "슬라이싱이 완료되면 업데이트가 적용됩니다."
+
+#: src/slic3r/GUI/GUI_App.cpp:8508
+msgid "Parameter packages updated"
+msgstr "매개변수 패키지 업데이트 완료"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:32 src/slic3r/GUI/MainFrame.cpp:2924 src/slic3r/GUI/MainFrame.cpp:2924
+msgid "Check for Preset Updates"
+msgstr "프리셋 업데이트 확인"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:37 src/slic3r/GUI/UpdateDialogs.cpp:95
+msgid "Checking preset updates..."
+msgstr "프리셋 업데이트 확인 중…"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:47 src/slic3r/GUI/UpdateDialogs.cpp:116
+msgid "Remind me later"
+msgstr "나중에 알림"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:101
+msgid "Updates are available for the following added printers."
+msgstr "추가한 다음 프린터에 업데이트가 있습니다."
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:104
+#, c-format
+msgid "Target version: %s"
+msgstr "업데이트 버전: %s"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:118
+#, c-format
+msgid "Update all (%d)"
+msgstr "모두 업데이트 (%d)"
+
+#: src/slic3r/GUI/UpdateParams.cpp:197
+msgid "No printers have been added. Add a printer before checking for updates."
+msgstr "추가된 프린터가 없습니다. 프린터를 추가한 후 업데이트를 확인하세요."
+
+#: src/slic3r/GUI/UpdateParams.cpp:258
+msgid "All added printers are up to date."
+msgstr "추가된 모든 프린터의 프리셋이 최신 상태입니다."
+
+#: src/slic3r/GUI/UpdateParams.cpp:222 src/slic3r/GUI/UpdateParams.cpp:233
+msgid "Failed to check preset updates. Please check your network and try again."
+msgstr "프리셋 업데이트를 확인하지 못했습니다. 네트워크를 확인한 후 다시 시도하세요."
+
+#: src/slic3r/GUI/UpdateParams.cpp:217 src/slic3r/GUI/UpdateParams.cpp:285
+msgid "The printer list or account has changed. Please check again."
+msgstr "프린터 목록 또는 계정이 변경되었습니다. 다시 확인하세요."

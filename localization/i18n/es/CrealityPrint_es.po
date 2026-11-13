@@ -27983,3 +27983,82 @@ msgstr "Cancelado"
 
 #~ msgid "Export to Local"
 #~ msgstr "Export to Local"
+
+#: src/slic3r/GUI/GUI_App.cpp:8124 src/slic3r/GUI/GUI_App.cpp:8131 src/slic3r/GUI/GUI_App.cpp:8493
+msgid "Updating parameter packages..."
+msgstr "Actualizando los paquetes de parámetros..."
+
+#: src/slic3r/GUI/GUI_App.cpp:8134
+msgid "Failed to update parameter packages. Please try again."
+msgstr "No se han podido actualizar los paquetes de parámetros. Vuelva a intentarlo."
+
+#: src/slic3r/GUI/GUI_App.cpp:8135 src/slic3r/GUI/GUI_App.cpp:8138
+msgid "Parameter update"
+msgstr "Actualización de parámetros"
+
+#: src/slic3r/GUI/GUI_App.cpp:8499
+#, c-format
+msgid "Updated to %s"
+msgstr "Actualizado a %s"
+
+#: src/slic3r/GUI/GUI_App.cpp:8501
+msgid "Update content:"
+msgstr "Contenido de la actualización:"
+
+#: src/slic3r/GUI/GUI_App.cpp:8502
+msgid "No update description was provided."
+msgstr "No se ha proporcionado una descripción de la actualización."
+
+#: src/slic3r/GUI/GUI_App.cpp:8505
+msgid "The update will be applied when you create or reopen a project."
+msgstr "La actualización se aplicará al crear o volver a abrir un proyecto."
+
+#: src/slic3r/GUI/GUI_App.cpp:8507
+msgid "The update will be applied after slicing finishes."
+msgstr "La actualización se aplicará cuando finalice el laminado."
+
+#: src/slic3r/GUI/GUI_App.cpp:8508
+msgid "Parameter packages updated"
+msgstr "Paquetes de parámetros actualizados"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:32 src/slic3r/GUI/MainFrame.cpp:2924 src/slic3r/GUI/MainFrame.cpp:2924
+msgid "Check for Preset Updates"
+msgstr "Buscar actualizaciones de preajustes"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:37 src/slic3r/GUI/UpdateDialogs.cpp:95
+msgid "Checking preset updates..."
+msgstr "Buscando actualizaciones de preajustes…"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:47 src/slic3r/GUI/UpdateDialogs.cpp:116
+msgid "Remind me later"
+msgstr "Recordármelo más tarde"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:101
+msgid "Updates are available for the following added printers."
+msgstr "Hay actualizaciones disponibles para las siguientes impresoras añadidas."
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:104
+#, c-format
+msgid "Target version: %s"
+msgstr "Versión de destino: %s"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:118
+#, c-format
+msgid "Update all (%d)"
+msgstr "Actualizar todo (%d)"
+
+#: src/slic3r/GUI/UpdateParams.cpp:197
+msgid "No printers have been added. Add a printer before checking for updates."
+msgstr "No se han añadido impresoras. Añada una impresora antes de buscar actualizaciones."
+
+#: src/slic3r/GUI/UpdateParams.cpp:258
+msgid "All added printers are up to date."
+msgstr "Los preajustes de todas las impresoras añadidas están actualizados."
+
+#: src/slic3r/GUI/UpdateParams.cpp:222 src/slic3r/GUI/UpdateParams.cpp:233
+msgid "Failed to check preset updates. Please check your network and try again."
+msgstr "No se pudieron buscar actualizaciones de preajustes. Compruebe la conexión de red e inténtelo de nuevo."
+
+#: src/slic3r/GUI/UpdateParams.cpp:217 src/slic3r/GUI/UpdateParams.cpp:285
+msgid "The printer list or account has changed. Please check again."
+msgstr "La lista de impresoras o la cuenta ha cambiado. Vuelva a comprobarlo."

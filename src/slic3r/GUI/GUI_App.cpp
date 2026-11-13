@@ -2447,6 +2447,8 @@ void GUI_App::post_init()
             bool        sys_preset  = app_config->get("sync_system_preset") == "true";
             
             this->preset_updater->sync(http_url, language, network_ver, sys_preset ? preset_bundle : nullptr);
+            if (sys_preset)
+                UpdateParams::getInstance().startPeriodicChecks();
 
             //this->check_new_version_cx();
             if (is_user_login() && app_config->get("stealth_mode") == "false") {
@@ -2649,6 +2651,7 @@ void GUI_App::shutdown()
         m_satisfaction_survey_manager->shutdown();
     g_app_exiting = true;
     m_is_closing = true;
+    UpdateParams::getInstance().shutdown();
     BOOST_LOG_TRIVIAL(info) << "GUI_App::shutdown exit";
 }
 
@@ -3374,6 +3377,10 @@ void GUI_App::init_networking_callbacks()
 
 GUI_App::~GUI_App()
 {
+    g_app_exiting = true;
+    UpdateParams::getInstance().shutdown();
+    if (m_native_profile_update_thread.joinable())
+        m_native_profile_update_thread.join();
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__<< boost::format(": enter");
     uninstall_satisfaction_survey_event_filter();
     m_satisfaction_survey_manager.reset();
@@ -4379,6 +4386,9 @@ bool GUI_App::OnInit()
 int GUI_App::OnExit()
 {
     g_app_exiting = true;
+    UpdateParams::getInstance().shutdown();
+    if (m_native_profile_update_thread.joinable())
+        m_native_profile_update_thread.join();
     BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << " start";
 
     // Clear resumable state on exit: remove any *.part files under the update cache root.
@@ -6967,13 +6977,17 @@ static bool update_package_uses_bare_multi_extruder_name(const pt::ptree& printe
         update_package_printer_model(printer) != "Creality Sermoon D3 Pro";
 }
 
-static fs::path downloaded_update_package_path(const pt::ptree& printer)
+static fs::path downloaded_update_package_path(const pt::ptree& printer,
+                                                const fs::path& directory = fs::temp_directory_path())
 {
     const std::string zip_url = printer.get<std::string>("zipUrl", "");
     const size_t separator = zip_url.find_last_of('/');
     if (zip_url.empty() || separator == std::string::npos)
         return {};
-    return fs::path(fs::temp_directory_path()).append(zip_url.substr(separator + 1));
+    const std::string filename = zip_url.substr(separator + 1);
+    if (filename.empty() || filename == "." || filename == ".." || filename.find('\\') != std::string::npos)
+        return {};
+    return directory / filename;
 }
 
 static bool update_package_has_multi_extruder_variant_schema(const fs::path& archive_path,
@@ -7030,7 +7044,8 @@ static bool update_package_has_multi_extruder_variant_schema(const fs::path& arc
     return has_variant_schema;
 }
 
-static std::vector<pt::ptree> select_update_param_packages(const pt::ptree& packages)
+static std::vector<pt::ptree> select_update_param_packages(const pt::ptree& packages,
+                                                           const fs::path& directory = fs::temp_directory_path())
 {
     struct SelectedPackage
     {
@@ -7050,7 +7065,7 @@ static std::vector<pt::ptree> select_update_param_packages(const pt::ptree& pack
         const std::vector<std::string> nozzles = update_package_nozzle_diameters(printer);
         const std::string profile_name = update_package_printer_model(printer);
         const std::pair<bool, bool> rank {
-            update_package_has_multi_extruder_variant_schema(downloaded_update_package_path(printer), nozzles.size()),
+            update_package_has_multi_extruder_variant_schema(downloaded_update_package_path(printer, directory), nozzles.size()),
             !nozzles.empty() && nozzles.front() == "0.4"
         };
         const auto selected = selected_multi_extruder_packages.find(profile_name);
@@ -7065,7 +7080,7 @@ static std::vector<pt::ptree> select_update_param_packages(const pt::ptree& pack
 
     for (const auto& [profile_name, selected] : selected_multi_extruder_packages) {
         BOOST_LOG_TRIVIAL(info) << "Multi-extruder parameter update " << profile_name << " selected "
-                                << downloaded_update_package_path(result[selected.result_index]).filename().string();
+                                << downloaded_update_package_path(result[selected.result_index], directory).filename().string();
     }
     return result;
 }
@@ -7241,14 +7256,14 @@ static void normalize_multi_extruder_filament_variants(json& filament_data)
     }
 }
 
-bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& materials_json, bool& profiles_changed, ProfileInstallTransaction& transaction, bool update_cover = true)
+bool UpdateParamPackage(pt::ptree v,json& profile_json,json& cache_json,json& materials_json, bool& profiles_changed, ProfileInstallTransaction& transaction, bool update_cover = true, const fs::path& directory = fs::temp_directory_path())
 {
         std::string printer_model  = update_package_printer_model(v);
         std::string showVersion = v.get_child("showVersion").data();
         std::string zipUrl      = v.get_child("zipUrl").data();
         std::string thumbnail      = v.get<std::string>("thumbnail", "");
         std::vector<std::string> nozzleDiameters = update_package_nozzle_diameters(v);
-        fs::path tmp_path = downloaded_update_package_path(v);
+        fs::path tmp_path = downloaded_update_package_path(v, directory);
         
         if(!fs::exists(tmp_path))
         {
@@ -8030,6 +8045,474 @@ static DeviceAddPreparation prepare_device_add(json selected_printers,
     return result;
 }
 
+namespace {
+
+struct NativeProfileDownloads
+{
+    fs::path directory = fs::temp_directory_path() / fs::unique_path("creality-profile-update-%%%%-%%%%-%%%%");
+    json catalog;
+    json requested = json::array();
+    bool succeeded = false;
+
+    NativeProfileDownloads() { fs::create_directories(directory); }
+    ~NativeProfileDownloads()
+    {
+        // This directory is uniquely owned by the request, including failures.
+        boost::system::error_code ignored;
+        fs::remove_all(directory, ignored);
+    }
+};
+
+json fetch_profile_update_data(const std::string &base_url, const std::string &endpoint,
+                               const std::map<std::string, std::string> &headers, const json &request)
+{
+    json result;
+    Http http = Http::post(base_url + endpoint);
+    http.clear_header();
+    for (const auto &header : headers)
+        http.header(header.first, header.second);
+    http.header("Content-Type", "application/json")
+        .header("__CXY_REQUESTID_", to_string(boost::uuids::random_generator()()))
+        .timeout_connect(5).timeout_max(30)
+        .set_post_body(request.dump())
+        .on_progress([](Http::Progress, bool &cancel) { cancel = g_app_exiting.load(); })
+        .on_complete([&](std::string body, unsigned status) {
+            if (status != 200)
+                return;
+            const json response = json::parse(body, nullptr, false);
+            if (response.is_object() && response.value("code", -1) == 0 && response.contains("result"))
+                result = response["result"];
+        })
+        .on_error([](std::string, std::string error, unsigned status) {
+            BOOST_LOG_TRIVIAL(warning) << "Parameter update request failed: status=" << status << ", " << error;
+        }).perform_sync();
+    return result;
+}
+
+void write_profile_update_catalog(const fs::path &path, const json &data)
+{
+    boost::nowide::ofstream output;
+    output.exceptions(std::ios::failbit | std::ios::badbit);
+    output.open(path.string(), std::ios::out | std::ios::trunc);
+    output << data.dump(4);
+    output.close();
+}
+
+std::set<std::string> existing_added_profile_files(const std::set<std::string> &added)
+{
+    std::set<std::string> files;
+    const fs::path directory = fs::path(data_dir()) / "system" / "Creality" / "machine";
+    for (const auto &name : added)
+        if (fs::exists(directory / (name + ".json")))
+            files.insert(name);
+    return files;
+}
+
+} // namespace
+
+void GUI_App::update_preset_params_from_notification(const json &confirmed)
+{
+    if (m_native_profile_update_running || m_is_closing || g_app_exiting || !mainframe || !preset_bundle || !plater())
+        return;
+    if (m_native_profile_update_thread.joinable())
+        m_native_profile_update_thread.join();
+
+    auto added = nsUpdateParams::getAddedPrinterNames();
+    const auto approved = ProfileUpdatePolicy::select_packages(confirmed);
+    for (auto it = added.begin(); it != added.end();)
+        if (approved.count(*it) == 0) it = added.erase(it); else ++it;
+    const auto installed = nsUpdateParams::loadInstalledPrinterVersions();
+    const auto files = existing_added_profile_files(added);
+    const std::string base_url = get_cloud_api_url();
+    const auto headers = get_extra_header();
+    const std::string region = app_config->get("region");
+    const std::string user_id = app_config->get("cloud", "user_id");
+    m_native_profile_update_running = true;
+    UpdateParams::getInstance().closeParamsUpdateTip();
+
+    auto finish_without_install = [this](bool failed) {
+        m_native_profile_update_running = false;
+        if (g_app_exiting || m_is_closing || !mainframe || !plater())
+            return;
+        auto *notifications = plater()->get_notification_manager();
+        notifications->close_update_params_tip(_u8L("Updating parameter packages..."));
+        UpdateParams::getInstance().finishUpdate(json::array(), failed ?
+            _L("Failed to update parameter packages. Please try again.") : _L("All added printers are up to date."), failed);
+    };
+
+    try {
+        m_native_profile_update_thread = std::thread([this, base_url, headers, region, user_id,
+                                                      added, approved, installed, files, finish_without_install] {
+            std::shared_ptr<NativeProfileDownloads> downloads;
+            try {
+                downloads = std::make_shared<NativeProfileDownloads>();
+                auto stable_headers = headers;
+                stable_headers["__CXY_OS_LANG_"] = "0";
+                const std::string printer_endpoint = "/api/cxy/v2/slice/profile/official/printerList";
+                downloads->catalog = fetch_profile_update_data(base_url, printer_endpoint, stable_headers, {{"engineVersion", "3.0.0"}});
+                if (!downloads->catalog.is_object() || !downloads->catalog.contains("printerList") ||
+                    !downloads->catalog["printerList"].is_array())
+                    throw std::runtime_error("Invalid printer catalog response");
+
+                // Keep stable profile names, but use release notes in the UI language.
+                if (headers.at("__CXY_OS_LANG_") != "0" && !g_app_exiting) {
+                    const json localized = fetch_profile_update_data(base_url, printer_endpoint, headers, {{"engineVersion", "3.0.0"}});
+                    if (localized.is_object() && localized.contains("printerList") && localized["printerList"].is_array()) {
+                        std::map<std::string, std::string> notes_by_url;
+                        for (const auto &entry : localized["printerList"])
+                            if (entry.is_object() && entry.contains("zipUrl") && entry["zipUrl"].is_string())
+                                notes_by_url[entry["zipUrl"].get<std::string>()] = ProfileUpdatePolicy::release_notes(entry);
+                        for (auto &entry : downloads->catalog["printerList"])
+                            if (entry.is_object() && entry.contains("zipUrl") && entry["zipUrl"].is_string()) {
+                                const auto notes = notes_by_url.find(entry["zipUrl"].get<std::string>());
+                                if (notes != notes_by_url.end() && !notes->second.empty())
+                                    entry["descriptionI18n"] = notes->second;
+                            }
+                    }
+                }
+                for (const auto &entry : ProfileUpdatePolicy::select_added_updates(downloads->catalog["printerList"], added, installed, files)) {
+                    const auto &accepted = approved.at(entry.first);
+                    // Confirmation authorizes these exact packages, not a newer
+                    // release or another model discovered during the download.
+                    if (accepted.value("showVersion", std::string()) != entry.second.value("showVersion", std::string()) ||
+                        accepted.value("zipUrl", std::string()) != entry.second.value("zipUrl", std::string()))
+                        throw std::runtime_error("Parameter catalog changed after confirmation; check again");
+                    downloads->requested.push_back(entry.second);
+                }
+                if (!downloads->requested.empty() && !g_app_exiting) {
+                    const json materials = fetch_profile_update_data(base_url, "/api/cxy/v2/slice/profile/official/materialList",
+                        stable_headers, {{"engineVersion", "3.0.0"}, {"pageSize", 1000}});
+                    if (!materials.is_object() || !materials.contains("list") || !materials["list"].is_array() || materials["list"].empty())
+                        throw std::runtime_error("Invalid material catalog response");
+                    write_profile_update_catalog(downloads->directory / "machineList.json", downloads->catalog);
+                    write_profile_update_catalog(downloads->directory / "materialList.json", {{"materials", materials["list"]}});
+                    pt::ptree requested;
+                    std::istringstream input(downloads->requested.dump());
+                    pt::read_json(input, requested);
+                    const auto candidates = include_multi_extruder_update_candidates(requested, downloads->directory / "machineList.json");
+                    CurlConnectionPool pool(3);
+                    std::map<std::string, std::string> queued_paths;
+                    for (const auto &item : candidates) {
+                        const std::string url = item.second.get<std::string>("zipUrl", "");
+                        const fs::path archive = downloaded_update_package_path(item.second, downloads->directory);
+                        if (archive.empty())
+                            throw std::runtime_error("Parameter archive URL is missing or invalid");
+                        const auto queued = queued_paths.emplace(archive.string(), url);
+                        if (!queued.second && queued.first->second != url)
+                            throw std::runtime_error("Parameter archives have conflicting filenames");
+                        if (queued.second && !pool.addDownload(url, archive.string()))
+                            throw std::runtime_error("Cannot queue parameter archive download");
+                    }
+                    if (!pool.performDownloads([] { return g_app_exiting.load(); }))
+                        throw std::runtime_error("Parameter archive download failed");
+                }
+                downloads->succeeded = !g_app_exiting;
+            } catch (const std::exception &error) {
+                BOOST_LOG_TRIVIAL(error) << "Native parameter update failed: " << error.what();
+            }
+            if (g_app_exiting)
+                return;
+            CallAfter([this, downloads, base_url, region, user_id, added, finish_without_install] {
+                if (g_app_exiting || m_is_closing || !mainframe || !preset_bundle)
+                    return;
+                if (!downloads || !downloads->succeeded || region != app_config->get("region") ||
+                    user_id != app_config->get("cloud", "user_id") || base_url != get_cloud_api_url()) {
+                    finish_without_install(true);
+                    return;
+                }
+                try {
+                    // The user may have removed a printer or another operation may
+                    // have installed it during download. Never downgrade or add it.
+                    std::set<std::string> still_added;
+                    const auto current_added = nsUpdateParams::getAddedPrinterNames();
+                    std::set_intersection(added.begin(), added.end(), current_added.begin(), current_added.end(),
+                                          std::inserter(still_added, still_added.end()));
+                    json pending = json::array();
+                    for (const auto &entry : ProfileUpdatePolicy::select_added_updates(downloads->requested, still_added,
+                            nsUpdateParams::loadInstalledPrinterVersions(), existing_added_profile_files(still_added)))
+                        pending.push_back(entry.second);
+                    if (pending.empty()) {
+                        finish_without_install(false);
+                        return;
+                    }
+                    const json request = {{"data", pending}, {"_begin_guide_downloaded", true}};
+                    if (!install_preset_packages(request, downloads->directory.string(), true))
+                        finish_without_install(true);
+                } catch (const std::exception &error) {
+                    BOOST_LOG_TRIVIAL(error) << "Native parameter update completion failed: " << error.what();
+                    finish_without_install(true);
+                }
+            });
+        });
+    } catch (const std::exception &error) {
+        BOOST_LOG_TRIVIAL(error) << "Cannot start parameter update: " << error.what();
+        finish_without_install(true);
+    }
+}
+
+bool GUI_App::install_preset_packages(const json &request, const std::string &prepared_directory, bool notify)
+{
+    // The transaction and app_config mutations must not overlap another install.
+    static std::mutex install_mutex;
+    std::unique_lock<std::mutex> install_lock(install_mutex, std::try_to_lock);
+    if (!install_lock.owns_lock())
+        return false;
+    try {
+        pt::ptree root;
+        std::istringstream input(request.dump());
+        pt::read_json(input, root);
+        pt::ptree data_node = root.get_child("data");
+        const bool automatic_update = root.get<bool>("_automatic_update", false);
+        const fs::path profile_vendor_dir = fs::path(data_dir()).append("system").append("Creality");
+        ProfileInstallTransaction install_transaction;
+        const bool guide_downloaded = root.get<bool>("_begin_guide_downloaded", false);
+        auto filament_file = fs::path(data_dir()).append("system").append("Creality").append("materialList.json");
+        const fs::path package_directory = prepared_directory.empty() ? fs::temp_directory_path() : fs::path(prepared_directory);
+        if (!prepared_directory.empty()) {
+            // Native downloads are staged separately. Catalogs participate in
+            // the same rollback as the profiles and version receipts.
+            for (const char *name : {"machineList.json", "materialList.json"}) {
+                const fs::path target = profile_vendor_dir / name;
+                install_transaction.track(target);
+                fs::copy_file(package_directory / name, target, fs::copy_option::overwrite_if_exists);
+            }
+        }
+
+        if (!guide_downloaded && !fs::exists(filament_file)) {
+            std::string base_url              = get_cloud_api_url();
+            auto        material_profile_url = "/api/cxy/v2/slice/profile/official/materialList";
+            Http http2 = Http::post(base_url + material_profile_url);
+            json        j2;
+            j2["engineVersion"]  = "3.0.0";
+            j2["pageSize"] = 1000;
+            boost::uuids::uuid uuid = boost::uuids::random_generator()();
+            http2.header("Content-Type", "application/json").header("__CXY_REQUESTID_", to_string(uuid)).set_post_body(j2.dump()).on_complete([=, &install_transaction](std::string body, unsigned status) {
+                            if(status!=200){
+                                return false;
+                            }
+                             json j = json::parse(body);
+                                json printer_list = j["result"]["list"];
+                                if(printer_list.empty()){
+                                    return false;
+                                }
+                                json list;
+                                list["materials"] = printer_list;
+                                install_transaction.track(filament_file);
+                                boost::nowide::ofstream c;
+                                c.open(filament_file.string(), std::ios::out | std::ios::trunc);
+                                c << std::setw(4) << list << std::endl;
+                                c.close();
+                                return true;
+                        }).perform_sync();
+        }
+        if (!guide_downloaded) {
+                std::string base_url              = get_cloud_api_url();
+                auto        preupload_profile_url = "/api/cxy/v2/slice/profile/official/printerList";
+                Http::set_extra_headers(get_extra_header());
+                Http http = Http::post(base_url + preupload_profile_url);
+                json        j;
+                j["engineVersion"]  = "3.0.0";
+                boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    http.header("Content-Type", "application/json")
+                        .header("__CXY_REQUESTID_", to_string(uuid))
+                        .set_post_body(j.dump())
+                        .timeout_connect(TIMEOUT_CONNECT)
+                        .timeout_max(TIMEOUT_RESPONSE)
+                        .on_complete([&](std::string body, unsigned status) {
+                            if(status!=200){
+                                return;
+                            }
+                            try{
+                                json j = json::parse(body);
+                                json printer_list = j["result"];
+                                auto out_printer_list_file = fs::path(data_dir()).append("system")
+                                                                 .append("Creality")
+                                                                 .append("machineList.json")
+                                                                 .string();
+                                install_transaction.track(fs::path(out_printer_list_file));
+                                boost::nowide::ofstream c;
+                                c.open(out_printer_list_file, std::ios::out | std::ios::trunc);
+                                c << std::setw(4) << printer_list << std::endl;
+                                c.close();
+                            }catch(...){
+                                return;
+                            }
+                        }).perform_sync();
+
+            }
+        json profile_json;
+        bool profile_manifest_needs_recovery = false;
+        auto profile_file = fs::path(data_dir()).append("system").append("Creality.json");
+        if (fs::exists(profile_file)) {
+            try {
+                boost::nowide::ifstream ifs(profile_file.string());
+                ifs >> profile_json;
+            } catch (const nlohmann::json::exception& error) {
+                BOOST_LOG_TRIVIAL(error) << "Failed to load installed Creality profile manifest "
+                                         << profile_file.string() << ": " << error.what();
+            }
+        }
+        if (!profile_json.is_object()) {
+            const auto bundled_profile_file = fs::path(resources_dir()).append("profiles").append("Creality.json");
+            try {
+                boost::nowide::ifstream ifs(bundled_profile_file.string());
+                ifs >> profile_json;
+            } catch (const nlohmann::json::exception& error) {
+                BOOST_LOG_TRIVIAL(error) << "Failed to load bundled Creality profile manifest "
+                                         << bundled_profile_file.string() << ": " << error.what();
+                return false;
+            }
+            if (!profile_json.is_object()) {
+                BOOST_LOG_TRIVIAL(error) << "Bundled Creality profile manifest is not a JSON object: "
+                                         << bundled_profile_file.string();
+                return false;
+            }
+            profile_manifest_needs_recovery = true;
+            BOOST_LOG_TRIVIAL(warning) << "Using bundled Creality profile manifest because the installed manifest "
+                                       << "is missing or invalid: " << profile_file.string();
+        }
+        auto cache_file = fs::path(data_dir()).append("system").append("Creality").append("profile_version.json");
+        json cache_json;
+        if (fs::exists(cache_file)) {
+            boost::nowide::ifstream ifs(cache_file.string());
+            ifs >> cache_json;
+            ifs.close();
+        }
+        json materials_json;
+
+        if (fs::exists(filament_file)) {
+                boost::nowide::ifstream ifs(filament_file.string());
+                ifs >> materials_json;
+                ifs.close();
+            }else{
+                return false;
+            }
+        const fs::path machine_list_file = fs::path(data_dir()).append("system")
+                                                            .append("Creality")
+                                                            .append("machineList.json");
+        const pt::ptree update_packages =
+            include_multi_extruder_update_candidates(data_node, machine_list_file);
+        //下载机器参数包
+        if (!guide_downloaded) {
+            try {
+                CurlConnectionPool pool(3);
+                for(const auto &v:update_packages)
+                {
+                    std::string zipUrl      = v.second.get_child("zipUrl").data();
+                    int         start_pos = zipUrl.find_last_of("/");
+                    boost::filesystem::path tmp_path = boost::filesystem::path(boost::filesystem::temp_directory_path()).append(zipUrl.substr(start_pos + 1));
+                    pool.addDownload(zipUrl, tmp_path.string());
+                }
+
+                if (!pool.performDownloads([] { return g_app_exiting.load(); }))
+                    return false;
+            } catch (const std::exception& e) {
+                std::cerr << "Error: " << e.what() << std::endl;
+                return false;
+            }
+        }
+        const json original_profile_json = profile_manifest_needs_recovery ? json() : profile_json;
+        const json original_cache_json = cache_json;
+        bool profiles_changed = false;
+        size_t installed_packages = 0;
+        const std::vector<pt::ptree> selected_packages = select_update_param_packages(update_packages, package_directory);
+        if (selected_packages.empty())
+            return false;
+        json installed_metadata = json::array();
+        std::set<std::string> updated_multi_extruder_models;
+        for(const pt::ptree& package : selected_packages)
+        {
+            if (UpdateParamPackage(package, profile_json, cache_json, materials_json, profiles_changed, install_transaction, !guide_downloaded, package_directory)) {
+                ++installed_packages;
+                std::ostringstream metadata;
+                pt::write_json(metadata, package, false);
+                installed_metadata.push_back(json::parse(metadata.str()));
+                if (update_package_uses_bare_multi_extruder_name(package))
+                    updated_multi_extruder_models.insert(update_package_printer_model(package));
+            }
+        }
+        update_multi_extruder_package_alias_versions(cache_json, update_packages,
+                                                      updated_multi_extruder_models);
+
+        if (installed_packages != selected_packages.size()) {
+            BOOST_LOG_TRIVIAL(error) << "Parameter package update incomplete: installed="
+                                     << installed_packages << ", requested=" << selected_packages.size();
+            return false;
+        }
+        std::string validation_error;
+        if (!ProfilePackageIO::validate_manifest(
+                std::filesystem::u8path(profile_vendor_dir.string()), profile_json, &validation_error)) {
+            BOOST_LOG_TRIVIAL(error) << "Parameter package validation failed: " << validation_error;
+            return false;
+        }
+
+        // UpdateParamPackage removes selected archives. Remove the unselected
+        // aliases as well after inspecting their variant metadata.
+        for (const auto& item : update_packages) {
+            const fs::path package_path = downloaded_update_package_path(item.second, package_directory);
+            if (!package_path.empty() && fs::exists(package_path))
+                fs::remove(package_path);
+        }
+
+
+
+        boost::nowide::ofstream c;
+        // Do not advance version receipts if the installed profile index cannot be saved.
+        c.exceptions(std::ios::failbit | std::ios::badbit);
+        if (profile_json != original_profile_json) {
+            install_transaction.track(profile_file);
+            c.open(profile_file.string(), std::ios::out | std::ios::trunc);
+            c << std::setw(4) << profile_json << std::endl;
+            c.close();
+            profiles_changed = true;
+        }
+        if (cache_json != original_cache_json) {
+            install_transaction.track(cache_file);
+            c.open(cache_file.string(), std::ios::out | std::ios::trunc);
+            c << std::setw(4) << cache_json << std::endl;
+            c.close();
+        }
+        BOOST_LOG_TRIVIAL(info) << "Parameter package update: installed=" << installed_packages
+                                << ", requested=" << selected_packages.size()
+                                << ", profiles_changed=" << profiles_changed;
+        install_transaction.commit();
+        CallAfter([this, automatic_update, profiles_changed, notify, installed_metadata] {
+            if (m_is_closing || mainframe == nullptr || preset_bundle == nullptr)
+                return;
+            if (profiles_changed) {
+                m_profile_reload_pending = true;
+                m_profile_reload_requires_project = false;
+            }
+            // Retry a pending reload even when a repeated download did
+            // not change the already installed files.
+            reload_updated_presets();
+            if (auto* current_plater = plater()) {
+                if (auto* canvas = current_plater->get_current_canvas3D())
+                    canvas->set_as_dirty();
+                current_plater->Refresh();
+            }
+            // Updating unadded printers must not dismiss the pending
+            // confirmation for printers already added by the user.
+            if (!automatic_update)
+                UpdateParams::getInstance().hasUpdateParams();
+            if (notify) {
+                m_native_profile_update_running = false;
+                plater()->get_notification_manager()->close_update_params_tip(_u8L("Updating parameter packages..."));
+                wxString notice;
+                if (m_profile_reload_requires_project)
+                    notice = _L("The update will be applied when you create or reopen a project.");
+                else if (m_profile_reload_pending)
+                    notice = _L("The update will be applied after slicing finishes.");
+                UpdateParams::getInstance().finishUpdate(installed_metadata, notice);
+            }
+        });
+        return true;
+    } catch (const std::exception &error) {
+        BOOST_LOG_TRIVIAL(error) << "Parameter package installation failed: " << error.what();
+        return false;
+    }
+}
+
 std::string GUI_App::handle_web_request(std::string cmd)
 {
 #if AUTO_CONVERT_3MF
@@ -8254,7 +8737,8 @@ std::string GUI_App::handle_web_request(std::string cmd)
                          CallAfter([this] {
                             send_app_message("logout");
                          });
-                         mainframe->get_printer_mgr_view()->destoryMqtt();
+                      if (mainframe && mainframe->get_printer_mgr_view())
+                          mainframe->get_printer_mgr_view()->clearMqttTarget();
                      app_config->set("sync_user_preset", "false");
                  }
 
@@ -8689,235 +9173,7 @@ std::string GUI_App::handle_web_request(std::string cmd)
 
                 return "";
             } else if (command_str.compare("update_preset_params") == 0) {
-                pt::ptree data_node = root.get_child("data");
-                const bool automatic_update = root.get<bool>("_automatic_update", false);
-                const fs::path profile_vendor_dir = fs::path(data_dir()).append("system").append("Creality");
-                ProfileInstallTransaction install_transaction;
-                const bool guide_downloaded = root.get<bool>("_begin_guide_downloaded", false);
-                auto filament_file = fs::path(data_dir()).append("system").append("Creality").append("materialList.json");
-                
-                if (!guide_downloaded && !fs::exists(filament_file)) {
-                    std::string base_url              = get_cloud_api_url();
-                    auto        material_profile_url = "/api/cxy/v2/slice/profile/official/materialList";
-                    Http http2 = Http::post(base_url + material_profile_url);
-                    json        j2;
-                    j2["engineVersion"]  = "3.0.0";
-                    j2["pageSize"] = 1000;
-                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
-                    http2.header("Content-Type", "application/json").header("__CXY_REQUESTID_", to_string(uuid)).set_post_body(j2.dump()).on_complete([=, &install_transaction](std::string body, unsigned status) {
-                                    if(status!=200){
-                                        return false;
-                                    }
-                                     json j = json::parse(body);
-                                        json printer_list = j["result"]["list"];
-                                        if(printer_list.empty()){
-                                            return false;
-                                        }
-                                        json list;
-                                        list["materials"] = printer_list;
-                                        install_transaction.track(filament_file);
-                                        boost::nowide::ofstream c;
-                                        c.open(filament_file.string(), std::ios::out | std::ios::trunc);
-                                        c << std::setw(4) << list << std::endl;
-                                        c.close();
-                                        return true;
-                                }).perform_sync();
-                }
-                if (!guide_downloaded) {
-                        std::string base_url              = get_cloud_api_url();
-                        auto        preupload_profile_url = "/api/cxy/v2/slice/profile/official/printerList";
-                        Http::set_extra_headers(get_extra_header());
-                        Http http = Http::post(base_url + preupload_profile_url);
-                        json        j;
-                        j["engineVersion"]  = "3.0.0";
-                        boost::uuids::uuid uuid = boost::uuids::random_generator()();
-                            http.header("Content-Type", "application/json")
-                                .header("__CXY_REQUESTID_", to_string(uuid))
-                                .set_post_body(j.dump())
-                                .timeout_connect(TIMEOUT_CONNECT)
-                                .timeout_max(TIMEOUT_RESPONSE)
-                                .on_complete([&](std::string body, unsigned status) {
-                                    if(status!=200){
-                                        return;
-                                    }
-                                    try{
-                                        json j = json::parse(body);
-                                        json printer_list = j["result"];
-                                        auto out_printer_list_file = fs::path(data_dir()).append("system")
-                                                                         .append("Creality")
-                                                                         .append("machineList.json")
-                                                                         .string();
-                                        install_transaction.track(fs::path(out_printer_list_file));
-                                        boost::nowide::ofstream c;
-                                        c.open(out_printer_list_file, std::ios::out | std::ios::trunc);
-                                        c << std::setw(4) << printer_list << std::endl;
-                                        c.close();
-                                    }catch(...){
-                                        return;
-                                    }
-                                }).perform_sync();
-                        
-                    }
-                json profile_json;
-                bool profile_manifest_needs_recovery = false;
-                auto profile_file = fs::path(data_dir()).append("system").append("Creality.json");
-                if (fs::exists(profile_file)) {
-                    try {
-                        boost::nowide::ifstream ifs(profile_file.string());
-                        ifs >> profile_json;
-                    } catch (const nlohmann::json::exception& error) {
-                        BOOST_LOG_TRIVIAL(error) << "Failed to load installed Creality profile manifest "
-                                                 << profile_file.string() << ": " << error.what();
-                    }
-                }
-                if (!profile_json.is_object()) {
-                    const auto bundled_profile_file = fs::path(resources_dir()).append("profiles").append("Creality.json");
-                    try {
-                        boost::nowide::ifstream ifs(bundled_profile_file.string());
-                        ifs >> profile_json;
-                    } catch (const nlohmann::json::exception& error) {
-                        BOOST_LOG_TRIVIAL(error) << "Failed to load bundled Creality profile manifest "
-                                                 << bundled_profile_file.string() << ": " << error.what();
-                        return "";
-                    }
-                    if (!profile_json.is_object()) {
-                        BOOST_LOG_TRIVIAL(error) << "Bundled Creality profile manifest is not a JSON object: "
-                                                 << bundled_profile_file.string();
-                        return "";
-                    }
-                    profile_manifest_needs_recovery = true;
-                    BOOST_LOG_TRIVIAL(warning) << "Using bundled Creality profile manifest because the installed manifest "
-                                               << "is missing or invalid: " << profile_file.string();
-                }
-                auto cache_file = fs::path(data_dir()).append("system").append("Creality").append("profile_version.json");
-                json cache_json;
-                if (fs::exists(cache_file)) {
-                    boost::nowide::ifstream ifs(cache_file.string());
-                    ifs >> cache_json;
-                    ifs.close();
-                }
-                json materials_json;
-                
-                if (fs::exists(filament_file)) {
-                        boost::nowide::ifstream ifs(filament_file.string());
-                        ifs >> materials_json;
-                        ifs.close();
-                    }else{
-                        return "";
-                    }
-                const fs::path machine_list_file = fs::path(data_dir()).append("system")
-                                                                    .append("Creality")
-                                                                    .append("machineList.json");
-                const pt::ptree update_packages =
-                    include_multi_extruder_update_candidates(data_node, machine_list_file);
-                //下载机器参数包               
-                if (!guide_downloaded) {
-                    try {
-                        CurlConnectionPool pool(3);
-                        for(const auto &v:update_packages)
-                        {
-                            std::string zipUrl      = v.second.get_child("zipUrl").data();
-                            int         start_pos = zipUrl.find_last_of("/");
-                            boost::filesystem::path tmp_path = boost::filesystem::path(boost::filesystem::temp_directory_path()).append(zipUrl.substr(start_pos + 1));
-                            pool.addDownload(zipUrl, tmp_path.string());
-                        }
-
-                        pool.performDownloads();
-                    } catch (const std::exception& e) {
-                        std::cerr << "Error: " << e.what() << std::endl;
-                        return "";
-                    }
-                }
-                const json original_profile_json = profile_manifest_needs_recovery ? json() : profile_json;
-                const json original_cache_json = cache_json;
-                bool profiles_changed = false;
-                size_t installed_packages = 0;
-                const std::vector<pt::ptree> selected_packages = select_update_param_packages(update_packages);
-                std::set<std::string> updated_multi_extruder_models;
-                for(const pt::ptree& package : selected_packages)
-                {
-                    if (UpdateParamPackage(package, profile_json, cache_json, materials_json, profiles_changed, install_transaction, !guide_downloaded)) {
-                        ++installed_packages;
-                        if (update_package_uses_bare_multi_extruder_name(package))
-                            updated_multi_extruder_models.insert(update_package_printer_model(package));
-                    }
-                }
-                update_multi_extruder_package_alias_versions(cache_json, update_packages,
-                                                              updated_multi_extruder_models);
-
-                if (installed_packages != selected_packages.size()) {
-                    BOOST_LOG_TRIVIAL(error) << "Parameter package update incomplete: installed="
-                                             << installed_packages << ", requested=" << selected_packages.size();
-                    return "";
-                }
-                std::string validation_error;
-                if (!ProfilePackageIO::validate_manifest(
-                        std::filesystem::u8path(profile_vendor_dir.string()), profile_json, &validation_error)) {
-                    BOOST_LOG_TRIVIAL(error) << "Parameter package validation failed: " << validation_error;
-                    return "";
-                }
-
-                // UpdateParamPackage removes selected archives. Remove the unselected
-                // aliases as well after inspecting their variant metadata.
-                for (const auto& item : update_packages) {
-                    const fs::path package_path = downloaded_update_package_path(item.second);
-                    if (!package_path.empty() && fs::exists(package_path))
-                        fs::remove(package_path);
-                }
-                
-                
-
-                boost::nowide::ofstream c;
-                // Do not advance version receipts if the installed profile index cannot be saved.
-                c.exceptions(std::ios::failbit | std::ios::badbit);
-                if (profile_json != original_profile_json) {
-                    install_transaction.track(profile_file);
-                    c.open(profile_file.string(), std::ios::out | std::ios::trunc);
-                    c << std::setw(4) << profile_json << std::endl;
-                    c.close();
-                    profiles_changed = true;
-                }
-                if (cache_json != original_cache_json) {
-                    install_transaction.track(cache_file);
-                    c.open(cache_file.string(), std::ios::out | std::ios::trunc);
-                    c << std::setw(4) << cache_json << std::endl;
-                    c.close();
-                }
-                BOOST_LOG_TRIVIAL(info) << "Parameter package update: installed=" << installed_packages
-                                        << ", requested=" << selected_packages.size()
-                                        << ", profiles_changed=" << profiles_changed;
-                install_transaction.commit();
-                if (!profiles_changed) {
-                    BOOST_LOG_TRIVIAL(info) << "Parameter profiles unchanged; skipping preset reload and filament refresh";
-                    return "";
-                }
-                CallAfter([this, automatic_update] {
-                    if (m_is_closing || mainframe == nullptr || preset_bundle == nullptr)
-                        return;
-                    // Coalesce repainting of the process, printer and CFS panels.
-                    wxWindowUpdateLocker ui_locker(mainframe);
-                    if (!preset_bundle->printers.get_edited_preset().is_dirty &&
-                        !preset_bundle->filaments.get_edited_preset().is_dirty &&
-                        !preset_bundle->prints.get_edited_preset().is_dirty) {
-                        const auto started = std::chrono::steady_clock::now();
-                        preset_bundle->load_presets(*app_config,
-                            ForwardCompatibilitySubstitutionRule::EnableSilentDisableSystem);
-                        load_current_presets();
-                        plater()->set_bed_shape();
-                        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now() - started).count();
-                        BOOST_LOG_TRIVIAL(info) << "Parameter profile reload finished: elapsed_ms=" << elapsed;
-                    }
-                    if (auto* current_plater = plater()) {
-                        if (auto* canvas = current_plater->get_current_canvas3D())
-                            canvas->set_as_dirty();
-                        current_plater->Refresh();
-                    }
-                    // Updating unadded printers must not dismiss the pending
-                    // confirmation for printers already added by the user.
-                    if (!automatic_update)
-                        UpdateParams::getInstance().hasUpdateParams();
-                });
+                install_preset_packages(json::parse(cmd));
             } else if (command_str.compare("refresh_all_device") == 0) {
                 CallAfter([this] { 
                 if (wxGetApp().mainframe->get_printer_mgr_view()) {
@@ -13360,6 +13616,47 @@ bool GUI_App::ensure_active_printer_filaments()
                             << ", nozzle=" << nozzle << ", variant=" << repaired_variant
                             << ", filaments=" << restored_filaments;
     return true;
+}
+
+void GUI_App::reload_updated_presets(bool project_boundary)
+{
+    if (!m_profile_reload_pending || m_is_closing || !mainframe || !preset_bundle || !plater())
+        return;
+    if (!project_boundary && (m_profile_reload_requires_project || plater()->is_background_process_slicing()))
+        return;
+    try {
+        const auto started = std::chrono::steady_clock::now();
+        // Load into a separate bundle. Failed loads and incompatible merges must
+        // leave the live project's presets and configuration intact.
+        PresetBundle updated(*preset_bundle);
+        AppConfig reload_config(*app_config);
+        updated.load_presets(reload_config, ForwardCompatibilitySubstitutionRule::EnableSilentDisableSystem);
+        std::string reason;
+        if (!preset_bundle->apply_profile_update(updated, reason)) {
+            if (!project_boundary) {
+                m_profile_reload_requires_project = true;
+                BOOST_LOG_TRIVIAL(info) << "Parameter profile reload deferred until project change: " << reason;
+                return;
+            }
+            // Called after the old project was reset and before kept edits or
+            // the incoming project's own presets are applied.
+            *preset_bundle = updated;
+            preset_bundle->calibrate_printer = nullptr;
+            preset_bundle->calibrate_filaments.clear();
+        }
+        wxWindowUpdateLocker ui_locker(mainframe);
+        load_current_presets(false, false);
+        plater()->set_bed_shape();
+        plater()->update();
+        m_profile_reload_pending = false;
+        m_profile_reload_requires_project = false;
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started).count();
+        BOOST_LOG_TRIVIAL(info) << "Parameter profile reload finished: elapsed_ms=" << elapsed;
+    } catch (const std::exception &error) {
+        m_profile_reload_requires_project = true;
+        BOOST_LOG_TRIVIAL(error) << "Parameter profile reload deferred: " << error.what();
+    }
 }
 
 // Update UI / Tabs to reflect changes in the currently loaded presets

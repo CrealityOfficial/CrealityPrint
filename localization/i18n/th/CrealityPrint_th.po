@@ -21230,3 +21230,82 @@ msgstr "ยกเลิกแล้ว"
 
 #~ msgid "Gradient Effect is not yet supported."
 #~ msgstr "ยังไม่รองรับเอฟเฟกต์การไล่ระดับสี"
+
+#: src/slic3r/GUI/GUI_App.cpp:8124 src/slic3r/GUI/GUI_App.cpp:8131 src/slic3r/GUI/GUI_App.cpp:8493
+msgid "Updating parameter packages..."
+msgstr "กำลังอัปเดตแพ็กเกจพารามิเตอร์..."
+
+#: src/slic3r/GUI/GUI_App.cpp:8134
+msgid "Failed to update parameter packages. Please try again."
+msgstr "ไม่สามารถอัปเดตแพ็กเกจพารามิเตอร์ได้ โปรดลองอีกครั้ง"
+
+#: src/slic3r/GUI/GUI_App.cpp:8135 src/slic3r/GUI/GUI_App.cpp:8138
+msgid "Parameter update"
+msgstr "การอัปเดตพารามิเตอร์"
+
+#: src/slic3r/GUI/GUI_App.cpp:8499
+#, c-format
+msgid "Updated to %s"
+msgstr "อัปเดตเป็น %s แล้ว"
+
+#: src/slic3r/GUI/GUI_App.cpp:8501
+msgid "Update content:"
+msgstr "รายละเอียดการอัปเดต:"
+
+#: src/slic3r/GUI/GUI_App.cpp:8502
+msgid "No update description was provided."
+msgstr "ไม่มีคำอธิบายสำหรับการอัปเดตนี้"
+
+#: src/slic3r/GUI/GUI_App.cpp:8505
+msgid "The update will be applied when you create or reopen a project."
+msgstr "การอัปเดตจะมีผลเมื่อคุณสร้างโปรเจ็กต์ใหม่หรือเปิดโปรเจ็กต์อีกครั้ง"
+
+#: src/slic3r/GUI/GUI_App.cpp:8507
+msgid "The update will be applied after slicing finishes."
+msgstr "การอัปเดตจะมีผลหลังจากแบ่งชั้นเสร็จสิ้น"
+
+#: src/slic3r/GUI/GUI_App.cpp:8508
+msgid "Parameter packages updated"
+msgstr "อัปเดตแพ็กเกจพารามิเตอร์แล้ว"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:32 src/slic3r/GUI/MainFrame.cpp:2924 src/slic3r/GUI/MainFrame.cpp:2924
+msgid "Check for Preset Updates"
+msgstr "ตรวจสอบการอัปเดตพรีเซ็ต"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:37 src/slic3r/GUI/UpdateDialogs.cpp:95
+msgid "Checking preset updates..."
+msgstr "กำลังตรวจสอบการอัปเดตพรีเซ็ต…"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:47 src/slic3r/GUI/UpdateDialogs.cpp:116
+msgid "Remind me later"
+msgstr "เตือนฉันภายหลัง"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:101
+msgid "Updates are available for the following added printers."
+msgstr "มีการอัปเดตสำหรับเครื่องพิมพ์ที่เพิ่มไว้ต่อไปนี้"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:104
+#, c-format
+msgid "Target version: %s"
+msgstr "เวอร์ชันเป้าหมาย: %s"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:118
+#, c-format
+msgid "Update all (%d)"
+msgstr "อัปเดตทั้งหมด (%d)"
+
+#: src/slic3r/GUI/UpdateParams.cpp:197
+msgid "No printers have been added. Add a printer before checking for updates."
+msgstr "ยังไม่ได้เพิ่มเครื่องพิมพ์ โปรดเพิ่มเครื่องพิมพ์ก่อนตรวจสอบการอัปเดต"
+
+#: src/slic3r/GUI/UpdateParams.cpp:258
+msgid "All added printers are up to date."
+msgstr "พรีเซ็ตของเครื่องพิมพ์ที่เพิ่มไว้ทั้งหมดเป็นเวอร์ชันล่าสุดแล้ว"
+
+#: src/slic3r/GUI/UpdateParams.cpp:222 src/slic3r/GUI/UpdateParams.cpp:233
+msgid "Failed to check preset updates. Please check your network and try again."
+msgstr "ไม่สามารถตรวจสอบการอัปเดตพรีเซ็ตได้ โปรดตรวจสอบเครือข่ายแล้วลองอีกครั้ง"
+
+#: src/slic3r/GUI/UpdateParams.cpp:217 src/slic3r/GUI/UpdateParams.cpp:285
+msgid "The printer list or account has changed. Please check again."
+msgstr "รายการเครื่องพิมพ์หรือบัญชีมีการเปลี่ยนแปลง โปรดตรวจสอบอีกครั้ง"

@@ -3162,7 +3162,9 @@ bool WipingExtrusions::is_obj_overriddable(const ExtrusionEntityCollection &eec,
 // BBS
 bool WipingExtrusions::is_support_overriddable(const ExtrusionRole role, const PrintObject& object) const
 {
-    if (!object.config().flush_into_support)
+    // Support purging is independent of native no-tower planning. Its toggle
+    // must not introduce support overrides or change the no-tower tool order.
+    if (!object.config().flush_into_support || no_wipe_tower_no_purge_mode_enabled(*object.print()))
         return false;
 
     if (role == erMixed) {
@@ -3542,7 +3544,8 @@ float WipingExtrusions::mark_wiping_extrusions(const Print& print, unsigned int 
             }
 
             // BBS
-            if (!skeleton_only && object->config().flush_into_support) {
+            if (!skeleton_only && object->config().flush_into_support &&
+                !no_wipe_tower_no_purge_mode_enabled(print)) {
                 auto& object_config = object->config();
                 const SupportLayer* this_support_layer = object->get_support_layer_at_printz(lt.print_z, EPSILON);
 

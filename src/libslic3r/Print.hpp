@@ -800,6 +800,8 @@ struct PrintStatistics
     double                          total_extruded_volume;
     double                          total_cost;
     int                             total_toolchanges;
+    // External purge visits selected by the native no-tower algorithm.
+    size_t                          no_tower_external_flush_count;
     double                          total_weight;
     double                          total_wipe_tower_cost;
     double                          total_wipe_tower_filament;
@@ -819,6 +821,7 @@ struct PrintStatistics
         total_extruded_volume  = 0.;
         total_cost             = 0.;
         total_toolchanges      = 0;
+        no_tower_external_flush_count = 0;
         total_weight           = 0.;
         total_wipe_tower_cost  = 0.;
         total_wipe_tower_filament = 0.;

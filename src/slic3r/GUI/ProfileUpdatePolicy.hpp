@@ -2,6 +2,7 @@
 #define slic3r_ProfileUpdatePolicy_hpp_
 
 #include <map>
+#include <cstdint>
 #include <set>
 #include <string>
 #include <nlohmann/json.hpp>
@@ -97,6 +98,63 @@ inline bool needs_update(bool file_exists, const std::string& installed, const s
     const auto local = parse_version(installed);
     // A beta profile without an installed package version needs reconciliation.
     return !local || *remote > *local;
+}
+
+// Clicking the update tip authorizes only the printers already added by the
+// user. Always select from a fresh catalog, never from cached notification data.
+inline Packages select_added_updates(const nlohmann::json& printers,
+                                     const std::set<std::string>& added,
+                                     const Versions& installed,
+                                     const std::set<std::string>& existing_files)
+{
+    auto packages = select_packages(printers);
+    for (auto it = packages.begin(); it != packages.end();) {
+        const auto local = installed.find(it->first);
+        if (added.count(it->first) == 0 ||
+            !needs_update(existing_files.count(it->first) != 0,
+                          local == installed.end() ? "" : local->second,
+                          it->second.value("showVersion", std::string())))
+            it = packages.erase(it);
+        else
+            ++it;
+    }
+    return packages;
+}
+
+// descriptionI18n is localized by the catalog API using __CXY_OS_LANG_. Keep
+// the text as plain text; missing notes must not become invented release notes.
+inline std::string release_notes(const nlohmann::json& package)
+{
+    const auto notes = package.find("descriptionI18n");
+    return notes != package.end() && notes->is_string() ? notes->get<std::string>() : std::string();
+}
+
+// Snooze is scoped to the cloud/account, installed profile identity and target
+// version. Reject malformed/implausible timestamps instead of hiding updates forever.
+inline bool is_snoozed(const nlohmann::json &records, const std::string &scope,
+                       const std::string &name, const std::string &version, int64_t now)
+{
+    try {
+        const auto &record = records.at(scope).at(name);
+        // Older builds also wrote snoozes for X/Escape. Those records cannot
+        // prove an explicit reminder choice and must not suppress future starts.
+        if (!record.value("explicit", false)) return false;
+        const auto saved_version = parse_version(record.at("version").get<std::string>());
+        const auto target_version = parse_version(version);
+        const int64_t until = record.at("until").get<int64_t>();
+        return saved_version && target_version && *saved_version == *target_version &&
+               until > now && until - now <= 24 * 60 * 60;
+    } catch (...) { return false; }
+}
+
+inline void snooze(nlohmann::json &records, const std::string &scope,
+                   const nlohmann::json &packages, int64_t now)
+{
+    if (!records.is_object()) records = nlohmann::json::object();
+    if (!records[scope].is_object()) records[scope] = nlohmann::json::object();
+    for (const auto &entry : select_packages(packages))
+        records[scope][entry.first] = {{"version", entry.second.value("showVersion", std::string())},
+                                      {"until", now + 24 * 60 * 60}, {"explicit", true}};
 }
 
 } // namespace Slic3r::GUI::ProfileUpdatePolicy

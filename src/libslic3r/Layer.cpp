@@ -483,10 +483,11 @@ void Layer::simplify_support_entity_collection(ExtrusionEntityCollection* entity
 //BBS: method to simplify support path
 void Layer::simplify_support_path(ExtrusionPath * path)
 {
-    const auto print_config = this->object()->print()->config();
+    const auto &print_config = this->object()->print()->config();
     const bool spiral_mode = print_config.spiral_mode;
     const bool enable_arc_fitting = print_config.enable_arc_fitting;
-    const auto scaled_resolution = scaled<double>(print_config.resolution.value);
+    // Apply the same linear tolerance to support body, interface and transition.
+    const auto scaled_resolution = scaled<double>(print_config.resolution.value * (is_support(path->role()) ? 4. : 1.));
 
     if (enable_arc_fitting &&
         !spiral_mode) {
@@ -498,36 +499,14 @@ void Layer::simplify_support_path(ExtrusionPath * path)
 //BBS: method to simplify support path
 void Layer::simplify_support_multi_path(ExtrusionMultiPath* multipath)
 {
-    const auto print_config = this->object()->print()->config();
-    const bool spiral_mode = print_config.spiral_mode;
-    const bool enable_arc_fitting = print_config.enable_arc_fitting;
-    const auto scaled_resolution = scaled<double>(print_config.resolution.value);
-
-    for (size_t i = 0; i < multipath->paths.size(); ++i) {
-        if (enable_arc_fitting &&
-            !spiral_mode) {
-            multipath->paths[i].simplify_by_fitting_arc(SCALED_SUPPORT_RESOLUTION);
-        } else {
-            multipath->paths[i].simplify(scaled_resolution);
-        }
-    }
+    for (ExtrusionPath &path : multipath->paths)
+        this->simplify_support_path(&path);
 }
 //BBS: method to simplify support path
 void Layer::simplify_support_loop(ExtrusionLoop* loop)
 {
-    const auto print_config = this->object()->print()->config();
-    const bool spiral_mode = print_config.spiral_mode;
-    const bool enable_arc_fitting = print_config.enable_arc_fitting;
-    const auto scaled_resolution = scaled<double>(print_config.resolution.value);
-
-    for (size_t i = 0; i < loop->paths.size(); ++i) {
-        if (enable_arc_fitting &&
-            !spiral_mode) {
-            loop->paths[i].simplify_by_fitting_arc(SCALED_SUPPORT_RESOLUTION);
-        } else {
-            loop->paths[i].simplify(scaled_resolution);
-        }
-    }
+    for (ExtrusionPath &path : loop->paths)
+        this->simplify_support_path(&path);
 }
 
 // Export to "out/LayerRegion-name-%d.svg" with an increasing index with every export.

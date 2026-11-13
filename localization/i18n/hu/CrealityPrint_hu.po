@@ -25833,3 +25833,82 @@ msgstr "Canceled"
 
 #~ msgid "Export to Local"
 #~ msgstr "Export to Local"
+
+#: src/slic3r/GUI/GUI_App.cpp:8124 src/slic3r/GUI/GUI_App.cpp:8131 src/slic3r/GUI/GUI_App.cpp:8493
+msgid "Updating parameter packages..."
+msgstr "Paramétercsomagok frissítése..."
+
+#: src/slic3r/GUI/GUI_App.cpp:8134
+msgid "Failed to update parameter packages. Please try again."
+msgstr "A paramétercsomagok frissítése nem sikerült. Próbálja újra."
+
+#: src/slic3r/GUI/GUI_App.cpp:8135 src/slic3r/GUI/GUI_App.cpp:8138
+msgid "Parameter update"
+msgstr "Paraméterek frissítése"
+
+#: src/slic3r/GUI/GUI_App.cpp:8499
+#, c-format
+msgid "Updated to %s"
+msgstr "Frissítve erre a verzióra: %s"
+
+#: src/slic3r/GUI/GUI_App.cpp:8501
+msgid "Update content:"
+msgstr "A frissítés tartalma:"
+
+#: src/slic3r/GUI/GUI_App.cpp:8502
+msgid "No update description was provided."
+msgstr "A frissítéshez nem áll rendelkezésre leírás."
+
+#: src/slic3r/GUI/GUI_App.cpp:8505
+msgid "The update will be applied when you create or reopen a project."
+msgstr "A frissítés új projekt létrehozásakor vagy egy projekt újbóli megnyitásakor lép érvénybe."
+
+#: src/slic3r/GUI/GUI_App.cpp:8507
+msgid "The update will be applied after slicing finishes."
+msgstr "A frissítés a szeletelés befejezése után lép érvénybe."
+
+#: src/slic3r/GUI/GUI_App.cpp:8508
+msgid "Parameter packages updated"
+msgstr "A paramétercsomagok frissítve"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:32 src/slic3r/GUI/MainFrame.cpp:2924 src/slic3r/GUI/MainFrame.cpp:2924
+msgid "Check for Preset Updates"
+msgstr "Profilfrissítések keresése"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:37 src/slic3r/GUI/UpdateDialogs.cpp:95
+msgid "Checking preset updates..."
+msgstr "Profilfrissítések keresése…"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:47 src/slic3r/GUI/UpdateDialogs.cpp:116
+msgid "Remind me later"
+msgstr "Emlékeztessen később"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:101
+msgid "Updates are available for the following added printers."
+msgstr "Frissítések érhetők el a következő hozzáadott nyomtatókhoz."
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:104
+#, c-format
+msgid "Target version: %s"
+msgstr "Célverzió: %s"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:118
+#, c-format
+msgid "Update all (%d)"
+msgstr "Összes frissítése (%d)"
+
+#: src/slic3r/GUI/UpdateParams.cpp:197
+msgid "No printers have been added. Add a printer before checking for updates."
+msgstr "Nincs hozzáadott nyomtató. A frissítések keresése előtt adjon hozzá egy nyomtatót."
+
+#: src/slic3r/GUI/UpdateParams.cpp:258
+msgid "All added printers are up to date."
+msgstr "Az összes hozzáadott nyomtató profilja naprakész."
+
+#: src/slic3r/GUI/UpdateParams.cpp:222 src/slic3r/GUI/UpdateParams.cpp:233
+msgid "Failed to check preset updates. Please check your network and try again."
+msgstr "Nem sikerült ellenőrizni a profilfrissítéseket. Ellenőrizze a hálózati kapcsolatot, és próbálja újra."
+
+#: src/slic3r/GUI/UpdateParams.cpp:217 src/slic3r/GUI/UpdateParams.cpp:285
+msgid "The printer list or account has changed. Please check again."
+msgstr "A nyomtatólista vagy a fiók megváltozott. Ellenőrizze újra."

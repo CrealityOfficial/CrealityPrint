@@ -77,7 +77,8 @@ namespace GUI {
         { 0.70f, 0.89f, 0.67f, 1.0f },   // erWipeTower
         { 0.00f, 0.80f, 0.90f, 1.0f },   // erSkinInfill
         { 0.37f, 0.82f, 0.58f, 1.0f },   // erCustom
-        { 0.70f, 0.70f, 0.70f, 1.0f }    // erMixed
+        { 0.70f, 0.70f, 0.70f, 1.0f },   // erMixed
+        { 0.59f, 0.33f, 0.80f, 1.0f }    // erFloatingVerticalShell (internal solid infill)
     } };
 
     const std::vector<ColorRGBA> BaseRenderer::Options_Colors{{

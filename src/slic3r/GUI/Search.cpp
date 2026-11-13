@@ -215,9 +215,7 @@ bool OptionsSearcher::search(const std::string &search, bool force /* = false*/,
         bool is_creality_vendor = GUI::wxGetApp().preset_bundle->is_cx_vendor();
         if (is_creality_vendor && result.size() > 1)
         {
-            if (wxString("cool_plate_temp_initial_layer") == result.at(1) 
-                || wxString("eng_plate_temp_initial_layer") == result.at(1)
-                || wxString("cool_plate_temp") == result.at(1)
+            if (wxString("eng_plate_temp_initial_layer") == result.at(1)
                 || wxString("eng_plate_temp") == result.at(1))
             {
                 return false;

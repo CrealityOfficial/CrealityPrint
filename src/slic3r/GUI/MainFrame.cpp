@@ -2920,6 +2920,10 @@ static wxMenu* generate_help_menu(MainFrame* mainframe)
             return true;
         });
 
+    if (wxGetApp().is_editor())
+        append_menu_item(helpMenu, wxID_ANY, _L("Check for Preset Updates"), _L("Check for Preset Updates"),
+            [](wxCommandEvent &) { UpdateParams::getInstance().checkParamsNeedUpdate(true); });
+
     // -- hide the network test
     //append_menu_item(helpMenu, wxID_ANY, _L("Open Network Test"), _L("Open Network Test"), [](wxCommandEvent&) {
     //        NetworkTestDialog dlg(wxGetApp().mainframe);

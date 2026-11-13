@@ -1586,6 +1586,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     new_full_config.option("mixed_filament_surface_indentation", true);
     new_full_config.option("mixed_filament_definitions", true);
     new_full_config.option("enable_mixed_color_sublayer", true);
+    new_full_config.option("mixed_color_min_sublayer_height", true);
     // NOTE: enable_mixed_color_sublayer is NOT a member of PrintConfig / PrintObjectConfig
     // (it's only registered dynamically via the config definition system), so we cannot
     // register it on m_config / m_default_object_config here. Instead, the diff for this

@@ -758,6 +758,12 @@
                                     "url":"update-released/Strength/advanced"
                                 } , 
                                 {
+                                    "key":"detect_floating_vertical_shell",
+                                    "tooltip":"",
+                                    "tooltip_img":"",
+                                    "url":"update-released/Strength/advanced"
+                                },
+                                {
                                     "key":"ensure_vertical_shell_thickness",
                                     "tooltip":"",
                                     "tooltip_img":"ensure_vertical_shell_thickness",

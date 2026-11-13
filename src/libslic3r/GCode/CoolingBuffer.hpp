@@ -3,6 +3,7 @@
 
 #include "../libslic3r.h"
 #include "ZaaIntervalProtocol.hpp"
+#include "CustomFanControl.hpp"
 #include <map>
 #include <string>
 #include <libslic3r/Slicing.hpp>
@@ -69,6 +70,8 @@ struct CoolingLine
         // CP: add large range
         TYPE_LARGE_RANGE        = 1 << 22,
         TYPE_FORCE_FAN_ON_TOOL_CHANGE = 1 << 23,
+        TYPE_CUSTOM_FAN_CONTROL_BEGIN = 1 << 24,
+        TYPE_CUSTOM_FAN_CONTROL_END   = 1 << 25,
     };
 
     CoolingLine(unsigned int type, size_t line_start, size_t line_end)
@@ -474,6 +477,17 @@ private:
 
     //BBS: current fan speed
     int                         m_current_fan_speed;
+    // Writer state: custom fan control may span multiple processed chunks.
+    unsigned int                m_custom_fan_control_depth = 0;
+    struct CustomFanSnapshot {
+        int speed = -1;
+        bool overhang = false;
+        bool support_interface = false;
+        bool target_changed = false;
+        bool region_changed = false;
+        bool pending = false;
+    }                           m_custom_fan_snapshot;
+    CustomFanControlTracker     m_custom_fan_output;
 
     //flag: set flag for additional fan per layers
     int                         m_additional_fan_count;

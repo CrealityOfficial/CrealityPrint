@@ -168,7 +168,7 @@ public:
         append_line(create_single_option_line(option, path, subline));
     }
     void append_separator();
-    // Optional control rendered on the right side of a tab option-group header.
+    // Optional full-width action row below a tab option-group header.
     void set_header_widget(const widget_t widget) { m_header_widget = widget; }
 
     // return a non-owning pointer reference 

@@ -843,6 +843,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     bool have_volumetric_extrusion_rate_slope = config->option<ConfigOptionFloat>("max_volumetric_extrusion_rate_slope")->value > 0;
     float have_volumetric_extrusion_rate_slope_segment_length = config->option<ConfigOptionFloat>("max_volumetric_extrusion_rate_slope_segment_length")->value;
     toggle_field("enable_arc_fitting", true);
+    toggle_field("mixed_color_min_sublayer_height", config->opt_bool("enable_mixed_color_sublayer"));
     toggle_line("max_volumetric_extrusion_rate_slope_segment_length", have_volumetric_extrusion_rate_slope);
     toggle_line("extrusion_rate_smoothing_external_perimeter_only", have_volumetric_extrusion_rate_slope);
     if(have_volumetric_extrusion_rate_slope_segment_length < 0.5) {
@@ -862,6 +863,10 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
         "inner_wall_speed", "outer_wall_speed", "small_perimeter_speed", "small_perimeter_threshold" })
         toggle_field(el, have_perimeters);
     
+    const bool detect_narrow_infill = config->opt_bool("detect_narrow_internal_solid_infill");
+    toggle_line("detect_floating_vertical_shell", detect_narrow_infill);
+    toggle_line("vertical_shell_speed", detect_narrow_infill);
+
     bool have_infill = has_effective_sparse_infill(config);
     toggle_field("ai_infill", config->opt_bool("enable_prime_tower"));
     // sparse_infill_filament uses the same logic as in Print::extruders()

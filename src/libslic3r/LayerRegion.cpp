@@ -1123,12 +1123,34 @@ void LayerRegion::simplify_entity_collection(ExtrusionEntityCollection* entity_c
         zaa_prune_no_motion_paths(*entity_collection);
 }
 
+static double scaled_linear_infill_resolution(const PrintConfig &print_config,
+                                             const PrintRegionConfig &region_config,
+                                             ExtrusionRole role)
+{
+    // Use the region's pattern so object and modifier overrides are respected.
+    if (role == erInternalInfill) {
+        switch (region_config.sparse_infill_pattern.value) {
+        case ipGyroid:
+            return scaled<double>(0.0495);
+        case ipGradualTpmsG:
+        case ipGradualTpmsD:
+        case ipGradualTpmsFK:
+            // Keep the original global resolution for gradual TPMS infill.
+            break;
+        default:
+            return scaled<double>(3. * print_config.resolution.value);
+        }
+    }
+    return scaled<double>(print_config.resolution.value);
+}
+
 void LayerRegion::simplify_path(ExtrusionPath* path)
 {
     const auto print_config = this->layer()->object()->print()->config();
     const bool spiral_mode = print_config.spiral_mode;
     const bool enable_arc_fitting = print_config.enable_arc_fitting;
     const auto scaled_resolution = scaled<double>(print_config.resolution.value);
+    const auto scaled_linear_resolution = scaled_linear_infill_resolution(print_config, m_region->config(), path->role());
     const bool requires_zaa_linear_simplification =
         this->layer()->object()->zaa_layer_uses_offset_plane(*this->layer()) && zaa_role_is_eligible(path->role());
     path->set_zaa_path_policy(ZaaPathPolicy::Conventional);
@@ -1137,7 +1159,7 @@ void LayerRegion::simplify_path(ExtrusionPath* path)
     path->clear_path3();
 
     if (requires_zaa_linear_simplification) {
-        zaa_simplify_path(*path, scaled_resolution);
+        zaa_simplify_path(*path, scaled_linear_resolution);
     } else if (enable_arc_fitting &&
         !spiral_mode) {
         if (this->layer()->object()->print()->calib_params().mode == CalibMode::Calib_Arc2Lerance) {
@@ -1148,7 +1170,7 @@ void LayerRegion::simplify_path(ExtrusionPath* path)
         else
             path->simplify_by_fitting_arc(scaled_resolution);
     } else {
-        path->simplify(scaled_resolution);
+        path->simplify(scaled_linear_resolution);
     }
 }
 
@@ -1162,12 +1184,13 @@ void LayerRegion::simplify_multi_path(ExtrusionMultiPath* multipath)
         this->layer()->object()->zaa_layer_uses_offset_plane(*this->layer());
 
     for (ExtrusionPath &path : multipath->paths) {
+        const auto scaled_linear_resolution = scaled_linear_infill_resolution(print_config, m_region->config(), path.role());
         const bool requires_zaa_linear_simplification =
             zaa_layer_uses_offset_plane && zaa_role_is_eligible(path.role());
         path.set_zaa_path_policy(ZaaPathPolicy::Conventional);
         path.clear_path3();
         if (requires_zaa_linear_simplification) {
-            zaa_simplify_path(path, scaled_resolution);
+            zaa_simplify_path(path, scaled_linear_resolution);
         } else if (enable_arc_fitting &&
             !spiral_mode) {
             if (this->layer()->object()->print()->calib_params().mode == CalibMode::Calib_Arc2Lerance) {
@@ -1178,7 +1201,7 @@ void LayerRegion::simplify_multi_path(ExtrusionMultiPath* multipath)
             else
                 path.simplify_by_fitting_arc(scaled_resolution);
         } else {
-            path.simplify(scaled_resolution);
+            path.simplify(scaled_linear_resolution);
         }
     }
 }
@@ -1193,12 +1216,13 @@ void LayerRegion::simplify_loop(ExtrusionLoop* loop)
         this->layer()->object()->zaa_layer_uses_offset_plane(*this->layer());
 
     for (ExtrusionPath &path : loop->paths) {
+        const auto scaled_linear_resolution = scaled_linear_infill_resolution(print_config, m_region->config(), path.role());
         const bool requires_zaa_linear_simplification =
             zaa_layer_uses_offset_plane && zaa_role_is_eligible(path.role());
         path.set_zaa_path_policy(ZaaPathPolicy::Conventional);
         path.clear_path3();
         if (requires_zaa_linear_simplification) {
-            zaa_simplify_path(path, scaled_resolution);
+            zaa_simplify_path(path, scaled_linear_resolution);
         } else if (enable_arc_fitting &&
             !spiral_mode) {
             if (this->layer()->object()->print()->calib_params().mode == CalibMode::Calib_Arc2Lerance) {
@@ -1209,7 +1233,7 @@ void LayerRegion::simplify_loop(ExtrusionLoop* loop)
             else
                 path.simplify_by_fitting_arc(scaled_resolution);
         } else {
-            path.simplify(scaled_resolution);
+            path.simplify(scaled_linear_resolution);
         }
     }
 }

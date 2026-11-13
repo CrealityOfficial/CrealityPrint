@@ -413,6 +413,14 @@ inline int get_current_milliseconds(void) {
  
    return (int)timestamp_milliseconds;
 }
+void PrinterMgrView::clearMqttTarget()
+{
+    // Logout invalidates queued updates but keeps the worker/timer reusable on login.
+    m_curDeviceDN.clear();
+    m_cloud_mqtt_user.clear();
+    if (m_cloud_mqtt) m_cloud_mqtt->SetTarget({}, {});
+}
+
 void PrinterMgrView::destoryMqtt()
 {
     m_cloud_mqtt_timer.Stop();
@@ -430,9 +438,7 @@ void PrinterMgrView::initMqtt()
     // Capture credentials only on the UI thread; workers never read GUI_App.
     const auto& user = wxGetApp().get_user();
     if (!user.bLogin || user.userId.empty() || user.token.empty()) {
-        m_curDeviceDN.clear();
-        m_cloud_mqtt_user.clear();
-        m_cloud_mqtt->SetTarget({}, {});
+        clearMqttTarget();
         return;
     }
     if (!m_cloud_mqtt_user.empty() && m_cloud_mqtt_user != user.userId)

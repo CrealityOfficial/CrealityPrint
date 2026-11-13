@@ -2789,9 +2789,10 @@ const (
 	thumbnailShellExtKey   = "{e357fccd-a995-4576-b01f-234630154e96}"
 )
 
-// repairThumbnailRegistration restores the Explorer thumbnail provider after
+// repairThumbnailRegistration restores the STL thumbnail provider after
 // a Squirrel update. NSIS performs this registration during installation, but
 // a hot update only replaces the application files and never runs NSIS.
+// Leave 3MF thumbnail and preview registrations untouched.
 func repairThumbnailRegistration(log func(args ...interface{}), installDir, backupDir string) {
 	const (
 		dllName = "STLThumbWinShellExtension.dll"
@@ -2852,7 +2853,6 @@ func repairThumbnailRegistration(log func(args ...interface{}), installDir, back
 		{key: inprocKey, typ: regTypeString, value: dllPath},
 		{key: inprocKey, name: "ThreadingModel", typ: regTypeString, value: "Apartment"},
 		{key: `HKCR\.stl\shellex\` + thumbnailShellExtKey, typ: regTypeString, value: thumbnailProviderCLSID},
-		{key: `HKCR\.3mf\shellex\` + thumbnailShellExtKey, typ: regTypeString, value: thumbnailProviderCLSID},
 	}
 	for _, registration := range registrations {
 		var err error

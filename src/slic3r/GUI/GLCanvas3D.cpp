@@ -2811,6 +2811,7 @@ static bool wipe_tower_preview_config_matches(const DynamicPrintConfig& current,
         "prime_volume", "timelapse_type", "layer_height", "initial_layer_print_height",
         "filament_diameter", "filament_flow_ratio", "filament_shrink", "filament_shrinkage_compensation_z",
         "filament_minimal_purge_on_wipe_tower", "filament_adhesiveness_category", "filament_type",
+        "filament_pre_flush_volume",
         "filament_ramming_parameters", "enable_filament_ramming", "wiping_volumes_extruders",
         "print_sequence", "first_layer_print_sequence", "other_layers_print_sequence", "other_layers_print_sequence_nums",
         "bottom_fill_flush_layers", "top_fill_flush_layers", "enable_mixed_color_sublayer", "mixed_filament_definitions"

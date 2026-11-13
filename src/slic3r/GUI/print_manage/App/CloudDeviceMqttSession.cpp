@@ -28,10 +28,12 @@ struct CloudDeviceMqttSession::Impl : std::enable_shared_from_this<Impl> {
     Factory factory;
     Sink sink;
     RetryDelay delay;
+    DataTimeouts timeouts;
     std::promise<void> completion;
     std::shared_future<void> done = completion.get_future().share();
 
-    Impl(Factory f, Sink s, RetryDelay d) : factory(std::move(f)), sink(std::move(s)), delay(std::move(d)) {}
+    Impl(Factory f, Sink s, RetryDelay d, DataTimeouts t)
+        : factory(std::move(f)), sink(std::move(s)), delay(std::move(d)), timeouts(t) {}
 
     bool Current(std::uint64_t g) {
         std::lock_guard<std::mutex> lock(mutex);
@@ -109,18 +111,25 @@ struct CloudDeviceMqttSession::Impl : std::enable_shared_from_this<Impl> {
                             // QoS 0 publish completion is not confirmation of live device data.
                             Emit(g, config, dn, "monitoring");
                             bool live = false;
+                            auto deadline = std::chrono::steady_clock::now() + timeouts.first_message;
                             while (Current(g)) {
                                 Message message;
                                 {
                                     std::unique_lock<std::mutex> lock(mutex);
-                                    cv.wait(lock, [&] { return stopped || generation != g ||
+                                    cv.wait_until(lock, deadline, [&] { return stopped || generation != g ||
                                                                inbox->lost || !inbox->messages.empty(); });
                                     if (stopped || generation != g) break;
                                     if (inbox->lost) { result = {false, false, "connection_lost"}; break; }
+                                    // Unrelated RPCs must not hide a stalled device monitor.
+                                    if (std::chrono::steady_clock::now() >= deadline) {
+                                        result = {false, false, live ? "device_data_timeout" : "first_message_timeout"};
+                                        break;
+                                    }
                                     message = std::move(inbox->messages.front());
                                     inbox->messages.pop_front();
                                 }
                                 if (message.address == dn) {
+                                    deadline = std::chrono::steady_clock::now() + timeouts.idle;
                                     if (!live) {
                                         live = true;
                                         attempt = 0;
@@ -159,13 +168,19 @@ struct CloudDeviceMqttSession::Impl : std::enable_shared_from_this<Impl> {
 };
 
 CloudDeviceMqttSession::CloudDeviceMqttSession(Factory factory, Sink sink, RetryDelay delay)
+    : CloudDeviceMqttSession(std::move(factory), std::move(sink), std::move(delay), DataTimeouts{})
+{}
+
+CloudDeviceMqttSession::CloudDeviceMqttSession(Factory factory, Sink sink, RetryDelay delay, DataTimeouts timeouts)
 {
+    if (timeouts.first_message.count() <= 0 || timeouts.idle.count() <= 0)
+        throw std::invalid_argument("Cloud MQTT data timeouts must be positive");
     if (!delay) delay = [](unsigned attempt) {
         thread_local std::mt19937 random(std::random_device{}());
         const int base = std::min(30000, 1000 * (1 << std::min(attempt, 5u)));
         return std::chrono::milliseconds(std::min(30000, base + std::uniform_int_distribution<int>(0, base / 5)(random)));
     };
-    m_impl = std::make_shared<Impl>(std::move(factory), std::move(sink), std::move(delay));
+    m_impl = std::make_shared<Impl>(std::move(factory), std::move(sink), std::move(delay), timeouts);
     // The detached worker owns Impl, never the view. Shutdown invalidates all UI delivery immediately.
     std::thread([impl = m_impl] { impl->Run(); }).detach();
 }

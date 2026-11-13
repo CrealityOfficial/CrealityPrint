@@ -27,8 +27,6 @@ inline void apply_no_wipe_tower_no_purge_linked_options(DynamicPrintConfig& conf
             config.set_key_value("flush_into_infill", new ConfigOptionBool(false));
         if (config.has("flush_into_objects"))
             config.set_key_value("flush_into_objects", new ConfigOptionBool(false));
-        if (config.has("flush_into_support"))
-            config.set_key_value("flush_into_support", new ConfigOptionBool(false));
     }
     if (config.has("flush_into_skeleton"))
         config.set_key_value("flush_into_skeleton", new ConfigOptionBool(false));
@@ -50,8 +48,6 @@ inline void apply_no_wipe_tower_no_purge_default_options(DynamicPrintConfig& con
         config.set_key_value("internal_solid_infill_pattern", new ConfigOptionEnum<InfillPattern>(ipMonotonic));
     if (config.has("gap_fill_target"))
         config.set_key_value("gap_fill_target", new ConfigOptionEnum<GapFillTarget>(gftEverywhere));
-    if (config.has("filter_out_gap_fill"))
-        config.set_key_value("filter_out_gap_fill", new ConfigOptionFloat(0.0));
     if (config.has("infill_lock_depth"))
         config.set_key_value("infill_lock_depth", new ConfigOptionFloat(0.0));
     if (config.has("locked_skin_infill_pattern"))
@@ -67,6 +63,7 @@ inline void apply_no_wipe_tower_no_purge_default_options(DynamicPrintConfig& con
 }
 
 // Only these process options participate in no-tower mode switching.
+// Flush into support is independent and keeps its current value in both modes.
 inline const std::vector<const char*>& no_wipe_tower_linked_process_keys()
 {
     static const std::vector<const char*> keys = {
@@ -77,7 +74,6 @@ inline const std::vector<const char*>& no_wipe_tower_linked_process_keys()
         "flush_into_solid_skeleton",
         "flush_into_infill",
         "flush_into_objects",
-        "flush_into_support",
         "flush_into_skeleton",
         "top_bottom_infill_wall_overlap",
         "infill_anchor",
@@ -86,7 +82,6 @@ inline const std::vector<const char*>& no_wipe_tower_linked_process_keys()
         "external_infill_margin",
         "internal_solid_infill_pattern",
         "gap_fill_target",
-        "filter_out_gap_fill",
         "infill_lock_depth",
         "locked_skin_infill_pattern",
         "locked_skeleton_infill_pattern",

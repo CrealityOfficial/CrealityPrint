@@ -30,6 +30,7 @@
 #include "FillQuarter.hpp"
 // BBS: new infill pattern header
 #include "FillConcentricInternal.hpp"
+#include "FillFloatingConcentric.hpp"
 #include "FillCrossHatch.hpp"
 #include "FillTpmsD.hpp"
 #include "FillTpmsGradual.hpp"
@@ -85,6 +86,7 @@ Fill* Fill::new_from_type(const InfillPattern type)
     case ipCross3d:             return new FillCross();
     // BBS: for internal solid infill only
     case ipConcentricInternal:  return new FillConcentricInternal();
+    case ipFloatingConcentric:  return new FillFloatingConcentric();
     // BBS: for bottom and top surface only
     // Orca: Replace BBS implementation with Prusa implementation
     case ipMonotonicLine:       return new FillMonotonicLines();

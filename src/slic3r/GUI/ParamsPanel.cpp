@@ -41,6 +41,7 @@
 #include <wx/wx.h>
 #include <wx/dataview.h>
 #include <wx/dcgraph.h>
+#include <wx/dcbuffer.h>
 #include "libslic3r/common_header/common_header.h"
 
 #include <boost/log/trivial.hpp>
@@ -49,6 +50,78 @@
 namespace Slic3r {
 namespace GUI {
 
+
+static constexpr int parameter_diff_height_dip = 30;
+static constexpr int parameter_diff_icon_dip = 20;
+static constexpr int parameter_diff_margin_dip = 4;
+
+static void rescale_parameter_diff_button(Button* button)
+{
+    const int height = button->FromDIP(parameter_diff_height_dip);
+    button->SetFont(Label::Body_14);
+    button->SetMinSize(wxSize(-1, height));
+    button->Rescale();
+    // The sidebar owns the width; let long translations ellipsize instead of
+    // imposing Button's measured label width on the whole sidebar.
+    button->wxWindow::SetMinSize(wxSize(0, height));
+    button->SetMaxSize(wxSize(-1, height));
+}
+
+static void paint_parameter_diff_button(Button* button)
+{
+    wxAutoBufferedPaintDC dc(button);
+    dc.SetBackground(wxBrush(StaticBox::GetParentBackgroundColor(button->GetParent())));
+    dc.Clear();
+
+    const wxSize size = button->GetClientSize();
+    if (size.x <= 0 || size.y <= 0)
+        return;
+
+    const bool dark = wxGetApp().dark_mode();
+    // Button's state handler repaints on mouse enter/leave.
+    const bool hovered = button->IsEnabled() && (button->GetState() & StateColor::Hovered) != 0;
+    const int line_width = button->FromDIP(1);
+    if (auto gc = wxGraphicsContext::Create(dc)) {
+        // Design: dark fill 10% -> 0%, light fill 20% -> 5%.
+        // Inner 1 DIP border: dark 45% -> 25%, light 64% -> 25%.
+        // Hover strengthens the same gradient and border without resizing.
+        const wxColour fill_start(0x1F, 0xCA, 0x63, hovered ? (dark ? 51 : 77) : (dark ? 26 : 51));
+        const wxColour fill_end(0x15, 0xC0, 0x59, hovered ? 26 : (dark ? 0 : 13));
+        const wxColour border_start(0x1F, 0xCA, 0x63, hovered ? (dark ? 163 : 204) : (dark ? 115 : 163));
+        const wxColour border_end(0x1F, 0xCA, 0x63, hovered ? 115 : 64);
+        wxGraphicsPenInfo pen_info(border_start, line_width);
+        pen_info.LinearGradient(0, 0, size.x, 0, border_start, border_end);
+        gc->SetPen(gc->CreatePen(pen_info));
+        gc->SetBrush(gc->CreateLinearGradientBrush(0, 0, size.x, 0, fill_start, fill_end));
+        // A fully rounded capsule is the clamped form of the 1000px radius.
+        // Inset the centreline by half the stroke to keep the border inside.
+        gc->DrawRoundedRectangle(line_width / 2.0, line_width / 2.0,
+                                 size.x - line_width, size.y - line_width, (size.y - line_width) / 2.0);
+        delete gc;
+    }
+
+    dc.SetFont(button->GetFont());
+    dc.SetTextForeground(dark ? wxColour("#E5E5E5") : wxColour("#15C059"));
+    const std::string icon_name = button->IsEnabled() ? "parameter_diff" : "parameter_diff_disabled";
+    const wxBitmap icon = create_scaled_bitmap(icon_name + (dark ? "_dark" : ""), button, parameter_diff_icon_dip);
+    const wxSize icon_size = icon.GetSize();
+    const int gap = button->FromDIP(8);
+    const int inset = button->FromDIP(12);
+    const wxString text = wxControl::Ellipsize(button->GetLabel(), dc, wxELLIPSIZE_END,
+                                              std::max(1, size.x - 2 * inset - icon_size.x - gap));
+    const wxSize text_size = dc.GetTextExtent(text);
+    const int x = std::max(inset, (size.x - icon_size.x - gap - text_size.x) / 2);
+    dc.DrawBitmap(icon, x, (size.y - icon_size.y) / 2, true);
+    dc.DrawText(text, x + icon_size.x + gap, (size.y - text_size.y) / 2);
+}
+
+static void layout_parameter_diff_header(StaticBox* header, wxSizer* controls, Button* button)
+{
+    auto sizer = new wxBoxSizer(wxVERTICAL);
+    sizer->Add(controls, 0, wxEXPAND);
+    sizer->Add(button, 0, wxEXPAND | wxALL, header->FromDIP(parameter_diff_margin_dip));
+    header->SetSizer(sizer);
+}
 
 static wxString params_panel_remove_dirty_prefix(const wxString& name)
 {
@@ -502,7 +575,7 @@ ParamsPanel::ParamsPanel( wxWindow* parent, wxWindowID id, const wxPoint& pos, c
         m_mode_region = new SwitchButton(m_top_panel);
         m_mode_region->SetFont(Label::Body_13);
         m_mode_region->SetMaxSize({em_unit(this) * 12, -1});
-        m_mode_region->SetLabels(_L("Global"), _L("Objects"));
+        m_mode_region->SetLabels(_L("All"), _L("Obj"));
 
         Bind(wxEVT_IDLE, [this](wxIdleEvent& event) {
             if(m_mode_region->GetScreenRect().Contains(wxGetMousePosition())) {
@@ -524,10 +597,13 @@ ParamsPanel::ParamsPanel( wxWindow* parent, wxWindowID id, const wxPoint& pos, c
         //m_mode_view_box = new HoverBorderBox(m_top_panel, m_mode_view, wxDefaultPosition, wxSize(FromDIP(24),FromDIP(24)), wxTE_PROCESS_ENTER);
         m_mode_view->SetToolTip(_L("Advance parameters"));
 
-        m_parameter_diff_button = new Button(m_top_panel, _L("Difference explanations"));
-        m_parameter_diff_button->SetFont(Label::Body_12);
-        m_parameter_diff_button->SetMinSize(wxSize(FromDIP(92), FromDIP(24)));
-        m_parameter_diff_button->SetTextColorNormal(wxColour("#0B9B64"));
+        m_parameter_diff_button = new Button(m_top_panel, _L("Difference explanations"), "parameter_diff", 0, parameter_diff_icon_dip);
+        rescale_parameter_diff_button(m_parameter_diff_button);
+        m_parameter_diff_button->SetBackgroundStyle(wxBG_STYLE_PAINT);
+        m_parameter_diff_button->SetCursor(wxCURSOR_HAND);
+        m_parameter_diff_button->Bind(wxEVT_PAINT, [this](wxPaintEvent&) {
+            paint_parameter_diff_button(m_parameter_diff_button);
+        });
         m_parameter_diff_button->SetToolTip(_L("Explain parameter differences"));
         m_parameter_diff_button->Hide();
         // Listen on the visible header, not the button: a hidden button must
@@ -537,7 +613,13 @@ ParamsPanel::ParamsPanel( wxWindow* parent, wxWindowID id, const wxPoint& pos, c
                 const bool show = Bridge::SlicerBridge::Instance().HasParameterDifferences(get_switch_of_object());
                 if (m_parameter_diff_button->IsShown() != show) {
                     m_parameter_diff_button->Show(show);
+                    m_top_panel->InvalidateBestSize();
                     m_top_panel->Layout();
+                    if (auto parent = m_top_panel->GetParent()) {
+                        parent->Layout();
+                        if (auto scrolled = dynamic_cast<wxScrolledWindow*>(parent))
+                            scrolled->FitInside();
+                    }
                 }
             }
             event.Skip();
@@ -772,8 +854,6 @@ void ParamsPanel::create_layout_printerAndFilament()
         m_mode_sizer->Add(m_title_label, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(2);
         m_mode_sizer->Add(m_mode_region, 0, wxALIGN_CENTER);
-        m_mode_sizer->AddSpacer(FromDIP(8));
-        m_mode_sizer->Add(m_parameter_diff_button, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(1);
         m_mode_sizer->Add(m_tips_arrow, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(10);
@@ -793,7 +873,7 @@ void ParamsPanel::create_layout_printerAndFilament()
         //m_mode_sizer->Add( m_search_btn, 0, wxALIGN_CENTER );
         //m_mode_sizer->AddSpacer(16);
         m_mode_sizer->SetMinSize(-1, FromDIP(35));
-        m_top_panel->SetSizer(m_mode_sizer);
+        layout_parameter_diff_header(m_top_panel, m_mode_sizer, m_parameter_diff_button);
         //m_left_sizer->Add( m_top_panel, 0, wxEXPAND );
     }
 
@@ -1266,8 +1346,6 @@ void ParamsPanel::create_layout_process()
         m_mode_sizer->Add(m_title_label, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(FromDIP(2));
         m_mode_sizer->Add(m_mode_region, 0, wxALIGN_CENTER);
-        m_mode_sizer->AddSpacer(FromDIP(8));
-        m_mode_sizer->Add(m_parameter_diff_button, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(FromDIP(1));
         m_mode_sizer->Add(m_tips_arrow, 0, wxALIGN_CENTER);
         m_mode_sizer->AddStretchSpacer(FromDIP(10));
@@ -1285,7 +1363,7 @@ void ParamsPanel::create_layout_process()
         //m_mode_sizer->Add( m_search_btn, 0, wxALIGN_CENTER );
         //m_mode_sizer->AddSpacer(16);
         m_mode_sizer->SetMinSize(-1, FromDIP(35));
-        m_top_panel->SetSizer(m_mode_sizer);
+        layout_parameter_diff_header(m_top_panel, m_mode_sizer, m_parameter_diff_button);
         //m_left_sizer->Add( m_top_panel, 0, wxEXPAND );
     }
 
@@ -1714,6 +1792,13 @@ void ParamsPanel::msw_rescale()
     if (m_search_btn) m_search_btn->msw_rescale();
     if (m_compare_btn) m_compare_btn->msw_rescale();
     if (m_tips_arrow) m_tips_arrow->msw_rescale();
+    if (m_parameter_diff_button) {
+        rescale_parameter_diff_button(m_parameter_diff_button);
+        if (auto sizer = m_top_panel->GetSizer()) {
+            if (auto item = sizer->GetItem(m_parameter_diff_button))
+                item->SetBorder(FromDIP(parameter_diff_margin_dip));
+        }
+    }
 
     const wxSize preset_type_button_size(FromDIP(100), FromDIP(30));
     for (Button* button : {m_btn_system, m_btn_user}) {
@@ -1955,6 +2040,8 @@ void ParamsPanel::show_image_tooltip(wxString text_tooltip,wxString img_path)
 
 void ParamsPanel::on_change_color_mode(bool is_dark)
 {
+    if (m_parameter_diff_button)
+        m_parameter_diff_button->Refresh();
     if(m_img_tooltip_panel)
         m_img_tooltip_panel->on_change_color_mode(is_dark);
 

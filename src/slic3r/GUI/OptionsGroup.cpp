@@ -513,17 +513,12 @@ bool OptionsGroup::activate(std::function<void()> throw_if_canceled/* = [](){}*/
             if (title.IsEmpty()) {
                 stl->Hide();
             } else {
-                if (m_header_widget) {
-                    wxBoxSizer* header_sizer = new wxBoxSizer(wxHORIZONTAL);
-                    header_sizer->Add(stl, 0, wxEXPAND);
-                    if (wxSizer* header_widget = m_header_widget(m_parent))
-                        header_sizer->Add(header_widget, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 6);
-                    header_sizer->Add(new ::StaticLine(m_parent), 1, wxEXPAND | wxLEFT, 6);
-                    sizer->Add(header_sizer, 0, wxEXPAND);
-                } else {
-                    sizer->Add(stl, 0, wxEXPAND);
-                }
+                sizer->Add(stl, 0, wxEXPAND);
                 sizer->AddSpacer(5);
+                if (m_header_widget) {
+                    if (wxSizer* header_widget = m_header_widget(m_parent))
+                        sizer->Add(header_widget, 0, wxEXPAND | wxBOTTOM, m_parent->FromDIP(4));
+                }
             }
 			this->stb = stl;
 		}

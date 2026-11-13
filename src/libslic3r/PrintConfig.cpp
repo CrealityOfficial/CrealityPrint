@@ -548,6 +548,8 @@ static t_config_enum_values s_keys_map_InfillPattern {
     { "lateral-lattice", ipLateralLattice },
     { "lateral-honeycomb", ipLateralHoneycomb },
     { "field", ipField },
+    // Internal dispatch only; omitted from the user-selectable pattern lists.
+    { "floatingconcentric", ipFloatingConcentric },
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(InfillPattern)
 
@@ -2677,6 +2679,24 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloats { 15. });
 
+    def = this->add("filament_pre_flush_volume", coFloats);
+    def->label = L("Filament pre-flush volume");
+    def->tooltip = L("After a filament change, the pre-flush volume of the new filament. "
+                     "Set to 0 to disable pre-flushing.");
+    def->sidetext = L("mm³");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloats { 0. });
+
+    def = this->add("filament_pre_flush_speed_ratio", coPercents);
+    def->label = L("Pre-flush length slowdown");
+    def->tooltip = L("After a filament change, use the numeric value of Filament pre-flush volume as the model infill path distance in millimeters for this speed limit. For example, a value of 10 limits only the first 10 mm of printed infill path, then restores normal speed. The volumetric flow limit is this percentage of the filament's maximum volumetric speed. With a prime tower, applies when Flush into objects' infill is enabled. Without a tower, applies to skeleton infill. Travel and retraction do not count. The tower's original pre-flush behavior is unchanged. Lower printing speeds are preserved. Set to 0 to disable this additional speed limit.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercents { 20. });
+
     def = this->add("filament_cooling_final_speed", coFloats);
     def->label = L("Speed of the last cooling move");
     def->tooltip = L("Cooling moves are gradually accelerating towards this speed.");
@@ -3444,6 +3464,17 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Enable splitting each mixed-filament layer into sub-layers for physical colour blending. "
                      "Requires at least one enabled mixed filament row.");
     def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("mixed_color_min_sublayer_height", coFloat);
+    def->label = L("Minimum mixed sublayer thickness");
+    def->category = L("Quality");
+    def->tooltip = L("Minimum thickness of each mixed or gradient filament sublayer. "
+                     "Color ratios are adjusted when necessary while preserving the total layer height. "
+                     "Slicing stops with an error if the layer is too thin to fit all colors. "
+                     "Set to 0 to disable this limit.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->set_default_value(new ConfigOptionFloat(0.02));
 
     //def = this->add("adaptive_layer_height", coBool);
     //def->label = L("Adaptive layer height");
@@ -5773,6 +5804,20 @@ void PrintConfigDef::init_fff_params()
     def->nullable = true;
     def->set_default_value(new ConfigOptionFloatsNullable{100});
 
+    def = this->add("vertical_shell_speed", coFloatsOrPercents);
+    def->label = L("Vertical shell speed");
+    def->category = L("Speed");
+    def->tooltip = L("Speed for narrow internal solid infill regions that overlap sparse infill or internal voids in the layer below. "
+                     "Requires \"Detect narrow internal solid infill\" to be enabled. "
+                     "Percentages are relative to the internal solid infill speed. "
+                     "When \"Detect floating vertical shells\" is enabled, paths identified as floating use the bridge speed instead.");
+    def->sidetext = L("mm/s or %");
+    def->ratio_over = "internal_solid_infill_speed";
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->nullable = true;
+    def->set_default_value(new ConfigOptionFloatsOrPercentsNullable{FloatOrPercent(80, true)});
+
     def = this->add("spiral_mode", coBool);
     def->label = L("Spiral vase");
     def->tooltip = L("Spiralize smooths out the z moves of the outer contour. "
@@ -6703,6 +6748,24 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionString(""));
 
+    def = this->add("time_flush_interval", coFloat);
+    def->label = L("Time flush interval");
+    def->tooltip = L("Minimum estimated printing time in seconds between time flushes. With a wipe tower, flushing runs before a filament change or before a normal tower visit on a sparse tower layer. The nozzle flushes outside the plate, then continues directly to the tower entry. Towers without sparse layers still flush only before filament changes. Without a tower, including single-color printing, flushing waits for an internal infill path boundary. Small or narrow model islands suppress time flushing. The actual interval may be longer. Set to 0 to disable time flushing.");
+    def->sidetext = L("s");
+    def->min = 0;
+    def->max = 86400;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("time_flush_gcode", coString);
+    def->label = L("Time flush G-code");
+    def->tooltip = L("Runs when overdue before a tower filament change, before a normal tower visit on a sparse tower layer, or at an internal infill path boundary without a tower. Towers without sparse layers still flush only before filament changes. Time keeps accumulating outside these nodes. Layers with model islands smaller than 25 square millimeters or without a 2 mm inset suppress time flushing. Tower flushes continue directly to the tower entry; other flushes return to the model. The interval may be exceeded while waiting for a safe node. Like Time lapse G-code, supports [layer_num], [layer_z] and [max_layer_z] with the same layer values and expression syntax. Use [return_x], [return_y] and [return_z] for the final tower entry position on a normal tower visit, or the nozzle position at other triggers, [current_tool] for the zero-based tool index, and [time_flush_elapsed] for estimated seconds since the previous flush. Expressions such as {layer_z + 0.4} and {if time_flush_elapsed > 0}...{endif} are evaluated before G-code comments, even when preceded by a semicolon. The script must preserve coordinate origin, positioning modes and units; independent flushes must also preserve the active tool. The slicer restores position and absolute E for moves it can parse. Commands wrapped in M950 are passed through without tracking their motion, E resets or duration; firmware or the script must handle recovery. With or without a tower, use time_flush_has_toolchange in both Filament change G-code and Time flush G-code to combine an overdue flush with a filament change. It is true only for that combined event: skip the ordinary change and let Time flush G-code select [next_extruder] at the flush station using [new_filament_temp]. No-tower combined changes resume at the first new-filament print path. The active no-tower change branch must use this state; phased skeleton flushes keep their original flow.");
+    def->multiline = true;
+    def->full_width = true;
+    def->height = 5;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString(""));
+
     def = this->add("change_extrusion_role_gcode", coString);
     def->label = L("Change extrusion role G-code");
     def->tooltip = L("This gcode is inserted when the extrusion role is changed");
@@ -7366,6 +7429,15 @@ void PrintConfigDef::init_fff_params()
                    " Otherwise, rectilinear pattern is used defaultly.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(true));
+    def = this->add("detect_floating_vertical_shell", coBool);
+    def->label = L("Detect floating vertical shells");
+    def->category = L("Strength");
+    def->tooltip = L("Identify floating paths in narrow internal solid infill regions above sparse infill or internal voids, and print those paths at the bridge speed. "
+                     "Unmarked paths, or all paths when this option is disabled, use the vertical shell speed. "
+                     "Requires \"Detect narrow internal solid infill\" to be enabled.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
     // === Mixed Filament Configuration ===
     def = this->add("mixed_color_layer_height_a", coFloat);
     def->label = L("Dithering cadence height A");
@@ -8330,6 +8402,7 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
         "tree_support_collision_resolution", "tree_support_with_infill",
         "max_volumetric_speed", "max_print_speed",
         "support_closing_radius",
+        "time_flush_extra_time",
         "remove_freq_sweep", "remove_bed_leveling", "remove_extrusion_calibration",
         "support_transition_line_width", "support_transition_speed", "bed_temperature", "bed_temperature_initial_layer",
         "can_switch_nozzle_type", "can_add_auxiliary_fan", "extra_flush_volume", "spaghetti_detector", "adaptive_layer_height",
@@ -8662,7 +8735,7 @@ void  handle_legacy_sla(DynamicPrintConfig &config)
 
 std::set<std::string> print_options_with_variant = {
     "initial_layer_speed", "initial_layer_infill_speed", "outer_wall_speed", "inner_wall_speed",
-    "small_perimeter_speed", "small_perimeter_threshold", "sparse_infill_speed", "internal_solid_infill_speed",
+    "small_perimeter_speed", "small_perimeter_threshold", "sparse_infill_speed", "internal_solid_infill_speed", "vertical_shell_speed",
     "top_surface_speed", "enable_overhang_speed", "overhang_1_4_speed", "overhang_2_4_speed",
     "overhang_3_4_speed", "overhang_4_4_speed", "overhang_totally_speed", "bridge_speed", "internal_bridge_speed", "gap_infill_speed",
     "support_speed", "support_interface_speed", "travel_speed", "travel_speed_z", "default_acceleration",
@@ -9993,7 +10066,7 @@ static std::map<t_custom_gcode_key, t_config_option_keys> s_CustomGcodeSpecificP
     {"before_layer_change_gcode",   {"layer_num", "layer_z", "max_layer_z"}},
     {"layer_change_gcode",          {"layer_num", "layer_z", "max_layer_z"}},
     {"timelapse_gcode",             {"layer_num", "layer_z", "max_layer_z"}},
-    {"change_filament_gcode",       {"layer_num", "layer_z", "max_layer_z", "next_extruder", "previous_extruder", "is_previous_extruder_last_use", "fan_speed",
+    {"change_filament_gcode",       {"time_flush_has_toolchange", "layer_num", "layer_z", "max_layer_z", "next_extruder", "previous_extruder", "is_previous_extruder_last_use", "fan_speed",
                                "first_flush_volume", "flush_into_skeleton", "flush_into_solid_skeleton", "flush_length", "flush_length_1", "flush_length_2", "flush_length_3", "flush_length_4","flush_length_5",
                                "new_filament_e_feedrate", "new_filament_temp", "new_retract_length",
                                "new_retract_length_toolchange", "old_filament_e_feedrate", "old_filament_temp", "old_retract_length",
@@ -10011,6 +10084,7 @@ static std::map<t_custom_gcode_key, t_config_option_keys> s_CustomGcodeSpecificP
       "wipe_tower_outer_wall_y" ,"x_after_toolchange",
       "y_after_toolchange",
       " z_after_toolchange "}},
+    {"time_flush_gcode",           {"time_flush_has_toolchange", "next_extruder", "new_filament_temp", "layer_num", "layer_z", "max_layer_z", "return_x", "return_y", "return_z", "current_tool", "time_flush_elapsed"}},
     {"change_extrusion_role_gcode", {"layer_num", "layer_z", "extrusion_role", "last_extrusion_role"}},
     {"printing_by_object_gcode",    {}},
     {"machine_pause_gcode",         {}},
@@ -10018,7 +10092,7 @@ static std::map<t_custom_gcode_key, t_config_option_keys> s_CustomGcodeSpecificP
     //Filament Gcode
     {"filament_start_gcode",        {"filament_extruder_id"}},
     {"filament_end_gcode",          {"layer_num", "layer_z", "max_layer_z", "filament_extruder_id"}},
-    {"tcr_rotated_gcode",           {"filament_end_gcode", "change_filament_gcode", "filament_start_gcode", "deretraction_from_wipe_tower_generator",
+    {"tcr_rotated_gcode",           {"time_flush_toolchange_gcode", "time_flush_toolchange_end_gcode", "filament_end_gcode", "change_filament_gcode", "filament_start_gcode", "deretraction_from_wipe_tower_generator",
                                      "layer_num", "layer_z", "max_layer_z", "next_extruder", "previous_extruder", "is_previous_extruder_last_use","fan_speed","first_flush_volume",
                                      "second_flush_volume","flush_length", "flush_length_1", "flush_length_2", "flush_length_3", "flush_length_4","flush_length_5",
                                      "new_filament_e_feedrate", "new_filament_temp", "new_retract_length",
@@ -10111,6 +10185,12 @@ CustomGcodeSpecificConfigDef::CustomGcodeSpecificConfigDef()
 
     new_def("filament_end_gcode", coString, "filament_end_gcode", "filament_end_gcode");
     new_def("change_filament_gcode", coString, "change_filament_gcode", "change_filament_gcode");
+    new_def("return_x", coFloat, "Return X", "X coordinate at the time flush trigger");
+    new_def("return_y", coFloat, "Return Y", "Y coordinate at the time flush trigger");
+    new_def("return_z", coFloat, "Return Z", "Z coordinate at the time flush trigger");
+    new_def("current_tool", coInt, "Current tool", "Tool active at the time flush trigger");
+    new_def("time_flush_has_toolchange", coBool, "Timed flush includes toolchange", "True when the timed flush also performs this filament change");
+    new_def("time_flush_elapsed", coFloat, "Time since flush", "Estimated seconds since the previous time flush");
     new_def("filament_start_gcode", coString, "filament_start_gcode", "filament_start_gcode");
     new_def("deretraction_from_wipe_tower_generator", coString, "deretraction_from_wipe_tower_generator", "deretraction_from_wipe_tower_generator");
 }

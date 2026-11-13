@@ -6039,6 +6039,16 @@ msgstr ""
 msgid "Disable \"%1%\" (%2%)"
 msgstr "停用「%1%」（%2%）"
 
+msgid "Minimum mixed sublayer thickness"
+msgstr "最小列印厚度"
+
+msgid "Minimum thickness of each mixed or gradient filament sublayer. Color ratios are adjusted when necessary while preserving the total layer height. Slicing stops with an error if the layer is too thin to fit all colors. Set to 0 to disable this limit."
+msgstr "每個混色或漸層耗材子層的最小厚度。必要時調整顏色比例，同時保持整層厚度不變。如果整層太薄，無法容納所有顏色，切片將報錯。設為 0 可關閉此限制。"
+
+#, boost-format
+msgid "Mixed filament %1% at Z=%2% mm cannot fit %3% sublayers with a minimum thickness of %4% mm. Increase the layer height or reduce Minimum mixed sublayer thickness."
+msgstr "混色耗材 %1% 在 Z=%2% mm 處無法容納 %3% 個最小厚度為 %4% mm 的子層。請增大層高或減小最小列印厚度。"
+
 msgid "affected Plate setting(s)"
 msgstr "受影響的列印板設定"
 
@@ -22589,3 +22599,82 @@ msgstr "已取消"
 
 #~ msgid "Right Below"
 #~ msgstr "右下"
+
+#: src/slic3r/GUI/GUI_App.cpp
+msgid "Updating parameter packages..."
+msgstr "正在更新參數包…"
+
+#: src/slic3r/GUI/GUI_App.cpp
+msgid "Failed to update parameter packages. Please try again."
+msgstr "參數包更新失敗，請重試。"
+
+#: src/slic3r/GUI/GUI_App.cpp
+msgid "Parameter update"
+msgstr "參數更新"
+
+#: src/slic3r/GUI/GUI_App.cpp
+#, c-format
+msgid "Updated to %s"
+msgstr "已更新至 %s"
+
+#: src/slic3r/GUI/GUI_App.cpp
+msgid "Update content:"
+msgstr "更新內容："
+
+#: src/slic3r/GUI/GUI_App.cpp
+msgid "No update description was provided."
+msgstr "本次更新未提供更新說明。"
+
+#: src/slic3r/GUI/GUI_App.cpp
+msgid "The update will be applied when you create or reopen a project."
+msgstr "本次更新將於新增或重新開啟專案時生效。"
+
+#: src/slic3r/GUI/GUI_App.cpp
+msgid "The update will be applied after slicing finishes."
+msgstr "本次更新將於切片結束後生效。"
+
+#: src/slic3r/GUI/GUI_App.cpp
+msgid "Parameter packages updated"
+msgstr "參數包更新完成"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:32 src/slic3r/GUI/MainFrame.cpp:2924 src/slic3r/GUI/MainFrame.cpp:2924
+msgid "Check for Preset Updates"
+msgstr "檢查預設更新"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:37 src/slic3r/GUI/UpdateDialogs.cpp:95
+msgid "Checking preset updates..."
+msgstr "正在檢查預設更新…"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:47 src/slic3r/GUI/UpdateDialogs.cpp:116
+msgid "Remind me later"
+msgstr "稍後提醒"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:101
+msgid "Updates are available for the following added printers."
+msgstr "以下已新增機型有參數更新可用。"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:104
+#, c-format
+msgid "Target version: %s"
+msgstr "目標版本：%s"
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:118
+#, c-format
+msgid "Update all (%d)"
+msgstr "更新全部（%d）"
+
+#: src/slic3r/GUI/UpdateParams.cpp:197
+msgid "No printers have been added. Add a printer before checking for updates."
+msgstr "尚未新增機型，請先新增機型再檢查更新。"
+
+#: src/slic3r/GUI/UpdateParams.cpp:258
+msgid "All added printers are up to date."
+msgstr "已新增機型的預設均為最新版本。"
+
+#: src/slic3r/GUI/UpdateParams.cpp:222 src/slic3r/GUI/UpdateParams.cpp:233
+msgid "Failed to check preset updates. Please check your network and try again."
+msgstr "檢查預設更新失敗，請檢查網路後重試。"
+
+#: src/slic3r/GUI/UpdateParams.cpp:217 src/slic3r/GUI/UpdateParams.cpp:285
+msgid "The printer list or account has changed. Please check again."
+msgstr "機型清單或帳號已變更，請重新檢查。"

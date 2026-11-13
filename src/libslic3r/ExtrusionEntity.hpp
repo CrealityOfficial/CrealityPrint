@@ -64,6 +64,7 @@ enum ExtrusionRole : uint8_t {
     erCustom,
     // Extrusion role for a collection with multiple extrusion roles.
     erMixed,
+    erFloatingVerticalShell,
     erCount
 };
 
@@ -117,6 +118,7 @@ inline bool is_infill(ExtrusionRole role)
         || role == erInternalInfill
         || role == erSkinInfill
         || role == erSolidInfill
+        || role == erFloatingVerticalShell
         || role == erTopSolidInfill
         || role == erBottomSurface
         || role == erIroning;
@@ -132,6 +134,7 @@ inline bool is_solid_infill(ExtrusionRole role)
     return role == erBridgeInfill
         || role == erInternalBridgeInfill
         || role == erSolidInfill
+        || role == erFloatingVerticalShell
         || role == erTopSolidInfill
         || role == erBottomSurface
         || role == erIroning;
@@ -143,9 +146,20 @@ inline bool is_bridge(ExtrusionRole role) {
         || role == erOverhangPerimeter;
 }
 
+enum class CustomizeFlag : uint8_t {
+    cfNone,
+    cfFloatingVerticalShell
+};
+
 class ExtrusionEntity
 {
 public:
+    ExtrusionEntity() = default;
+    ExtrusionEntity(const ExtrusionEntity&) = default;
+    ExtrusionEntity(ExtrusionEntity&&) = default;
+    ExtrusionEntity& operator=(const ExtrusionEntity&) = default;
+    ExtrusionEntity& operator=(ExtrusionEntity&&) = default;
+
     virtual ExtrusionRole role() const = 0;
     virtual bool is_collection() const { return false; }
     virtual bool is_loop() const { return false; }
@@ -188,8 +202,12 @@ public:
     virtual int  get_cooling_node() const { return m_cooling_node; };
     virtual void set_cooling_node(int id) { m_cooling_node = id; };
 
+    CustomizeFlag get_customize_flag() const { return m_customize_flag; }
+    void set_customize_flag(CustomizeFlag flag) { m_customize_flag = flag; }
+
 protected:
     int m_cooling_node{-1};
+    CustomizeFlag m_customize_flag{CustomizeFlag::cfNone};
 };
 
 typedef std::vector<ExtrusionEntity*> ExtrusionEntitiesPtr;
@@ -263,7 +281,8 @@ public:
     {}
 
     ExtrusionPath(const ExtrusionPath &rhs)
-        : polyline(rhs.polyline)
+        : ExtrusionEntity(rhs)
+        , polyline(rhs.polyline)
         , overhang_degree(rhs.overhang_degree)
         , curve_degree(rhs.curve_degree)
         , mm3_per_mm(rhs.mm3_per_mm)
@@ -279,7 +298,8 @@ public:
         , m_locked_zag_skeleton(rhs.m_locked_zag_skeleton)
     {}
     ExtrusionPath(ExtrusionPath &&rhs)
-        : polyline(std::move(rhs.polyline))
+        : ExtrusionEntity(std::move(rhs))
+        , polyline(std::move(rhs.polyline))
         , overhang_degree(rhs.overhang_degree)
         , curve_degree(rhs.curve_degree)
         , mm3_per_mm(rhs.mm3_per_mm)
@@ -295,7 +315,8 @@ public:
         , m_locked_zag_skeleton(rhs.m_locked_zag_skeleton)
     {}
     ExtrusionPath(const Polyline &polyline, const ExtrusionPath &rhs)
-        : polyline(polyline)
+        : ExtrusionEntity(rhs)
+        , polyline(polyline)
         , overhang_degree(rhs.overhang_degree)
         , curve_degree(rhs.curve_degree)
         , mm3_per_mm(rhs.mm3_per_mm)
@@ -310,7 +331,8 @@ public:
         , m_locked_zag_skeleton(rhs.m_locked_zag_skeleton)
     {}
     ExtrusionPath(Polyline &&polyline, const ExtrusionPath &rhs)
-        : polyline(std::move(polyline))
+        : ExtrusionEntity(rhs)
+        , polyline(std::move(polyline))
         , overhang_degree(rhs.overhang_degree)
         , curve_degree(rhs.curve_degree)
         , mm3_per_mm(rhs.mm3_per_mm)
@@ -326,6 +348,7 @@ public:
     {}
 
     ExtrusionPath& operator=(const ExtrusionPath& rhs) {
+        ExtrusionEntity::operator=(rhs);
         m_can_reverse = rhs.m_can_reverse;
         m_role = rhs.m_role;
         m_no_extrusion = rhs.m_no_extrusion;
@@ -343,6 +366,7 @@ public:
         return *this;
     }
     ExtrusionPath& operator=(ExtrusionPath&& rhs) {
+        ExtrusionEntity::operator=(std::move(rhs));
         m_can_reverse = rhs.m_can_reverse;
         m_role = rhs.m_role;
         m_no_extrusion = rhs.m_no_extrusion;
@@ -507,19 +531,21 @@ public:
     ExtrusionPaths paths;
 
     ExtrusionMultiPath() {}
-    ExtrusionMultiPath(const ExtrusionMultiPath &rhs) : paths(rhs.paths), m_can_reverse(rhs.m_can_reverse) {}
-    ExtrusionMultiPath(ExtrusionMultiPath &&rhs) : paths(std::move(rhs.paths)), m_can_reverse(rhs.m_can_reverse) {}
+    ExtrusionMultiPath(const ExtrusionMultiPath &rhs) : ExtrusionEntity(rhs), paths(rhs.paths), m_can_reverse(rhs.m_can_reverse) {}
+    ExtrusionMultiPath(ExtrusionMultiPath &&rhs) : ExtrusionEntity(std::move(rhs)), paths(std::move(rhs.paths)), m_can_reverse(rhs.m_can_reverse) {}
     ExtrusionMultiPath(const ExtrusionPaths &paths) : paths(paths) {}
     ExtrusionMultiPath(const ExtrusionPath &path) {this->paths.push_back(path); m_can_reverse = path.can_reverse(); }
 
     ExtrusionMultiPath &operator=(const ExtrusionMultiPath &rhs)
     {
+        ExtrusionEntity::operator=(rhs);
         this->paths   = rhs.paths;
         m_can_reverse = rhs.m_can_reverse;
         return *this;
     }
     ExtrusionMultiPath &operator=(ExtrusionMultiPath &&rhs)
     {
+        ExtrusionEntity::operator=(std::move(rhs));
         this->paths   = std::move(rhs.paths);
         m_can_reverse = rhs.m_can_reverse;
         return *this;

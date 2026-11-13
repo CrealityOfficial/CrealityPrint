@@ -214,6 +214,25 @@ SidebarPrinter::SidebarPrinter(Plater* parent): wxPanel(parent, wxID_ANY, wxDefa
     this->Layout();
 }
 
+// Resolve the enum against the visible list; vendor filtering changes its indices.
+static int find_bed_type_selection(ComboBox* bed_type_list, BedType bed_type)
+{
+    const ConfigOptionDef* bed_type_def = print_config_def.get("curr_bed_type");
+    if (!bed_type_def || !bed_type_def->enum_keys_map)
+        return wxNOT_FOUND;
+
+    for (size_t i = 0; i < bed_type_def->enum_values.size(); ++i) {
+        auto it = bed_type_def->enum_keys_map->find(bed_type_def->enum_values[i]);
+        if (it != bed_type_def->enum_keys_map->end() && it->second == int(bed_type)) {
+            for (unsigned int j = 0; j < bed_type_list->GetCount(); ++j) {
+                if (bed_type_list->GetString(j) == _L(bed_type_def->enum_labels[i]))
+                    return int(j);
+            }
+        }
+    }
+    return wxNOT_FOUND;
+}
+
 void SidebarPrinter::update()
 {
     //update printer
@@ -222,58 +241,35 @@ void SidebarPrinter::update()
     //update bed type
     PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
     bool is_bbl_vendor = preset_bundle.is_bbl_vendor();
-    bool is_creality_vendor = preset_bundle.is_cx_vendor();
     auto cfg = preset_bundle.printers.get_edited_preset().config;
-
-    auto get_default_bed_type = [&preset_bundle, &is_creality_vendor](Plater* plater, ComboBox* bed_type_list) {
-        BedType bed_type = preset_bundle.printers.get_edited_preset().get_default_bed_type(&preset_bundle);
-        if (is_creality_vendor) {
-            bed_type = (BedType) plater->get_bed_type_list_second(bed_type);
-        }
-        bed_type_list->SelectAndNotify((int) bed_type - 1);
-    };
 
     update_bed_type();
 
-    if (/*is_creality_vendor || */is_bbl_vendor || cfg.opt_bool("support_multi_bed_types")) {
-        p->m_bed_type_list->Enable();
-        auto str_bed_type = wxGetApp().app_config->get_printer_setting(wxGetApp().preset_bundle->printers.get_selected_preset_name(),
-                                                                       "curr_bed_type");
-        if (!str_bed_type.empty()) {
-            int bed_type_value = atoi(str_bed_type.c_str());
-
-            if (is_creality_vendor) {
-                bed_type_value = p->plater->get_bed_type_list_second(bed_type_value);
-            }
-                
-            if (bed_type_value == 0 )
-                bed_type_value = 1;
-
-            if (bed_type_value - 1 >= p->m_bed_type_list->GetCount())
-            {
-                get_default_bed_type(p->plater, p->m_bed_type_list);
-            }
-
-            if(bed_type_value - 1 < p->m_bed_type_list->GetCount())
-                p->m_bed_type_list->SelectAndNotify(bed_type_value - 1);
-        } else {
-            get_default_bed_type(p->plater, p->m_bed_type_list);
-        }
-    } else {
-            if (is_creality_vendor) {
-                p->m_bed_type_list->SelectAndNotify(p->plater->get_bed_type_list_second((int)btPEI) - 1);
-            }
-            else{
-                p->m_bed_type_list->SelectAndNotify(btPEI - 1);
-            }
-            p->m_bed_type_list->Disable();
+    const bool support_multi_bed_types = is_bbl_vendor || cfg.opt_bool("support_multi_bed_types");
+    int selection = wxNOT_FOUND;
+    if (support_multi_bed_types) {
+        auto str_bed_type = wxGetApp().app_config->get_printer_setting(preset_bundle.printers.get_selected_preset_name(),
+                                                                     "curr_bed_type");
+        if (!str_bed_type.empty())
+            selection = find_bed_type_selection(p->m_bed_type_list, BedType(atoi(str_bed_type.c_str())));
     }
 
+    if (selection == wxNOT_FOUND) {
+        BedType default_bed_type = preset_bundle.printers.get_edited_preset().get_default_bed_type(&preset_bundle);
+        selection = find_bed_type_selection(p->m_bed_type_list, default_bed_type);
+    }
+    p->m_bed_type_list->Enable(support_multi_bed_types);
+    if (selection != wxNOT_FOUND)
+        p->m_bed_type_list->SelectAndNotify(selection);
+    else
+        p->m_bed_type_list->SetSelection(wxNOT_FOUND);
 }
 BedType SidebarPrinter::get_selected_bed_type()
 {
     const ConfigOptionDef* bed_type_def       = print_config_def.get("curr_bed_type");
     int bed_type_idx = p->m_bed_type_list->GetSelection();
+    if (bed_type_idx == wxNOT_FOUND)
+        return btDefault;
     wxString t = p->m_bed_type_list->GetString(bed_type_idx);
     for (int i =0; i< bed_type_def->enum_labels.size(); i++) {
         if (t.ToStdString() == _L(bed_type_def->enum_labels[i])) {
@@ -285,43 +281,20 @@ BedType SidebarPrinter::get_selected_bed_type()
 }
 void SidebarPrinter::on_bed_type_change(BedType bed_type)
 {
-    // btDefault option is not included in global bed type setting
-     const ConfigOptionDef* bed_type_def       = print_config_def.get("curr_bed_type");
-     std::string bed_type_str = "";
-     for (const auto& key_val : *bed_type_def->enum_keys_map) {
-        if(key_val.second == (int)bed_type)
-        {
-            bed_type_str = key_val.first;
-            break;
-        }
-        
+    int selection = find_bed_type_selection(p->m_bed_type_list, bed_type);
+    if (selection != wxNOT_FOUND) {
+        p->m_bed_type_list->SetSelection(selection);
+        return;
     }
-     for (int i =0; i< bed_type_def->enum_values.size(); i++) {
-        if (bed_type_str == bed_type_def->enum_values[i]) {
-            unsigned int count = p->m_bed_type_list->GetCount();
-            for (size_t j = 0; j < count; j++) 
-            {
-                wxString t = p->m_bed_type_list->GetString(j);
-                if(t.ToStdString() == _L(bed_type_def->enum_labels[i]))
-                {
-                    p->m_bed_type_list->SetSelection(j);
-                    return;
-                }
-            }
-            //p->m_bed_type_list->SetSelection(i);
-            //break;
-        }
-     }
-     p->m_bed_type_list->SetSelection(0);
-    //int sel_idx = (int) bed_type - 1;
-    //PresetBundle& preset_bundle      = *wxGetApp().preset_bundle;
-    //bool          is_creality_vendor = preset_bundle.is_cx_vendor();
-    //if (is_creality_vendor) {
-    //    p->plater->get_bed_type_list(sel_idx);
-    //}
 
-    //if (p->m_bed_type_list != nullptr)
-    //    p->m_bed_type_list->SetSelection(sel_idx);
+    PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
+    BedType default_bed_type = preset_bundle.printers.get_edited_preset().get_default_bed_type(&preset_bundle);
+    selection = find_bed_type_selection(p->m_bed_type_list, default_bed_type);
+    // Apply the fallback through the normal change handler so the project agrees with the UI.
+    if (selection != wxNOT_FOUND)
+        p->m_bed_type_list->SelectAndNotify(selection);
+    else
+        p->m_bed_type_list->SetSelection(wxNOT_FOUND);
 }
 
 void SidebarPrinter::update_bed_type() 
@@ -338,7 +311,7 @@ void SidebarPrinter::update_bed_type()
             std::map<int, int> _bed_type_list;
             for (auto item : bed_type_def->enum_labels) {
                 count++;
-                if ("Cool Plate" == item || "Engineering Plate" == item)
+                if ("Engineering Plate" == item)
                     continue;
                 _bed_type_list.insert(std::pair<int, int>(i, count));
                 i++;    

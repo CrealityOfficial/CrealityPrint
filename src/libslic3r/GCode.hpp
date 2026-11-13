@@ -27,6 +27,7 @@
 #include "GCode/PressureEqualizer.hpp"
 #include "GCode/SmoothSpeedAndAcc.hpp"
 #include "GCode/SmallAreaInfillFlowCompensator.hpp"
+#include "GCode/InfillStartSpeed.hpp"
 
 #include <memory>
 #include <map>
@@ -40,6 +41,8 @@ namespace Slic3r {
 
 // Forward declarations.
 class GCode;
+class TimeFlushToolchanges;
+struct TimeFlushToolchange;
 class Print;
 class PrintObject;
 
@@ -311,6 +314,7 @@ public:
     bool            needs_retraction(const Polyline& travel, ExtrusionRole role, LiftType& lift_type);
     std::string     retract(bool toolchange = false, bool is_last_retraction = false, LiftType lift_type = LiftType::NormalLift);
     std::string     unretract(const double limitSpeed = 0.0f);
+    std::string     unretract(const double limitSpeed, bool model_entry);
     std::string     set_extruder(unsigned int extruder_id, double print_z, bool by_object = false, bool change_tool = true, bool run_change_filament_gcode = true,
                                  const Vec2f* tool_change_pos_on_plate = nullptr);
     std::string  set_extruder_new(unsigned int extruder_id,
@@ -414,6 +418,12 @@ private:
         void write(const char* what);
         void write_with_noprocess(const std::string& what);
         void process_gcode(const std::string& gcode);
+        void write_layer_end_position();
+        void configure_time_flush(const DynamicPrintConfig& config, double interval, const std::string& script,
+                                  std::shared_ptr<TimeFlushToolchanges> toolchanges);
+        std::string process_and_build_time_flush(const std::string& gcode);
+        bool time_flush_enabled() const { return m_time_flush_toolchanges || m_time_flush_skip_tower_travel ||
+            (m_time_flush_interval > 0.0 && !m_time_flush_script.empty()); }
         // Write a string into a file.
         // Add a newline, if the string does not end with a newline already.
         // Used to export a custom G-code section processed by the PlaceholderParser.
@@ -425,6 +435,15 @@ private:
     private:
         FILE *f = nullptr;
         GCodeProcessor &m_processor;
+        const DynamicPrintConfig* m_time_flush_config = nullptr;
+        std::string m_time_flush_script;
+        double m_time_flush_interval = 0.0;
+        double m_time_flush_baseline = -1.0;
+        double m_time_flush_feedrate = 0.0;
+        std::string m_time_flush_model_fan;
+        bool m_time_flush_skip_tower_travel = false;
+        DynamicConfig m_time_flush_layer_context;
+        std::shared_ptr<TimeFlushToolchanges> m_time_flush_toolchanges;
     };
     void            _do_export(Print &print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb);
 
@@ -715,6 +734,16 @@ private:
     // Current layer processed. In sequential printing mode, only a single copy will be printed.
     // In non-sequential mode, all its copies will be printed.
     const Layer*                        m_layer;
+    std::shared_ptr<TimeFlushToolchanges> m_time_flush_toolchanges;
+    int m_last_time_flush_toolchange = -1;
+    std::shared_ptr<TimeFlushToolchange> m_model_time_flush;
+    int m_model_time_flush_id = -1;
+    std::string begin_model_time_flush(unsigned int tool);
+    bool                                m_time_flush_layer_safe = false;
+    bool                                m_time_flush_uses_tower = false;
+    std::string time_flush_tower_marker(const Vec2d& target) const;
+    std::string time_flush_tower_entry(std::string travel, const Vec3d& departure, bool eligible) const;
+    std::string time_flush_infill_marker(ExtrusionRole role) const;
     // m_layer is an object layer and it is being printed over raft surface.
     bool                                m_object_layer_over_raft;
     //double                              m_volumetric_speed;
@@ -732,6 +761,8 @@ private:
     float                               m_last_width{ 0.0f };
     double                              m_skeleton_flush_line_width{ 0.0 };
     bool                                m_skeleton_flush_slowdown_speed_active{ false };
+    InfillStartSpeed                    m_infill_start_speed;
+    void                                reset_infill_start_speed(unsigned int extruder_id);
    
 #if ENABLE_GCODE_VIEWER_DATA_CHECKING
     double                              m_last_mm3_per_mm;
@@ -799,6 +830,7 @@ private:
     int m_start_gcode_filament = -1;
     bool m_solid_skeleton_mode_active = false;
     bool m_no_wipe_tower_no_purge_mode_active = false;
+    size_t m_no_wipe_tower_external_flush_count = 0;
     NoWipeTowerPrintStartHistory m_no_wipe_tower_print_start_history;
     coord_t m_no_wipe_tower_print_start_z = std::numeric_limits<coord_t>::min();
     size_t m_no_wipe_tower_print_start_layer = 0;

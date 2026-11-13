@@ -6724,6 +6724,8 @@ struct Plater::priv
     void on_slicing_update(SlicingStatusEvent&);
     void on_slicing_completed(wxCommandEvent&);
     void on_process_completed(SlicingProcessCompletedEvent&);
+    void show_no_tower_external_flush_warning(bool all_plates, int sliced_plate_index);
+    std::map<int, size_t> m_no_tower_flush_warning_timestamps;
     void on_pathological_gcode_ready(wxCommandEvent&);
     void on_pathological_probe_repair(wxCommandEvent&);
     void show_pathological_probe_notification(int plate_index, bool user_selected);
@@ -11148,6 +11150,7 @@ void Plater::priv::reset(bool apply_presets_change)
 
     // BBS: reset all project embedded presets
     wxGetApp().preset_bundle->reset_project_embedded_presets();
+    wxGetApp().reload_updated_presets(true);
     if (apply_presets_change)
         wxGetApp().apply_keeped_preset_modifications();
     else
@@ -13931,8 +13934,66 @@ void Plater::priv::start_pathological_probe(int plate_index, uint64_t expected_s
         });
 }
 
+void Plater::priv::show_no_tower_external_flush_warning(bool all_plates, int sliced_plate_index)
+{
+    if (printer_technology != ptFFF || m_is_slicing)
+        return;
+
+    for (int index = 0; index < partplate_list.get_plate_count(); ++index) {
+        if (!all_plates && index != sliced_plate_index)
+            continue;
+        auto* plate = partplate_list.get_plate(index);
+        auto* result = plate->get_slice_result();
+        if (!plate->is_slice_result_valid() || !result || result->id == 0)
+            continue;
+        const auto count = plate->get_print().print_statistics().no_tower_external_flush_count;
+        if (plate->get_print().config().enable_prime_tower.value || count <= 100)
+            continue;
+        // Exporting or reloading a cached result must not ask again. A new
+        // G-code generation gets a new print-step timestamp and a fresh choice.
+        const auto generation = plate->get_print().step_state_with_timestamp(psGCodeExport).timestamp;
+        const auto previous = m_no_tower_flush_warning_timestamps.find(index);
+        if (previous != m_no_tower_flush_warning_timestamps.end() && previous->second == generation)
+            continue;
+        m_no_tower_flush_warning_timestamps[index] = generation;
+        BOOST_LOG_TRIVIAL(info) << "[NO_TOWER_FLUSH] prompt plate=" << index + 1 << " external_visits=" << count;
+        MessageDialog dialog(q,
+            format_wxstr(_L("The no-tower algorithm for plate %1% requires %2% external purge visits, exceeding 100.\n"
+                           "The model has limited internal infill available for purging. Enabling a prime tower may reduce external purge travel and improve print quality.\n\n"
+                           "Enable the prime tower and slice again, or keep the current no-tower result?"), index + 1, count),
+            _L("No-tower infill"), wxYES_NO | wxICON_WARNING);
+        dialog.SetButtonLabel(wxID_YES, _L("Enable prime tower and slice again"));
+        dialog.SetButtonLabel(wxID_NO, _L("Continue without prime tower"));
+        dialog.Fit();
+        dialog.CenterOnParent();
+        // Closing the dialog also keeps the current result.
+        if (dialog.ShowModal() != wxID_YES)
+            continue;
+
+        auto* print_tab = dynamic_cast<TabPrint*>(wxGetApp().get_tab(Preset::TYPE_PRINT));
+        if (!print_tab)
+            return;
+        if (!all_plates)
+            q->select_plate(index);
+        // Restore the linked process/printer options through the field's path.
+        if (!print_tab->enable_prime_tower_for_no_tower_warning())
+            return;
+        q->CallAfter([this, all_plates]() {
+            SimpleEvent event(all_plates ? EVT_GLTOOLBAR_SLICE_ALL : EVT_GLTOOLBAR_SLICE_PLATE);
+            if (all_plates)
+                on_action_slice_all(event);
+            else
+                on_action_slice_plate(event);
+        });
+        return;
+    }
+}
+
 void Plater::priv::on_process_completed(SlicingProcessCompletedEvent& evt)
 {
+    // The update may have arrived while slicing. Apply it only after the
+    // completion handler has finished using the previous configuration.
+    wxGetApp().CallAfter([] { wxGetApp().reload_updated_presets(); });
     // DEFINE_PERFORMANCE_TEST("Plater::priv::on_process_completed");
 
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(": enter, m_ignore_event %1%, status %2%") % m_ignore_event % evt.status();
@@ -14243,6 +14304,9 @@ void Plater::priv::on_process_completed(SlicingProcessCompletedEvent& evt)
 #endif // AUTOMATION_TOOL
     }
 #endif
+    if (is_finished && evt.success() && !has_error && !only_has_gcode_need_preview &&
+        printer_technology == ptFFF && !background_process.empty())
+        show_no_tower_external_flush_warning(m_slice_all, background_process.get_current_plate()->get_index());
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(", exit.");
 }
 

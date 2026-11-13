@@ -682,6 +682,9 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "machine_start_gcode",
         "filament_start_gcode",
         "change_filament_gcode",
+        "time_flush_interval",
+        "filament_pre_flush_speed_ratio",
+        "time_flush_gcode",
         "wipe",
         // BBS
         "wipe_distance",
@@ -755,6 +758,9 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             // These options only affect G-code export or they are just notes without influence on the generated G-code,
             // so there is nothing to invalidate.
             steps.emplace_back(psGCodeExport);
+            // Tower extrusion speeds are cached before G-code export.
+            if (opt_key == "filament_pre_flush_speed_ratio")
+                steps.emplace_back(psWipeTower);
         } else if (steps_ignore.find(opt_key) != steps_ignore.end()) {
             // These steps have no influence on the G-code whatsoever. Just ignore them.
         } else if (
@@ -794,6 +800,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "mixed_filament_surface_indentation"
             || opt_key == "mixed_filament_definitions"
             || opt_key == "enable_mixed_color_sublayer"
+            || opt_key == "mixed_color_min_sublayer_height"
             // Spiral Vase forces different kind of slicing than the normal model:
             // In Spiral Vase mode, holes are closed and only the largest area contour is kept at each layer.
             // Therefore toggling the Spiral Vase on / off requires complete reslicing.
@@ -806,6 +813,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "chamber_temperature"
             || opt_key == "nozzle_temperature_initial_layer"
             || opt_key == "filament_minimal_purge_on_wipe_tower"
+            || opt_key == "filament_pre_flush_volume"
             || opt_key == "filament_max_volumetric_speed"
             || opt_key == "filament_loading_speed"
             || opt_key == "filament_loading_speed_start"
@@ -6326,10 +6334,23 @@ const std::string PrintStatistics::TotalFilamentUsedWipeTowerValueMask = "; tota
 #define JSON_EXTRUSION_WIDTH                   "width"
 #define JSON_EXTRUSION_HEIGHT                  "height"
 #define JSON_EXTRUSION_ROLE                    "role"
+#define JSON_EXTRUSION_CUSTOMIZE_FLAG          "customize_flag"
 #define JSON_EXTRUSION_NO_EXTRUSION            "no_extrusion"
 #define JSON_EXTRUSION_LOCKED_ZAG_SKELETON    "locked_zag_skeleton"
 #define JSON_EXTRUSION_LOOP_ROLE               "loop_role"
+#define JSON_FLOATING_SHELL_CACHE                "floating_shell_cache"
 
+// Bump when floating-shell path generation changes independently of its settings.
+static constexpr int FLOATING_SHELL_PATH_ALGORITHM_REVISION = 6;
+
+static json floating_shell_cache_signature(const PrintObject& object)
+{
+    return {
+        {"path_algorithm_revision", FLOATING_SHELL_PATH_ALGORITHM_REVISION},
+        {"detect_narrow_internal_solid_infill", object.config().detect_narrow_internal_solid_infill.value},
+        {"detect_floating_vertical_shell", object.config().detect_floating_vertical_shell.value}
+    };
+}
 
 static void to_json(json& j, const Points& p_s) {
     for (const Point& p : p_s)
@@ -6422,6 +6443,7 @@ static void to_json(json& j, const ExtrusionPath& extrusion_path) {
     j[JSON_EXTRUSION_WIDTH] = extrusion_path.width;
     j[JSON_EXTRUSION_HEIGHT] = extrusion_path.height;
     j[JSON_EXTRUSION_ROLE] = extrusion_path.role();
+    j[JSON_EXTRUSION_CUSTOMIZE_FLAG] = static_cast<int>(extrusion_path.get_customize_flag());
     j[JSON_EXTRUSION_NO_EXTRUSION] = extrusion_path.is_force_no_extrusion();
     j[JSON_EXTRUSION_LOCKED_ZAG_SKELETON] = extrusion_path.is_locked_zag_skeleton();
 }
@@ -6701,6 +6723,8 @@ static void from_json(const json& j, ExtrusionPath& extrusion_path) {
     extrusion_path.width                  =    j[JSON_EXTRUSION_WIDTH];
     extrusion_path.height                 =    j[JSON_EXTRUSION_HEIGHT];
     extrusion_path.set_extrusion_role(j[JSON_EXTRUSION_ROLE]);
+    extrusion_path.set_customize_flag(static_cast<CustomizeFlag>(
+        j.value(JSON_EXTRUSION_CUSTOMIZE_FLAG, static_cast<int>(CustomizeFlag::cfNone))));
     extrusion_path.set_force_no_extrusion(j[JSON_EXTRUSION_NO_EXTRUSION]);
     if (j.contains(JSON_EXTRUSION_LOCKED_ZAG_SKELETON))
         extrusion_path.set_locked_zag_skeleton(j[JSON_EXTRUSION_LOCKED_ZAG_SKELETON]);
@@ -7077,6 +7101,7 @@ int Print::export_cached_data(const std::string& directory, bool with_space)
 
             root_json[JSON_OBJECT_NAME] = model_obj->name;
             root_json[JSON_IDENTIFY_ID] = identify_id;
+            root_json[JSON_FLOATING_SHELL_CACHE] = floating_shell_cache_signature(*obj);
 
             //export the layers
             std::vector<json> layers_json_vector(obj->layer_count());
@@ -7337,8 +7362,12 @@ int Print::load_cached_data(const std::string& directory)
         PrintObject *obj = object_filenames[obj_index].second;
 
         try {
-            //boost::nowide::ifstream ifs(file_name);
-            //ifs >> root_json;
+            if (!root_json.contains(JSON_FLOATING_SHELL_CACHE) ||
+                root_json.at(JSON_FLOATING_SHELL_CACHE) != floating_shell_cache_signature(*obj)) {
+                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__
+                    << ": floating-shell cache settings or path revision differ, re-slice required";
+                return CLI_IMPORT_CACHE_DATA_CAN_NOT_USE;
+            }
 
             std::string name = root_json.at(JSON_OBJECT_NAME);
             int identify_id = root_json.at(JSON_IDENTIFY_ID);

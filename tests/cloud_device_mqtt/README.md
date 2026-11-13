@@ -15,7 +15,10 @@ Assertions remain enabled in Release builds.
 Covered: initial connect/subscribe/monitor failure, repeated disconnect callbacks,
 single-worker reconnect, restoring the latest selected DN, ignoring old callbacks,
 authentication failure followed by credential renewal, target changes during an
-in-flight connect, and nonblocking shutdown while a connect is pending.
+in-flight connect, and nonblocking shutdown while a connect is pending. Recovery
+coverage also includes logout/login with the same or a different account, a
+silent monitor with no disconnect callback, unrelated-device traffic, and renewal
+of the idle deadline by matching telemetry.
 
 Related frontend tests in the CrealityCommunity repository:
 
@@ -38,12 +41,25 @@ after bounded in-flight I/O ends. A successful QoS 0 monitor publish is reported
 as `monitoring`, and only a matching device update marks it `live`. Snapshot polling
 continues independently of MQTT and printer online flags.
 
+Logout clears the target with `SetTarget({}, {})`; only view destruction calls
+`Shutdown()`. The same worker and UI timer remain available for the next login.
+A monotonic deadline detects missing device data: 60 seconds for the first update,
+then 120 seconds since the last matching update. Expiry enters the existing
+backoff/reconnect/re-subscribe/monitor flow, logging `first_message_timeout` or
+`device_data_timeout`. Unrelated RPCs and unchanged `SetTarget` calls do not renew
+the deadline. These conservative defaults are recovery probes, not proof that a
+quiet printer is offline; validate them against actual device reporting intervals.
+Tests inject shorter deadlines without changing the production defaults.
+
 Manual acceptance still required with an authenticated cloud device:
 
 - Open while offline, restore networking, verify temperatures recover without restarting.
 - Disconnect a working session, restore networking, verify re-subscribe and monitor restoration.
 - Switch A to B during a retry; only B's pushes/snapshots may update B.
-- Refresh the token, change accounts/regions, log out, and close during connection attempts.
+- Refresh the token, change accounts/regions, log out and log back in without restarting,
+  and close during connection attempts.
+- Keep MQTT connected but suppress device updates: check first-data and idle timeout
+  recovery, then restore updates and verify the session returns to `live`.
 - Check `[CloudDeviceMQTT]` state/retry/error logs; no credentials or payloads are logged.
 
 Validation performed: Windows compilation of the session, Paho adapter and
