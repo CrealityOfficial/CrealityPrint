@@ -3955,15 +3955,22 @@ void GLCanvas3D::on_char(wxKeyEvent& evt)
 
     auto imgui = wxGetApp().imgui();
     // ImGui asks for the keyboard whenever one of its windows has focus - the object tree right after
-    // an object is clicked in it - and that swallowed Ctrl+C/V/X until a click elsewhere on the plate
-    // took the focus away. Only a text field being edited should keep the clipboard shortcuts.
+    // an object is clicked in it - and that swallowed Ctrl+C/V/X and Delete until a click elsewhere on
+    // the plate took the focus away. Only a text field being edited should keep these shortcuts.
     const bool clipboard_shortcut = (evt.GetModifiers() & ctrlMask) != 0 &&
 #ifdef __APPLE__
         (keyCode == 'c' || keyCode == 'C' || keyCode == 'v' || keyCode == 'V' || keyCode == 'x' || keyCode == 'X');
 #else
         (keyCode == WXK_CONTROL_C || keyCode == WXK_CONTROL_V || keyCode == WXK_CONTROL_X);
 #endif
-    if (imgui->update_key_data(evt) && !(clipboard_shortcut && !imgui->want_text_input())) {
+    const bool delete_shortcut = evt.GetModifiers() == wxMOD_NONE &&
+#ifdef __APPLE__
+        (keyCode == WXK_DELETE || keyCode == WXK_BACK);
+#else
+        keyCode == WXK_DELETE;
+#endif
+    const bool object_shortcut = clipboard_shortcut || delete_shortcut;
+    if (imgui->update_key_data(evt) && !(object_shortcut && !imgui->want_text_input())) {
         render();
         return;
     }
