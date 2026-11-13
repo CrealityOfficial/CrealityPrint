@@ -8304,6 +8304,11 @@ void Tab::rebuild_page_tree()
          if (m_parent->is_active_and_shown_tab(this)) // FIX: modify state not update
             m_tabctrl->SelectItem(item);
     }
+
+    // update_changed_tree_ui() works out which pages hold modified values, but does nothing while the tree has
+    // no items, and the tree may only be built when the tab is first shown (see request_page_tree_rebuild()).
+    // Work the colours out again now that the items exist, or a page changed before that is not marked.
+    update_changed_tree_ui();
 }
 
 void Tab::request_page_tree_rebuild()
