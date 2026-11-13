@@ -4,10 +4,14 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <functional>
+#include <nlohmann/json.hpp>
 #include <wx/hyperlink.h>
 
 #include "libslic3r/Semver.hpp"
 #include "MsgDialog.hpp"
+#include "Widgets/Label.hpp"
+#include <wx/scrolwin.h>
 
 class wxBoxSizer;
 class wxCheckBox;
@@ -16,6 +20,34 @@ namespace Slic3r {
 
 namespace GUI {
 
+
+// One window shared by manual/automatic checks and installation results.
+class PresetUpdateDialog : public DPIDialog
+{
+public:
+    enum class State { Checking, Available, Updating, Complete, Error, Info };
+    PresetUpdateDialog(wxWindow *parent, std::function<void()> action, std::function<void(bool)> dismissed);
+    void set_state(State state, const nlohmann::json &packages, const wxString &message = {});
+    State state() const { return m_state; }
+protected:
+    void on_dpi_changed(const wxRect &suggested_rect) override;
+    void on_sys_color_changed() override;
+private:
+    void apply_theme();
+    void wrap_content();
+    State m_state{State::Checking};
+    Label *m_heading{nullptr};
+    wxScrolledWindow *m_scroll{nullptr};
+    wxBoxSizer *m_contents{nullptr};
+    Button *m_primary{nullptr};
+    Button *m_secondary{nullptr};
+    std::vector<Label *> m_labels;
+    std::vector<Label *> m_version_labels;
+    bool m_dark_theme{false};
+    std::function<void()> m_action;
+    std::function<void(bool)> m_dismissed; // true only for the explicit reminder button
+    int m_wrap_width{-1};
+};
 
 // A confirmation dialog listing configuration updates
 class MsgUpdateSlic3r : public MsgDialog

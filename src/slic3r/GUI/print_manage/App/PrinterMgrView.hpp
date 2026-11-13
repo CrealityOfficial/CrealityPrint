@@ -102,6 +102,7 @@ namespace Slic3r {
             bool get_finish_upload_device_state() const { return m_finish_upload_device_state; }
             void initMqtt();
             void setMqttDeviceDN(std::string dn);
+            void clearMqttTarget();
             void destoryMqtt();
             void processMqttMessage(std::string topic,std::string playload);
             void update_current_cxy_device_filament(const std::string& mac);

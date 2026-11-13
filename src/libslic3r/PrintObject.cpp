@@ -1629,7 +1629,8 @@ bool PrintObject::invalidate_state_by_config_options(const ConfigOptionResolver&
                    opt_key == "skin_infill_density" || opt_key == "skeleton_infill_density" ||
                    opt_key == "minimum_skeleton_infill_density" ||
                    opt_key == "skin_infill_line_width" || opt_key == "skeleton_infill_line_width" ||
-                   opt_key == "locked_skin_infill_pattern" || opt_key == "locked_skeleton_infill_pattern") {
+                   opt_key == "locked_skin_infill_pattern" || opt_key == "locked_skeleton_infill_pattern" ||
+                   opt_key == "detect_narrow_internal_solid_infill" || opt_key == "detect_floating_vertical_shell") {
             steps.emplace_back(posInfill);
         } else if (opt_key == "sparse_infill_pattern") {
             steps.emplace_back(posPrepareInfill);
@@ -1687,6 +1688,7 @@ bool PrintObject::invalidate_state_by_config_options(const ConfigOptionResolver&
                    opt_key == "bridge_speed" || opt_key == "internal_bridge_speed" || opt_key == "outer_wall_speed" ||
                    opt_key == "small_perimeter_speed" || opt_key == "small_perimeter_threshold" || opt_key == "sparse_infill_speed" ||
                    opt_key == "inner_wall_speed" || opt_key == "internal_solid_infill_speed" || opt_key == "top_surface_speed" ||
+                   opt_key == "vertical_shell_speed" ||
                    opt_key == "bed_mesh_min" || opt_key == "bed_mesh_max" || opt_key == "adaptive_bed_mesh_margin" ||
                    opt_key == "bed_mesh_probe_distance") {
             invalidated |= m_print->invalidate_step(psGCodeExport);

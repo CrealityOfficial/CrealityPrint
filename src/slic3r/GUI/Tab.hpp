@@ -491,6 +491,7 @@ protected:
 class TabPrint : public Tab
 {
 public:
+    bool enable_prime_tower_for_no_tower_warning();
 	//BBS: GUI refactor
 	TabPrint(ParamsPanel* parent, Preset::Type type = Preset::TYPE_PRINT) :
 		Tab(parent, _(L("Process")), type) {  }

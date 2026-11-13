@@ -130,6 +130,8 @@ enum InfillPattern : int {
     ipMonotonicLine,     
 	ipSupportBase,
     ipConcentricInternal,
+    // Append internal patterns to preserve the numeric values stored in caches.
+    ipFloatingConcentric,
     ipCount
 };
 
@@ -1145,6 +1147,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,               tree_support_auto_brim))
     ((ConfigOptionFloat,              tree_support_brim_width))
     ((ConfigOptionBool,               detect_narrow_internal_solid_infill))
+    ((ConfigOptionBool,               detect_floating_vertical_shell))
     // ((ConfigOptionBool,               adaptive_layer_height))
     ((ConfigOptionFloat,              support_bottom_interface_spacing))
     ((ConfigOptionEnum<PerimeterGeneratorType>, wall_generator))
@@ -1295,6 +1298,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt, solid_infill_filament))
     ((ConfigOptionFloatsOrPercentsNullable, internal_solid_infill_line_width))
     ((ConfigOptionFloatsNullable, internal_solid_infill_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, vertical_shell_speed))
     // Detect thin walls.
     ((ConfigOptionBool, detect_thin_wall))
     ((ConfigOptionFloatsOrPercentsNullable, top_surface_line_width))
@@ -1411,6 +1415,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionString,              machine_end_gcode))
     ((ConfigOptionStrings,             filament_end_gcode))
     ((ConfigOptionFloats,              filament_flow_ratio))
+    ((ConfigOptionFloats,              filament_pre_flush_volume))
+    ((ConfigOptionPercents,            filament_pre_flush_speed_ratio))
     ((ConfigOptionBools,               enable_pressure_advance))
     ((ConfigOptionFloats,              pressure_advance))
     ((ConfigOptionFloat,               fan_kickstart))
@@ -1496,6 +1502,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                wipe_tower_no_sparse_layers))
     ((ConfigOptionInt,                 wipe_tower_extra_interlayer_wipe_layers))
     ((ConfigOptionString,              change_filament_gcode))
+    ((ConfigOptionFloat,               time_flush_interval))
+    ((ConfigOptionString,              time_flush_gcode))
     ((ConfigOptionString,              change_extrusion_role_gcode))
     ((ConfigOptionFloatsNullable,      travel_speed))
     ((ConfigOptionFloatsNullable,      travel_speed_z))
@@ -1771,6 +1779,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionBool,               multicolor_method))
 
     // Mixed Filament Configuration
+    ((ConfigOptionFloat,              mixed_color_min_sublayer_height))
     ((ConfigOptionFloat,              mixed_color_layer_height_a))
     ((ConfigOptionFloat,              mixed_color_layer_height_b))
     ((ConfigOptionBool,               mixed_filament_gradient_mode))

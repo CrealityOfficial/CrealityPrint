@@ -1,4 +1,5 @@
 #include "CloudDeviceMqttSession.hpp"
+#include <algorithm>
 #include <cassert>
 #include <condition_variable>
 #include <iostream>
@@ -53,10 +54,10 @@ struct FakeTransport : Session::Transport {
     Session::Result Acknowledge(const std::string&) override { return {}; }
 };
 Session::Config Config() { return {"broker", "client", "username", "token", "user", "China"}; }
-std::unique_ptr<Session> Start(std::shared_ptr<Harness> h) {
+std::unique_ptr<Session> Start(std::shared_ptr<Harness> h, Session::DataTimeouts timeouts = {}) {
     return std::make_unique<Session>([h] { return std::make_unique<FakeTransport>(h); },
         [h](Session::Event e) { std::lock_guard<std::mutex> lock(h->mutex); h->events.push_back(e); h->cv.notify_all(); },
-        [](unsigned) { return 1ms; });
+        [](unsigned) { return 1ms; }, timeouts);
 }
 int main() {
     for (int failure = 0; failure < 3; ++failure) {
@@ -113,6 +114,78 @@ int main() {
         { std::lock_guard<std::mutex> lock(h->mutex); h->release = true; h->cv.notify_all(); }
         assert(done.wait_for(1s) == std::future_status::ready);
         assert(h->Count("monitoring") == 0); assert(h->alive == 0);
+    }
+    // Logout must invalidate old deliveries without permanently stopping the session.
+    for (bool change_account : {false, true}) {
+        auto h = std::make_shared<Harness>(); auto session = Start(h);
+        session->SetTarget(Config(), "A");
+        h->Wait([&] { return h->Count("monitoring") == 1; });
+        auto old_receive = h->receivers.back();
+        auto old_generation = h->events.back().generation;
+        session->SetTarget({}, {});
+        assert(!session->IsCurrent(old_generation));
+        h->Wait([&] { return h->Count("stopped") == 1; });
+        auto config = Config();
+        if (change_account) { config.user_id = "other-user"; config.password = "other-token"; }
+        session->SetTarget(config, "A");
+        h->Wait([&] { return h->Count("monitoring") == 2; });
+        old_receive({"topic", "old-account", "A"});
+        h->receivers.back()({"topic", "new-account", "A"});
+        h->Wait([&] { return h->Count("message") == 1; });
+        assert(session->Shutdown().wait_for(1s) == std::future_status::ready);
+        assert(h->Count("message") == 1);
+        assert(h->events.back().payload == "new-account");
+        assert(h->events.back().user_id == config.user_id);
+        assert(h->maximum_alive == 1);
+    }
+    // Recover without a connection_lost callback, including when unrelated RPCs continue.
+    for (int scenario = 0; scenario < 3; ++scenario) {
+        const bool was_live = scenario == 2;
+        auto h = std::make_shared<Harness>(); auto session = Start(h, {200ms, 200ms});
+        session->SetTarget(Config(), "A");
+        h->Wait([&] { return h->Count("monitoring") >= 1; });
+        Session::Transport::Receive receive;
+        { std::lock_guard<std::mutex> lock(h->mutex); receive = h->receivers.back(); }
+        if (was_live) {
+            receive({"topic", "first", "A"});
+            h->Wait([&] { return h->Count("live") == 1; });
+        }
+        if (scenario != 0) {
+            const auto limit = std::chrono::steady_clock::now() + 2s;
+            while (std::chrono::steady_clock::now() < limit) {
+                // Same target/config from the UI timer must not reset the deadline either.
+                session->SetTarget(Config(), "A");
+                receive({"topic", "other-device", "B"});
+                std::unique_lock<std::mutex> lock(h->mutex);
+                if (h->cv.wait_for(lock, 20ms, [&] { return h->Count("retrying") != 0; })) break;
+            }
+        }
+        h->Wait([&] { return h->Count("monitoring") >= 2; });
+        assert(session->Shutdown().wait_for(1s) == std::future_status::ready);
+        auto retry = std::find_if(h->events.begin(), h->events.end(),
+            [](const Session::Event& event) { return event.state == "retrying"; });
+        assert(retry != h->events.end());
+        assert(retry->error == (was_live ? "device_data_timeout" : "first_message_timeout"));
+        assert(h->Count("message") == (was_live ? 1u : 0u));
+        assert(std::count(h->operations.begin(), h->operations.end(), "subscribe") >= 2);
+        assert(std::count(h->operations.begin(), h->operations.end(), "add:A") >= 2);
+        assert(h->maximum_alive == 1);
+    }
+    // Matching telemetry renews the idle deadline; recovery starts only after it stops.
+    {
+        auto h = std::make_shared<Harness>(); auto session = Start(h, {1s, 500ms});
+        session->SetTarget(Config(), "A");
+        h->Wait([&] { return h->Count("monitoring") == 1; });
+        auto receive = h->receivers.back();
+        for (size_t n = 1; n <= 8; ++n) {
+            receive({"topic", "fresh", "A"});
+            h->Wait([&] { return h->Count("message") >= n; });
+            std::unique_lock<std::mutex> lock(h->mutex);
+            assert(!h->cv.wait_for(lock, 100ms, [&] { return h->Count("retrying") != 0; }));
+        }
+        h->Wait([&] { return h->Count("retrying") >= 1; });
+        assert(session->Shutdown().wait_for(1s) == std::future_status::ready);
+        assert(h->Count("live") == 1);
     }
     std::cout << "Cloud MQTT session tests passed\n";
 }

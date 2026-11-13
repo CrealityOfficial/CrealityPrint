@@ -74,6 +74,10 @@ public:
     PresetsConfigSubstitutions load_presets(AppConfig &config, ForwardCompatibilitySubstitutionRule rule,
                                             const PresetPreferences& preferred_selection = PresetPreferences());
 
+    // Apply loaded profiles while preserving project state and unsaved edits.
+    // Incompatible changes leave this bundle untouched and return a reason.
+    bool apply_profile_update(const PresetBundle &updated, std::string &reason);
+
     // Load selections (current print, current filaments, current printer) from config.ini
     // This is done just once on application start up.
     //BBS: change it to public

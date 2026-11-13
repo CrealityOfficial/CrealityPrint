@@ -52,6 +52,11 @@ add_executable(wipe_tower_wall_intervals_tests libslic3r/wipe_tower_wall_interva
 target_compile_features(wipe_tower_wall_intervals_tests PRIVATE cxx_std_17)
 add_test(NAME wipe_tower_wall_intervals_tests COMMAND wipe_tower_wall_intervals_tests)
 
+# Pre-flush geometry and budget planning have no GUI or slicing dependencies.
+add_executable(wipe_tower_pre_flush_tests libslic3r/wipe_tower_pre_flush_tests.cpp)
+target_compile_features(wipe_tower_pre_flush_tests PRIVATE cxx_std_17)
+add_test(NAME wipe_tower_pre_flush_tests COMMAND wipe_tower_pre_flush_tests)
+
 # Hidden real-control regression for window buttons disappearing during resize.
 if (WIN32 AND SLIC3R_GUI)
     find_package(wxWidgets 3.3 CONFIG REQUIRED COMPONENTS core base aui)

@@ -37,6 +37,8 @@
 #include <wx/treectrl.h>
 #include <wx/imaglist.h>
 #include <wx/settings.h>
+#include <wx/dcbuffer.h>
+#include <wx/graphics.h>
 #include <wx/filedlg.h>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -91,6 +93,93 @@
 namespace Slic3r {
 namespace GUI {
 
+
+static void rescale_support_recommendation_button(Button* button)
+{
+    const int height = button->FromDIP(28);
+    button->SetFont(Label::Body_14);
+    button->SetMinSize(wxSize(-1, height));
+    // Let the option group own the width, including for long translations.
+    button->wxWindow::SetMinSize(wxSize(0, height));
+    button->SetMaxSize(wxSize(-1, height));
+}
+
+static void paint_support_recommendation_button(Button* button, ConfigOptionsGroup* group)
+{
+    wxAutoBufferedPaintDC dc(button);
+    dc.SetBackground(wxBrush(button->GetParent()->GetBackgroundColour()));
+    dc.Clear();
+    const wxSize size = button->GetClientSize();
+    if (size.x <= 0 || size.y <= 0)
+        return;
+
+    const bool dark = wxGetApp().dark_mode();
+    const bool hovered = button->IsEnabled() && (button->GetState() & StateColor::Hovered) != 0;
+    const wxColour foreground(dark && !hovered ? "#C9CDD4" : "#15C059");
+    const int inset = button->FromDIP(6);
+    int icon_x = inset;
+    if (group && group->custom_ctrl) {
+        // Use the actual parameter-label origin, including the group's indent.
+        OG_CustomCtrl* ctrl = group->custom_ctrl;
+        const wxPoint label_origin(ctrl->get_title_width() * em_unit(ctrl), 0);
+        icon_x = std::max(0, button->ScreenToClient(ctrl->ClientToScreen(label_origin)).x);
+    }
+
+    // Option pages can be wider than their scrolled viewport. Anchor the
+    // background and chevron to the visible right edge, not the virtual width.
+    int visible_right = size.x;
+    for (wxWindow* ancestor = button->GetParent(); ancestor; ancestor = ancestor->GetParent()) {
+        const wxPoint right = ancestor->ClientToScreen(wxPoint(ancestor->GetClientSize().x, 0));
+        visible_right = std::min(visible_right, button->ScreenToClient(right).x);
+    }
+    const int row_left = std::max(0, icon_x - inset);
+    const int row_right = std::max(row_left, visible_right - inset);
+    if (row_right <= row_left)
+        return;
+    const int arrow_width = button->FromDIP(4);
+    const int arrow_height = button->FromDIP(8);
+    if (auto gc = wxGraphicsContext::Create(dc)) {
+        // Design: dark 10% -> 0%; light 15% -> 5%, with 4 DIP corners.
+        gc->SetPen(*wxTRANSPARENT_PEN);
+        gc->SetBrush(gc->CreateLinearGradientBrush(row_left, 0, row_right, 0,
+                         wxColour(0x1F, 0xCA, 0x63, hovered ? 64 : (dark ? 26 : 38)),
+                         wxColour(0x15, 0xC0, 0x59, hovered ? 26 : (dark ? 0 : 13))));
+        gc->DrawRoundedRectangle(row_left, 0, row_right - row_left, size.y, button->FromDIP(4));
+        if (hovered) {
+            // Keep the hover outline inside the existing row bounds.
+            const int line_width = button->FromDIP(1);
+            wxGraphicsPenInfo border(wxColour(0x1F, 0xCA, 0x63, dark ? 115 : 163), line_width);
+            border.LinearGradient(row_left, 0, row_right, 0,
+                                  wxColour(0x1F, 0xCA, 0x63, dark ? 115 : 163),
+                                  wxColour(0x1F, 0xCA, 0x63, 64));
+            gc->SetPen(gc->CreatePen(border));
+            gc->SetBrush(*wxTRANSPARENT_BRUSH);
+            gc->DrawRoundedRectangle(row_left + line_width / 2.0, line_width / 2.0,
+                                     row_right - row_left - line_width, size.y - line_width,
+                                     button->FromDIP(4));
+        }
+
+        const double right = row_right - inset;
+        const double middle = size.y / 2.0;
+        wxGraphicsPath arrow = gc->CreatePath();
+        arrow.MoveToPoint(right - arrow_width, middle - arrow_height / 2.0);
+        arrow.AddLineToPoint(right, middle);
+        arrow.AddLineToPoint(right - arrow_width, middle + arrow_height / 2.0);
+        gc->SetPen(wxPen(foreground, button->FromDIP(1)));
+        gc->StrokePath(arrow);
+        delete gc;
+    }
+
+    dc.SetFont(button->GetFont());
+    dc.SetTextForeground(foreground);
+    const wxBitmap icon = create_scaled_bitmap(dark && !hovered ? "support_recommendation_dark" : "support_recommendation", button, 20);
+    const wxSize icon_size = icon.GetSize();
+    const int text_x = icon_x + icon_size.x + button->FromDIP(4);
+    const int text_width = std::max(1, row_right - text_x - 2 * inset - arrow_width);
+    const wxString text = wxControl::Ellipsize(button->GetLabel(), dc, wxELLIPSIZE_END, text_width);
+    dc.DrawBitmap(icon, icon_x, (size.y - icon_size.y) / 2, true);
+    dc.DrawText(text, text_x, (size.y - dc.GetTextExtent(text).y) / 2);
+}
 
 #define DISABLE_UNDO_SYS
 
@@ -3383,6 +3472,7 @@ void TabPrint::build()
         // default off keeps the G-code bit-identical to pre-port.  Phase B/C
         // will gate the actual sublayer emission on this flag.
         optgroup->append_single_option_line("enable_mixed_color_sublayer");
+        optgroup->append_single_option_line("mixed_color_min_sublayer_height");
         optgroup = page->new_optgroup(L("Line width"), L"param_line_width");
         optgroup->append_single_option_line("line_width");
         optgroup->append_single_option_line("initial_layer_line_width");
@@ -3562,6 +3652,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("minimum_sparse_infill_area");
         optgroup->append_single_option_line("infill_combination");
         optgroup->append_single_option_line("detect_narrow_internal_solid_infill");
+        optgroup->append_single_option_line("detect_floating_vertical_shell");
         optgroup->append_single_option_line("ensure_vertical_shell_thickness");
 
     page = add_options_page(L("Speed"), "custom-gcode_speed"); // ORCA: icon only visible on placeholders
@@ -3577,6 +3668,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("small_perimeter_threshold");
         optgroup->append_single_option_line("sparse_infill_speed");
         optgroup->append_single_option_line("internal_solid_infill_speed");
+        optgroup->append_single_option_line("vertical_shell_speed");
         optgroup->append_single_option_line("top_surface_speed");
         optgroup->append_single_option_line("gap_infill_speed");
         optgroup->append_single_option_line("support_speed");
@@ -3645,16 +3737,25 @@ void TabPrint::build()
 
     page = add_options_page(L("Support"), "custom-gcode_support"); // ORCA: icon only visible on placeholders
         optgroup = page->new_optgroup(L("Support"), L"param_support");
-        optgroup->set_header_widget([this](wxWindow* parent) {
+        optgroup->set_header_widget([this, weak_group = std::weak_ptr<ConfigOptionsGroup>(optgroup)](wxWindow* parent) {
             wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
             auto* button = new Button(parent, _L("Recommend supports"));
-            button->SetFont(Label::Body_12);
-            button->SetMinSize(wxSize(FromDIP(116), FromDIP(24)));
-            button->SetTextColorNormal(wxColour("#0B9B64"));
+            rescale_support_recommendation_button(button);
+            button->SetBackgroundStyle(wxBG_STYLE_PAINT);
+            button->SetCursor(wxCURSOR_HAND);
+            button->Bind(wxEVT_PAINT, [button, weak_group](wxPaintEvent&) {
+                auto group = weak_group.lock();
+                paint_support_recommendation_button(button, group.get());
+            });
+            button->Bind(wxEVT_DPI_CHANGED, [button](wxDPIChangedEvent& event) {
+                rescale_support_recommendation_button(button);
+                button->GetParent()->Layout();
+                event.Skip();
+            });
             button->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
                 OpenActiveAIParameterDiffPanel(this, {{"loading", true}, {"source", "support_recommendation"}, {"scope", m_type == Preset::TYPE_MODEL ? "object" : "global"}});
             });
-            sizer->Add(button, 0, wxALIGN_CENTER_VERTICAL);
+            sizer->Add(button, 1, wxEXPAND);
             return sizer;
         });
         optgroup->append_single_option_line("enable_support", "support");
@@ -4166,6 +4267,11 @@ void TabPrint::reload_config()
     this->compatible_widget_reload(m_compatible_printers);
     Tab::reload_config();
     update_flush_into_skeleton_button_state();
+}
+
+bool TabPrint::enable_prime_tower_for_no_tower_warning()
+{
+    return on_prime_tower_user_change("enable_prime_tower", boost::any(true));
 }
 
 bool TabPrint::on_prime_tower_user_change(const std::string& opt_key, const boost::any& value)
@@ -5853,6 +5959,8 @@ void TabFilament::build()
         line.append_option(optgroup->get_option("nozzle_temperature_range_low"));
         line.append_option(optgroup->get_option("nozzle_temperature_range_high"));
         optgroup->append_line(line);
+        optgroup->append_single_option_line("filament_pre_flush_volume");
+        optgroup->append_single_option_line("filament_pre_flush_speed_ratio");
 
         optgroup->m_on_change = [this, optgroup](t_config_option_key opt_key, boost::any value) {
             DynamicPrintConfig &filament_config = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
@@ -6184,7 +6292,6 @@ void TabFilament::toggle_options()
         toggle_line("customized_plate_temp_initial_layer", support_multi_bed_types);
 
         if (is_creality_vendor){
-            toggle_line("cool_plate_temp_initial_layer", false);
             toggle_line("eng_plate_temp_initial_layer", false);
         } 
         else {
@@ -6984,6 +7091,20 @@ void TabPrinter::build_fff()
         option.opt.full_width = true;
         option.opt.is_code = true;
         option.opt.height = gcode_field_height;//150;
+        optgroup->append_single_option_line(option);
+
+        optgroup = page->new_optgroup(L("Time flush"), L"param_gcode");
+        optgroup->append_single_option_line("time_flush_interval");
+
+        optgroup = page->new_optgroup(L("Time flush G-code"), L"param_gcode", 0);
+        optgroup->m_on_change = [this, &optgroup_title = optgroup->title](const t_config_option_key& opt_key, const boost::any& value) {
+            validate_custom_gcode_cb(this, optgroup_title, opt_key, value);
+        };
+        optgroup->edit_custom_gcode = edit_custom_gcode_fn;
+        option = optgroup->get_option("time_flush_gcode");
+        option.opt.full_width = true;
+        option.opt.is_code = true;
+        option.opt.height = gcode_field_height;
         optgroup->append_single_option_line(option);
 
         optgroup = page->new_optgroup(L("Change extrusion role G-code"), L"param_gcode", 0);

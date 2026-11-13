@@ -22,16 +22,51 @@ namespace Slic3r {
 const std::string& FanMover::process_gcode(const std::string& gcode, bool flush)
 {
     m_process_output = "";
+    size_t tracked_output = 0;
+    auto track_output = [this, &tracked_output]() {
+        if (tracked_output < m_process_output.size()) {
+            const std::string tracked = m_custom_fan_output.process(
+                std::string_view(m_process_output).substr(tracked_output), m_writer.config.gcode_flavor);
+            m_process_output.replace(tracked_output, std::string::npos, tracked);
+            tracked_output = m_process_output.size();
+        }
+    };
 
     // recompute buffer time to recover from rounding
     m_buffer_time_size = 0;
     for (auto& data : m_buffer) m_buffer_time_size += data.time;
 
     if (!gcode.empty()) {
-        m_parser.parse_buffer(gcode, [this](GCodeReader& reader, const GCodeReader::GCodeLine& line) {
+        m_parser.parse_buffer(gcode, [this, &track_output, &tracked_output](GCodeReader& reader, const GCodeReader::GCodeLine& line) {
+            if (m_custom_fan_control_depth == 0 && CustomFanControlTracker::is_restore_command(line.raw()) &&
+                CustomFanControlTracker::fan_speed_percent(line, m_writer.config.gcode_flavor) >= 0) {
+                // Resolve the saved entry against the final output, including any
+                // earlier fan advance. Restoration must not be advanced or kicked.
+                _flush_at_boundary();
+                track_output();
+                const std::string restored = m_custom_fan_output.process(line.raw() + "\n", m_writer.config.gcode_flavor);
+                m_process_output += restored;
+                tracked_output = m_process_output.size();
+                const int speed = CustomFanControlTracker::fan_speed_percent(restored, m_writer.config.gcode_flavor);
+                if (speed >= 0)
+                    m_front_buffer_fan_speed = m_back_buffer_fan_speed = speed;
+                return;
+            }
+            const bool custom_begin = line.raw() == ";_CUSTOM_FAN_CONTROL_BEGIN";
+            const bool custom_end = line.raw() == ";_CUSTOM_FAN_CONTROL_END";
+            if (custom_begin || custom_end) {
+                _flush_at_boundary();
+                if (custom_begin)
+                    ++m_custom_fan_control_depth;
+                else if (m_custom_fan_control_depth > 0)
+                    --m_custom_fan_control_depth;
+                m_process_output += line.raw() + "\n";
+                track_output();
+                return;
+            }
             const ZaaIntervalMarker marker = m_zaa_interval.consume_line(line.raw());
             if (marker != ZaaIntervalMarker::None) {
-                _flush_at_zaa_boundary();
+                _flush_at_boundary();
                 m_process_output += line.raw() + "\n";
                 m_processing_zaa = m_zaa_interval.inside();
                 return;
@@ -43,18 +78,29 @@ const std::string& FanMover::process_gcode(const std::string& gcode, bool flush)
 
     if (flush) {
         m_zaa_interval.finish_layer();
-        while (!m_buffer.empty()) {
-            m_process_output += m_buffer.front().raw + "\n";
-            remove_from_buffer(m_buffer.begin());
-        }
+        _flush_buffer();
     }
 
+    track_output();
     return m_process_output;
 }
 
-void FanMover::_flush_at_zaa_boundary()
+void FanMover::_flush_buffer()
 {
-    if (m_current_kickstart.time > 0 && !m_current_kickstart.raw.empty()) {
+    while (!m_buffer.empty()) {
+        const BufferData& data = m_buffer.front();
+        m_process_output += data.raw + "\n";
+        if (data.fan_speed >= 0)
+            m_front_buffer_fan_speed = data.fan_speed;
+        remove_from_buffer(m_buffer.begin());
+    }
+}
+
+void FanMover::_flush_at_boundary()
+{
+    // Finish an outstanding kickstart before entering a region whose fan timing
+    // belongs to the custom G-code. Do not carry its restore command across it.
+    if (m_current_kickstart.time >= 0 && !m_current_kickstart.raw.empty()) {
         auto insertion = m_buffer.end();
         for (auto it = m_buffer.end(); it != m_buffer.begin();) {
             --it;
@@ -69,10 +115,8 @@ void FanMover::_flush_at_zaa_boundary()
         m_current_kickstart.time = -1;
     }
 
-    while (!m_buffer.empty()) {
-        m_process_output += m_buffer.front().raw + "\n";
-        remove_from_buffer(m_buffer.begin());
-    }
+    _flush_buffer();
+    m_back_buffer_fan_speed = m_front_buffer_fan_speed;
 }
 
 bool is_end_of_word(char c) {
@@ -110,23 +154,6 @@ void change_axis_value(std::string& line, char axis, const float new_value, cons
     size_t pos = line.find(match) + 2;
     size_t end = std::min(line.find(' ', pos + 1), line.find(';', pos + 1));
     line = line.replace(pos, end - pos, ss.str());
-}
-
-int16_t get_fan_speed(const std::string &line, GCodeFlavor flavor) {
-    if (line.compare(0, 4, "M106") == 0) {
-        if (flavor == (gcfMach3) || flavor == (gcfMachinekit)) {
-            return (int16_t)get_axis_value(line, 'P');
-        } else {
-            return (int16_t)get_axis_value(line, 'S');
-        }
-    } else if (line.compare(0, 4, "M127") == 0 || line.compare(0, 4, "M107") == 0) {
-        return 0;
-    } else if ((flavor == (gcfMakerWare) || flavor == (gcfSailfish)) && line.compare(0, 4, "M126") == 0) {
-        return (int16_t)get_axis_value(line, 'T');
-    } else {
-        return -1;
-    }
-
 }
 
 void FanMover::_put_in_middle_G1(std::list<BufferData>::iterator item_to_split, float nb_sec_since_itemtosplit_start, BufferData &&line_to_write) {
@@ -312,7 +339,9 @@ void FanMover::_process_T(const std::string_view command)
 void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCodeLine& line)
 {
     // processes 'normal' gcode lines
-    bool need_flush = false;
+    // Still parse F/T/TYPE and coordinates, but never retain a protected tail
+    // that a later fan rise could enter or erase.
+    bool need_flush = m_custom_fan_control_depth > 0;
     std::string cmd(line.cmd());
     double time = 0;
     int16_t fan_speed = -1;
@@ -340,13 +369,12 @@ void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCode
         }
         case 'M':
         {
-            fan_speed = get_fan_speed(line.raw(), m_writer.config.gcode_flavor);
+            fan_speed = CustomFanControlTracker::fan_speed_percent(line, m_writer.config.gcode_flavor);
             if (fan_speed >= 0) {
                 const auto fan_baseline = 255.0;
-                fan_speed = 100 * fan_speed / fan_baseline;
                 //speed change: stop kickstart reverting if any
                 m_current_kickstart.time = -1;
-                if (!m_is_custom_gcode) {
+                if (!m_is_custom_gcode && m_custom_fan_control_depth == 0) {
                     // if slow down => put in the queue. if not =>
                     if (m_back_buffer_fan_speed < fan_speed) {
                         if (nb_seconds_delay > 0 && (!only_overhangs || current_role == ExtrusionRole::erOverhangPerimeter)) {
@@ -445,6 +473,8 @@ void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCode
                     //update back buffer fan speed
                     m_back_buffer_fan_speed = fan_speed;
                 } else {
+                    if (m_custom_fan_control_depth > 0)
+                        m_back_buffer_fan_speed = fan_speed;
                     // have to flush the buffer to avoid erasing a fan command.
                     need_flush = true;
                 }
@@ -526,7 +556,7 @@ void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCode
     if (time >= 0) {
         while (!m_buffer.empty() && (need_flush || m_buffer_time_size - m_buffer.front().time > nb_seconds_delay - EPSILON) ){
             BufferData& frontdata = m_buffer.front();
-            if (frontdata.fan_speed < 0 || frontdata.fan_speed != m_front_buffer_fan_speed || frontdata.is_kickstart) {
+            if (m_custom_fan_control_depth > 0 || frontdata.fan_speed < 0 || frontdata.fan_speed != m_front_buffer_fan_speed || frontdata.is_kickstart) {
                 if (frontdata.is_kickstart && frontdata.fan_speed < m_front_buffer_fan_speed) {
                     //you have to slow down! not kickstart! rewrite the fan speed.
                     m_process_output += _set_fan(frontdata.fan_speed);//m_writer.set_fan(frontdata.fan_speed,true); //FIXME extruder id (or use the gcode writer, but then you have to disable the multi-thread thing

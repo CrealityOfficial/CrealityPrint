@@ -10,6 +10,7 @@
 #include "../GCodeReader.hpp"
 #include "../GCodeWriter.hpp"
 #include "ZaaIntervalProtocol.hpp"
+#include "CustomFanControl.hpp"
 #include <regex>
 
 namespace Slic3r {
@@ -48,6 +49,9 @@ private:
     // in unit/second
     double m_current_speed = 1000 / 60.0;
     bool m_is_custom_gcode = false;
+    // Explicit toolchange regions are barriers for both advance and kickstart.
+    unsigned int m_custom_fan_control_depth = 0;
+    CustomFanControlTracker m_custom_fan_output;
     uint16_t m_currrent_extruder = 0;
 
     // variable for when you add a line (front of the buffer)
@@ -87,7 +91,8 @@ private:
     }
     // Processes the given gcode line
     void _process_gcode_line(GCodeReader& reader, const GCodeReader::GCodeLine& line);
-    void _flush_at_zaa_boundary();
+    void _flush_buffer();
+    void _flush_at_boundary();
     void _process_T(const std::string_view command);
     void _put_in_middle_G1(std::list<BufferData>::iterator item_to_split, float nb_sec, BufferData&& line_to_write);
     void _print_in_middle_G1(BufferData& line_to_split, float nb_sec, const std::string& line_to_write);

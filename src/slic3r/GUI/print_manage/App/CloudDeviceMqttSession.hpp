@@ -42,7 +42,13 @@ public:
     using Sink = std::function<void(Event)>;
     using RetryDelay = std::function<std::chrono::milliseconds(unsigned)>;
 
+    struct DataTimeouts {
+        std::chrono::milliseconds first_message{60000};
+        std::chrono::milliseconds idle{120000};
+    };
+
     CloudDeviceMqttSession(Factory, Sink, RetryDelay = {});
+    CloudDeviceMqttSession(Factory, Sink, RetryDelay, DataTimeouts);
     ~CloudDeviceMqttSession();
     CloudDeviceMqttSession(const CloudDeviceMqttSession&) = delete;
     CloudDeviceMqttSession& operator=(const CloudDeviceMqttSession&) = delete;

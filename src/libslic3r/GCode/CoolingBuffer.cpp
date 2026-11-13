@@ -46,7 +46,7 @@ struct OverhangFanRegion
 
 struct OverhangFanEvent
 {
-    enum class Type { Start, End, Move, Boundary };
+    enum class Type { Start, End, Move, Boundary, CustomFanBoundary };
 
     size_t line_start = 0;
     Type type         = Type::Move;
@@ -103,7 +103,8 @@ static LayerStartFan layer_start_fan(const std::string& gcode, const std::vector
             // These markers may reapply fan settings or delimit custom operations.
             const std::string& raw = line.raw();
             if (raw.find(";_FORCE_") == std::string::npos && raw.find(";_SUPP_INTERFACE_FAN_END") == std::string::npos &&
-                raw.find(";_OVERHANG_FAN_END") == std::string::npos && raw.find("; custom gcode") == std::string::npos)
+                raw.find(";_OVERHANG_FAN_END") == std::string::npos && raw.find("; custom gcode") == std::string::npos &&
+                raw.find(";_CUSTOM_FAN_CONTROL_") == std::string::npos)
                 return;
         } else if (command == "G0" || command == "G1") {
             // Feedrate, travel, retract and unretract are allowed. Conservatively keep
@@ -165,6 +166,8 @@ static std::unordered_set<const CoolingLine*> collect_disabled_overhang_fan_mark
             events.push_back({line->line_start, OverhangFanEvent::Type::Start, line, 0., width});
         } else if (line->type & CoolingLine::TYPE_OVERHANG_FAN_END) {
             events.push_back({line->line_start, OverhangFanEvent::Type::End, line, 0., width});
+        } else if (line->type & (CoolingLine::TYPE_CUSTOM_FAN_CONTROL_BEGIN | CoolingLine::TYPE_CUSTOM_FAN_CONTROL_END)) {
+            events.push_back({line->line_start, OverhangFanEvent::Type::CustomFanBoundary, nullptr, 0., 0.});
         } else if (is_in_marker_span(line->line_start) &&
                    (line->type & (CoolingLine::TYPE_SET_TOOL | CoolingLine::TYPE_FORCE_RESUME_FAN |
                                   CoolingLine::TYPE_FORCE_FAN_ON_TOOL_CHANGE |
@@ -197,6 +200,14 @@ static std::unordered_set<const CoolingLine*> collect_disabled_overhang_fan_mark
     double gap_length      = 0.;
 
     for (const OverhangFanEvent& event : events) {
+        if (event.type == OverhangFanEvent::Type::CustomFanBoundary) {
+            // Never merge an automatic cooling region through a custom fan block,
+            // even if its start marker was not followed by an end marker.
+            current_region = no_region;
+            previous_region = no_region;
+            gap_length = 0.;
+            continue;
+        }
         if (event.type == OverhangFanEvent::Type::Start) {
             if (current_region == no_region) {
                 regions.emplace_back();
@@ -442,6 +453,9 @@ void GCodeEditor::reset(const Vec3d &position)
     m_fan_speed = -1;
     m_additional_fan_speed = -1;
     m_current_fan_speed = -1;
+    m_custom_fan_control_depth = 0;
+    m_custom_fan_snapshot = {};
+    m_custom_fan_output.reset();
     m_additional_fan_count = 0;
     m_zaa_interval.reset();
 }
@@ -738,6 +752,7 @@ std::vector<PerExtruderAdjustments> GCodeEditor::parse_layer_gcode(
     bool        append_wall_ptr       = false;
     bool        append_inner_wall_ptr = false;
     float       current_path_width    = 0.f;
+    bool        floating_shell_slowdown = false;
 
     std::pair<int, int> node_pos;
     int                 line_idx = -1;
@@ -773,6 +788,11 @@ std::vector<PerExtruderAdjustments> GCodeEditor::parse_layer_gcode(
             cooling_node_id = std::stoi(sub);
         } else if (boost::starts_with(sline, ";WIDTH:")) {
             fast_float::from_chars(sline.data() + 7, sline.data() + sline.size(), current_path_width);
+        } else if (boost::starts_with(sline, "; Slow Down Start")) {
+            floating_shell_slowdown = true;
+            active_speed_modifier = size_t(-1);
+        } else if (boost::starts_with(sline, "; Slow Down End")) {
+            floating_shell_slowdown = false;
         }
 
             if (line.type) {
@@ -855,8 +875,13 @@ std::vector<PerExtruderAdjustments> GCodeEditor::parse_layer_gcode(
             // ORCA: Dont slowdown external perimeters for layer time works by not marking the external perimeter as adjustable, 
             // hence the slowdown algorithm ignores it.
             if (boost::contains(sline, ";_EXTRUDE_SET_SPEED") && ! wipe && adjust_external) {
-                line.type |= CoolingLine::TYPE_ADJUSTABLE;
-                active_speed_modifier = adjustment->lines.size();
+                if (floating_shell_slowdown) {
+                    // Keep the selected floating-shell speed; still strip the private speed marker.
+                    line.type |= CoolingLine::TYPE_ADJUSTABLE_EMPTY;
+                } else {
+                    line.type |= CoolingLine::TYPE_ADJUSTABLE;
+                    active_speed_modifier = adjustment->lines.size();
+                }
             }
 
             record_wall_lines(append_wall_ptr, line_idx, adjustment, node_pos);
@@ -1066,6 +1091,10 @@ std::vector<PerExtruderAdjustments> GCodeEditor::parse_layer_gcode(
 
             line.adjustable_time     = 0.f;
             line.adjustable_time_max = 0.f;
+        } else if (boost::starts_with(sline, ";_CUSTOM_FAN_CONTROL_BEGIN")) {
+            line.type = CoolingLine::TYPE_CUSTOM_FAN_CONTROL_BEGIN;
+        } else if (boost::starts_with(sline, ";_CUSTOM_FAN_CONTROL_END")) {
+            line.type = CoolingLine::TYPE_CUSTOM_FAN_CONTROL_END;
         } else if (boost::starts_with(sline, ";_FORCE_RESUME_FAN_SPEED")) {
             line.type = CoolingLine::TYPE_FORCE_RESUME_FAN;
         } else if (boost::starts_with(sline, ";_FORCE_FAN_SPEED_ON_TOOL_CHANGE")) {
@@ -1337,6 +1366,7 @@ std::string GCodeEditor::write_layer_gcode(
 #define EXTRUDER_CONFIG(OPT) m_config.OPT.get_at(m_current_extruder)
     const bool limit_height_fan = layer_end_z >= EXTRUDER_CONFIG(cool_cds_fan_start_at_height);
 
+    const bool starts_in_custom_fan_control = m_custom_fan_control_depth != 0;
     bool need_set_cds_fan = false;
     auto change_extruder_set_fan = [this, layer_id, layer_time, &new_gcode, &overhang_fan_control, &overhang_fan_speed,
                                    &supp_interface_fan_control, &supp_interface_fan_speed, &limit_height_fan,
@@ -1394,6 +1424,18 @@ std::string GCodeEditor::write_layer_gcode(
             supp_interface_fan_control= false;
             supp_interface_fan_speed   = 0;
         }
+        if (m_custom_fan_control_depth != 0 || m_custom_fan_snapshot.pending) {
+            // Keep the automatic target up to date without overriding the
+            // template or a resume request split across processed chunks.
+            if (m_fan_speed != fan_speed_new)
+                m_custom_fan_snapshot.target_changed = true;
+            m_fan_speed = fan_speed_new;
+            if (m_custom_fan_snapshot.pending && m_custom_fan_snapshot.target_changed)
+                m_current_fan_speed = m_fan_speed;
+            if (!EXTRUDER_CONFIG(enable_special_area_additional_cooling_fan) && limit_height_fan)
+                m_additional_fan_speed = additional_fan_speed_new;
+            return;
+        }
         const LayerStartFan initial_fan = check_layer_start ?
             layer_start_fan(gcode, lines, disabled_overhang_fan_markers, m_config.use_relative_e_distances.value,
                             overhang_fan_control, supp_interface_fan_control) : LayerStartFan::Normal;
@@ -1444,6 +1486,10 @@ std::string GCodeEditor::write_layer_gcode(
                                                                {CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START, false},
                                                                {CoolingLine::TYPE_FORCE_RESUME_FAN, false},
                                                                {CoolingLine::TYPE_OVERHANG_FAN_END,false }};
+    if (m_custom_fan_snapshot.pending && (!m_custom_fan_snapshot.target_changed || m_custom_fan_snapshot.region_changed)) {
+        fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START] = m_custom_fan_snapshot.overhang;
+        fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START] = m_custom_fan_snapshot.support_interface;
+    }
     bool need_set_fan = false;
     bool force_fan_on_next_toolchange = false;
     bool have_type_overhang = false;
@@ -1514,8 +1560,45 @@ std::string GCodeEditor::write_layer_gcode(
             }
         }
 
-        if (!disabled_overhang_fan_markers.empty() && disabled_overhang_fan_markers.find(line) != disabled_overhang_fan_markers.end()) {
-            // Remove marker: this candidate overhang-fan region was merged away or filtered as isolated.
+        if (line->type & CoolingLine::TYPE_CUSTOM_FAN_CONTROL_BEGIN) {
+            if (m_custom_fan_control_depth++ == 0) {
+                m_custom_fan_snapshot = {};
+                m_custom_fan_snapshot.speed = m_current_fan_speed;
+                m_custom_fan_snapshot.overhang = fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START];
+                m_custom_fan_snapshot.support_interface = fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START];
+            }
+            for (auto& request : fan_speed_change_requests)
+                request.second = false;
+            need_set_fan = false;
+            need_set_cds_fan = false;
+            force_fan_on_next_toolchange = false;
+            new_gcode.append(line_start, line_end - line_start);
+        } else if (line->type & CoolingLine::TYPE_CUSTOM_FAN_CONTROL_END) {
+            if (m_custom_fan_control_depth != 0 && --m_custom_fan_control_depth == 0) {
+                // A temporary operation restores its entry state. A changed
+                // printing target takes precedence at the generated resume.
+                m_custom_fan_snapshot.pending = true;
+                m_current_fan_speed = m_custom_fan_snapshot.target_changed ?
+                    m_fan_speed : m_custom_fan_snapshot.speed;
+                for (auto& request : fan_speed_change_requests)
+                    request.second = false;
+                if (!m_custom_fan_snapshot.target_changed) {
+                    fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START] = m_custom_fan_snapshot.overhang;
+                    fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START] = m_custom_fan_snapshot.support_interface;
+                }
+                need_set_fan = false;
+                need_set_cds_fan = false;
+            }
+            new_gcode.append(line_start, line_end - line_start);
+        } else if (m_custom_fan_control_depth != 0 &&
+                   (line->type & (automatic_fan_marker_types | CoolingLine::TYPE_FORCE_RESUME_FAN |
+                                  CoolingLine::TYPE_FORCE_FAN_ON_TOOL_CHANGE))) {
+            // Consume automatic requests inside the block; keep user M106 text.
+        } else if (!disabled_overhang_fan_markers.empty() && disabled_overhang_fan_markers.find(line) != disabled_overhang_fan_markers.end() &&
+                   !((line->type & CoolingLine::TYPE_OVERHANG_FAN_END) && m_custom_fan_snapshot.overhang &&
+                     fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START])) {
+            // A custom boundary prevents merging, but the resumed region still
+            // needs its first END even though the collector sees an orphan.
         } else if (line->type & CoolingLine::TYPE_SET_TOOL) {
             const bool force_apply_fan = force_fan_on_next_toolchange;
             force_fan_on_next_toolchange = false;
@@ -1523,6 +1606,10 @@ std::string GCodeEditor::write_layer_gcode(
             auto ret = std::from_chars(line_start + m_toolchange_prefix.size(), line_end, new_extruder);
             if (std::errc::invalid_argument != ret.ec) {
                 if (new_extruder != m_current_extruder) {
+                    if (m_custom_fan_control_depth != 0)
+                        m_custom_fan_snapshot.target_changed = true;
+                    else
+                        m_custom_fan_snapshot.pending = false;
                     m_current_extruder = new_extruder;
                     change_extruder_set_fan(true, force_apply_fan);
                 } else if (force_apply_fan) {
@@ -1531,6 +1618,10 @@ std::string GCodeEditor::write_layer_gcode(
             }
             new_gcode.append(line_start, line_end - line_start);
         } else if (line->type & CoolingLine::TYPE_OVERHANG_FAN_START) {
+            if (m_custom_fan_snapshot.pending)
+                m_custom_fan_snapshot.region_changed = true;
+            else
+                m_custom_fan_snapshot.overhang = false;
             have_type_overhang = true;
             if (overhang_fan_control && !fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START]) {
                 need_set_fan = true;
@@ -1538,17 +1629,24 @@ std::string GCodeEditor::write_layer_gcode(
                 fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_END]   = false;
            }
         } else if (line->type & CoolingLine::TYPE_OVERHANG_FAN_END) {
+            if (m_custom_fan_snapshot.pending)
+                m_custom_fan_snapshot.region_changed = true;
+            m_custom_fan_snapshot.overhang = false;
             if (overhang_fan_control && fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START]) {
                 fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START] = false;
             }
             fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_END] = true;
             need_set_fan = true;
         } else if (line->type & CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START) {
+            if (m_custom_fan_snapshot.pending)
+                m_custom_fan_snapshot.region_changed = true;
             if (supp_interface_fan_control && !fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START]) {
                 fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START] = true;
                 need_set_fan = true;
             }
         } else if (line->type & CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_END && fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START]) {
+            if (m_custom_fan_snapshot.pending)
+                m_custom_fan_snapshot.region_changed = true;
             if (supp_interface_fan_control) {
                 fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START] = false;
             }
@@ -1564,6 +1662,7 @@ std::string GCodeEditor::write_layer_gcode(
         } else if (line->type & CoolingLine::TYPE_FORCE_FAN_ON_TOOL_CHANGE) {
             // M106 controls a global fan. Do not restore the previous filament immediately before Tn;
             // force the target filament's state when the tool change marker is consumed instead.
+            m_custom_fan_snapshot.pending = false;
             force_fan_on_next_toolchange = true;
         }
         else if (line->type & CoolingLine::TYPE_EXTRUDE_END) {
@@ -1668,7 +1767,7 @@ std::string GCodeEditor::write_layer_gcode(
         }
 
 
-        if (EXTRUDER_CONFIG(enable_special_area_additional_cooling_fan))
+        if (m_custom_fan_control_depth == 0 && EXTRUDER_CONFIG(enable_special_area_additional_cooling_fan))
         {
             if (have_type_overhang && limit_height_fan)
             {
@@ -1683,15 +1782,37 @@ std::string GCodeEditor::write_layer_gcode(
             }
         }
 
+        if (m_custom_fan_snapshot.pending && m_custom_fan_snapshot.region_changed) {
+            // END, a new region request and FORCE_RESUME may arrive in different
+            // chunks. Carry the new request forward, not the old entry override.
+            m_custom_fan_snapshot.overhang = fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START];
+            m_custom_fan_snapshot.support_interface = fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START];
+        }
+
         // Adjacent automatic fan markers belong to the same path transition. Resolve
         // their combined state before emitting, without crossing any G-code command.
         const auto next_line = std::next(line_it);
         const bool next_is_fan_marker = next_line != lines.end() && line->line_end == (*next_line)->line_start &&
-            ((*next_line)->type & automatic_fan_marker_types);
-        if (need_set_fan && (!next_is_fan_marker || fan_speed_change_requests[CoolingLine::TYPE_FORCE_RESUME_FAN])) {
+            ((*next_line)->type & (automatic_fan_marker_types |
+                (m_custom_fan_snapshot.pending ? CoolingLine::TYPE_FORCE_RESUME_FAN : 0)));
+        if (m_custom_fan_control_depth == 0 && need_set_fan &&
+            (!next_is_fan_marker || (fan_speed_change_requests[CoolingLine::TYPE_FORCE_RESUME_FAN] && !m_custom_fan_snapshot.pending))) {
             if (fan_speed_change_requests[CoolingLine::TYPE_FORCE_RESUME_FAN] && m_current_fan_speed != -1)
             {
-                new_gcode += GCodeWriter::set_fan(m_config.gcode_flavor, m_current_fan_speed);
+                if (m_custom_fan_snapshot.pending && m_custom_fan_snapshot.region_changed) {
+                    m_current_fan_speed = fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START] ?
+                        overhang_fan_speed : fan_speed_change_requests[CoolingLine::TYPE_SUPPORT_INTERFACE_FAN_START] ?
+                        supp_interface_fan_speed : m_fan_speed;
+                }
+                std::string resume = GCodeWriter::set_fan(m_config.gcode_flavor, m_current_fan_speed);
+                if (m_custom_fan_snapshot.pending && !m_custom_fan_snapshot.target_changed &&
+                    !m_custom_fan_snapshot.region_changed) {
+                    // Executable fallback when FanMover is disabled. Both output
+                    // stages replace it with their exact entry fan command.
+                    resume.insert(resume.find('\n'), " ;_CUSTOM_FAN_RESTORE");
+                }
+                new_gcode += resume;
+                m_custom_fan_snapshot.pending = false;
                 fan_speed_change_requests[CoolingLine::TYPE_FORCE_RESUME_FAN] = false;
             }
             else if(fan_speed_change_requests[CoolingLine::TYPE_OVERHANG_FAN_START])
@@ -1719,7 +1840,7 @@ std::string GCodeEditor::write_layer_gcode(
     if (pos < gcode_end)
         new_gcode.append(pos, gcode_end - pos);
 
-    if (EXTRUDER_CONFIG(enable_special_area_additional_cooling_fan))
+    if (m_custom_fan_control_depth == 0 && EXTRUDER_CONFIG(enable_special_area_additional_cooling_fan))
     {
         if (have_type_overhang)
         {
@@ -1743,15 +1864,20 @@ std::string GCodeEditor::write_layer_gcode(
         }
     }
 
-    if (need_set_cds_fan)
+    if (m_custom_fan_control_depth == 0 && need_set_cds_fan)
     {
         std::string _gcode = GCodeWriter::set_additional_fan(m_additional_fan_speed);
-        new_gcode = _gcode + new_gcode;
+        // A chunk may begin inside a template and end after it. In that case,
+        // prepending would place this automatic command back inside the block.
+        if (starts_in_custom_fan_control)
+            new_gcode += _gcode;
+        else
+            new_gcode = _gcode + new_gcode;
         need_set_cds_fan = false;
     }
 
 #undef EXTRUDER_CONFIG
-    return sanitize_buffer_z(new_gcode);
+    return m_custom_fan_output.process(sanitize_buffer_z(new_gcode), m_config.gcode_flavor);
 }
 #undef MAX_ADDITIONAL_LAYES
 } // namespace Slic3r

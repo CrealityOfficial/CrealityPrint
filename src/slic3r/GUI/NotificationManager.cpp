@@ -1,4 +1,5 @@
 ﻿#include "NotificationManager.hpp"
+#include "UpdateParams.hpp"
 
 #include "HintNotification.hpp"
 #include "SlicingProgressNotification.hpp"
@@ -2460,8 +2461,8 @@ void NotificationManager::push_update_params_tip(const std::string& tipInfo)
 {
     std::function<bool(wxEvtHandler*)> callback;
     callback = [](wxEvtHandler*) {
-        wxGetApp().mainframe->select_tab(MainFrame::tpHome);
-        wxGetApp().swith_community_sub_page("param_set");
+        // Defer notification mutations until the current render iteration ends.
+        wxGetApp().CallAfter([] { UpdateParams::getInstance().checkParamsNeedUpdate(true); });
 
         return false;
     };

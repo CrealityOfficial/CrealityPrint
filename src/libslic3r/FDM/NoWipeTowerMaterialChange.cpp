@@ -62,7 +62,6 @@ static size_t no_wipe_tower_no_purge_extruder_count(const Print& print)
         const PrintObjectConfig& object_config = object->config();
         if (object_config.flush_into_objects.value ||
             object_config.flush_into_infill.value ||
-            object_config.flush_into_support.value ||
             object_config.flush_into_skeleton.value)
             return 0;
     }

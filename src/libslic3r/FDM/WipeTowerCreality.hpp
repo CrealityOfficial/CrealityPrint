@@ -2,6 +2,7 @@
 #define WipeTowerCreality_
 
 #include "libslic3r/Point.hpp"
+#include "WipeTowerPreFlush.hpp"
 #include "libslic3r/GCode/WipeTower.hpp"
 #include "libslic3r/GCode/WipeTower2.hpp"
 #include "libslic3r/PrintConfig.hpp"
@@ -156,11 +157,13 @@ public:
         float               ramming_line_width_multiplicator = 1.f;
         float               ramming_step_multiplicator = 1.f;
         float               max_e_speed = std::numeric_limits<float>::max();
+        float               pre_flush_max_e_speed = 0.f; // 0 keeps the original coarse speed.
         std::vector<float>  ramming_speed;
         float               nozzle_diameter;
         float               perimeter_width;
         float               max_layer_height;
         float               filament_area;
+        float               pre_flush_volume = 0.f;
         int                 category;
         float               retract_length;
         float               retraction_minimum_travel = 0.f;
@@ -224,6 +227,7 @@ private:
     const float Width_To_Nozzle_Ratio = 1.25f; // desired line width (oval) in multiples of nozzle diameter - may not be actually neccessary to adjust
     const float WT_EPSILON            = 1e-3f;
     float perimeter_width_for_tool(size_t tool) const { return m_filpar.at(tool).perimeter_width; }
+    float sparse_grid_spacing() const;
     float extrusion_flow_for_tool(size_t tool, float height, float width_multiplier = 1.f) const {
         return height * (perimeter_width_for_tool(tool) * width_multiplier - height * (1.f - float(M_PI) / 4.f)) /
                m_filpar.at(tool).filament_area;
@@ -335,6 +339,7 @@ private:
             float first_wipe_line;
             float wipe_volume;
             float wipe_length;
+            std::optional<wipe_tower_pre_flush::Layout> pre_flush_layout;
             float nozzle_change_depth{0};
             float purge_volume;
             bool  round_wipe_wall{false};
@@ -412,6 +417,13 @@ private:
 		const WipeTower::box_coordinates  &cleaning_box,
 		float wipe_volume,
         bool round_wipe_wall);
+
+    bool uses_pre_flush(size_t old_tool, size_t new_tool, float wipe_volume) const;
+    void rebuild_pre_flush_layout(WipeTowerInfo::ToolChange& change, float height, bool first_layer);
+    Vec2f pre_flush_position(const wipe_tower_pre_flush::Layout& layout,
+                            const wipe_tower_pre_flush::Point& point, float origin_y) const;
+    void toolchange_WipePreFlush(WipeTowerWriterCreality& writer,
+                                const wipe_tower_pre_flush::Layout& layout, float origin_y);
 
 	void get_wall_skip_points(const WipeTowerInfo& layer);
 };

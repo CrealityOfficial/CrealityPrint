@@ -24,6 +24,7 @@ add_executable(${_TEST_NAME}_tests
 	test_prime_tower_options.cpp
 	test_project_variant_restore.cpp
 	test_preset_project_reset.cpp
+	test_live_profile_update.cpp
 	test_polygon.cpp
 	test_mutable_polygon.cpp
 	test_mutable_priority_queue.cpp

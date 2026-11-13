@@ -1,4 +1,6 @@
 #include "UpdateDialogs.hpp"
+#include "ProfileUpdatePolicy.hpp"
+#include <wx/display.h>
 
 #include <cstring>
 #include <boost/format.hpp>
@@ -25,6 +27,189 @@
 namespace Slic3r {
 namespace GUI {
 
+
+PresetUpdateDialog::PresetUpdateDialog(wxWindow *parent, std::function<void()> action, std::function<void(bool)> dismissed)
+    : DPIDialog(parent, wxID_ANY, _L("Check for Preset Updates"), wxDefaultPosition, wxDefaultSize,
+                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), m_action(std::move(action)), m_dismissed(std::move(dismissed))
+{
+    SetFont(wxGetApp().normal_font());
+    // The system dialog grey is not in StateColor's light/dark map.
+    SetBackgroundColour(*wxWHITE);
+    auto *layout = new wxBoxSizer(wxVERTICAL);
+    m_heading = new Label(this, GetFont().Scaled(1.25).Bold(), _L("Checking preset updates..."));
+    layout->Add(m_heading, 0, wxEXPAND | wxALL, FromDIP(24));
+    m_scroll = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxTAB_TRAVERSAL);
+    m_scroll->SetScrollRate(0, FromDIP(12));
+    m_scroll->SetMinSize(wxSize(1, 1));
+    m_contents = new wxBoxSizer(wxVERTICAL);
+    m_scroll->SetSizer(m_contents);
+    layout->Add(m_scroll, 1, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(24));
+    auto *buttons = new wxBoxSizer(wxHORIZONTAL);
+    buttons->AddStretchSpacer();
+    m_secondary = new Button(this, _L("Remind me later"));
+    m_primary = new Button(this, _L("Immediate Update"));
+    m_secondary->SetMinSize(FromDIP(wxSize(110, 32)));
+    m_primary->SetMinSize(FromDIP(wxSize(130, 32)));
+    buttons->Add(m_secondary, 0, wxRIGHT, FromDIP(12));
+    buttons->Add(m_primary);
+    layout->Add(buttons, 0, wxEXPAND | wxALL, FromDIP(24));
+    SetSizer(layout);
+
+    const int display_index = wxDisplay::GetFromWindow(parent);
+    const wxSize available = wxDisplay(display_index == wxNOT_FOUND ? 0u : unsigned(display_index)).GetClientArea().GetSize();
+    const wxSize minimum = FromDIP(wxSize(480, 360));
+    SetMinSize(wxSize(std::min(minimum.x, available.x), std::min(minimum.y, available.y)));
+    const wxSize preferred = FromDIP(wxSize(680, 520));
+    SetSize(wxSize(std::min(preferred.x, available.x), std::min(preferred.y, available.y)));
+    CenterOnParent();
+    m_primary->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { m_action(); });
+    m_secondary->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+        if (m_state == State::Available) {
+            m_dismissed(true);
+            Destroy();
+        } else {
+            Close();
+        }
+    });
+    Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent &event) {
+        if (m_state == State::Updating && event.CanVeto()) { event.Veto(); return; }
+        // Title-bar close and Escape dismiss only this prompt.
+        m_dismissed(false);
+        Destroy();
+    });
+    Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent &event) {
+        if (event.GetKeyCode() == WXK_ESCAPE) Close();
+        else event.Skip();
+    });
+    Bind(wxEVT_SIZE, [this](wxSizeEvent &event) { wrap_content(); event.Skip(); });
+    m_scroll->Bind(wxEVT_SIZE, [this](wxSizeEvent &event) { wrap_content(); event.Skip(); });
+    // Preferences updates do not send a system-colour event to every modeless
+    // dialog. Refresh this window on the next idle event when the app theme changes.
+    Bind(wxEVT_IDLE, [this](wxIdleEvent &event) {
+        if (m_dark_theme != wxGetApp().dark_mode()) apply_theme();
+        event.Skip();
+    });
+    set_state(State::Checking, nlohmann::json::array());
+}
+
+void PresetUpdateDialog::set_state(State state, const nlohmann::json &packages, const wxString &message)
+{
+    m_state = state;
+    Freeze();
+    m_labels.clear();
+    m_version_labels.clear();
+    m_contents->Clear(true);
+    auto add_text = [this](const wxString &text, bool bold, int space) {
+        auto *label = new Label(m_scroll, bold ? GetFont().Bold() : GetFont(), text);
+        label->SetMinSize(wxSize(1, -1));
+        m_contents->Add(label, 0, wxEXPAND | wxBOTTOM | wxRIGHT, FromDIP(space));
+        m_labels.push_back(label);
+        return label;
+    };
+    wxString heading = _L("Parameter update");
+    if (state == State::Checking) heading = _L("Checking preset updates...");
+    else if (state == State::Updating) heading = _L("Updating parameter packages...");
+    else if (state == State::Complete) heading = _L("Parameter packages updated");
+    m_heading->SetLabel(heading);
+    if (!message.empty()) add_text(message, false, 16);
+    if (state == State::Available)
+        add_text(_L("Updates are available for the following added printers."), false, 16);
+    for (const auto &package : packages) {
+        add_text(wxString::FromUTF8(ProfileUpdatePolicy::profile_name(package)), true, 6);
+        auto *version = add_text(wxString::Format(state == State::Complete ? _L("Updated to %s") : _L("Target version: %s"),
+            wxString::FromUTF8(package.value("showVersion", std::string()))), true, 12);
+        m_version_labels.push_back(version);
+        add_text(_L("Update content:"), false, 4);
+        const auto notes = ProfileUpdatePolicy::release_notes(package);
+        add_text(notes.empty() ? _L("No update description was provided.") : wxString::FromUTF8(notes), false, 24);
+    }
+    const bool busy = state == State::Updating || state == State::Checking;
+    m_primary->Show(state != State::Checking);
+    m_primary->Enable(!busy);
+    m_secondary->Show(state != State::Complete && state != State::Info && state != State::Updating);
+    m_secondary->Enable(state != State::Updating);
+    m_secondary->SetLabel(state == State::Available ? _L("Remind me later") : _L("Close"));
+    m_primary->SetLabel(state == State::Available ? (packages.size() == 1 ? _L("Immediate Update") :
+        wxString::Format(_L("Update all (%d)"), int(packages.size()))) :
+        state == State::Error ? _L("Retry") : state == State::Updating ? _L("Immediate Update") : _L("OK"));
+    apply_theme();
+    m_wrap_width = -1;
+    Layout();
+    wrap_content();
+    m_scroll->Scroll(0, 0);
+    Thaw();
+}
+
+void PresetUpdateDialog::apply_theme()
+{
+    m_dark_theme = wxGetApp().dark_mode();
+    // Reset all native surfaces to mapped light colours before conversion. This
+    // also covers labels created after the dialog's initial theme pass.
+    auto reset = [](wxWindow *window) {
+        window->SetBackgroundColour(*wxWHITE);
+        window->SetForegroundColour(wxColour("#262E30"));
+    };
+    reset(this);
+    reset(m_scroll);
+    reset(m_heading);
+    reset(m_primary);
+    reset(m_secondary);
+    for (auto *label : m_labels) reset(label);
+    wxGetApp().UpdateDlgDarkUI(this);
+
+    for (auto *label : m_version_labels)
+        label->SetForegroundColour(m_dark_theme ? wxColour("#35DB7D") : wxColour("#007837"));
+
+    // Button uses StateColor for painting, separately from wxWindow colours.
+    const StateColor text(std::make_pair(wxColour("#6B6B6A"), int(StateColor::Disabled)),
+                          std::make_pair(wxColour("#262E30"), int(StateColor::Normal)));
+    m_secondary->SetTextColor(text);
+    m_secondary->SetBorderColor(StateColor(wxColour("#ACACAC")));
+    m_secondary->SetBackgroundColor(StateColor(
+        std::make_pair(wxColour("#F0F0F1"), int(StateColor::Disabled)),
+        std::make_pair(wxColour("#CECECE"), int(StateColor::Pressed)),
+        std::make_pair(wxColour("#EEEEEE"), int(StateColor::Hovered)),
+        std::make_pair(*wxWHITE, int(StateColor::Normal))));
+    m_primary->SetBackgroundColor(StateColor(
+        std::make_pair(wxColour("#F0F0F1"), int(StateColor::Disabled)),
+        std::make_pair(wxColour("#17CC5F"), int(StateColor::Normal))));
+    m_primary->SetBorderColor(StateColor(wxColour("#ACACAC")));
+    m_primary->SetTextColor(StateColor(
+        std::make_pair(wxColour("#6B6B6A"), int(StateColor::Disabled)),
+        std::make_pair(wxColour("#07110b"), int(StateColor::Normal))));
+    Refresh();
+}
+
+void PresetUpdateDialog::on_sys_color_changed()
+{
+    apply_theme();
+}
+
+void PresetUpdateDialog::wrap_content()
+{
+    if (!m_scroll) return;
+    // Reserve scrollbar space even when hidden, avoiding alternating wrap widths.
+    const int width = std::max(1, m_scroll->GetSize().x - FromDIP(32));
+    if (width == m_wrap_width) return;
+    m_wrap_width = width;
+    for (auto *label : m_labels) {
+        label->SetMinSize(wxDefaultSize);
+        label->Wrap(width);
+        label->SetMinSize(wxSize(1, label->GetBestSize().y));
+    }
+    m_heading->Wrap(std::max(1, GetClientSize().x - FromDIP(48)));
+    m_scroll->Layout();
+    m_scroll->FitInside();
+}
+
+void PresetUpdateDialog::on_dpi_changed(const wxRect &suggested_rect)
+{
+    m_secondary->Rescale();
+    m_primary->Rescale();
+    SetSize(suggested_rect);
+    m_wrap_width = -1;
+    wrap_content();
+}
 
 static const char* URL_CHANGELOG = "%1%";
 static const char* URL_DOWNLOAD = "%1%";

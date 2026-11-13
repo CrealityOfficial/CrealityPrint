@@ -965,7 +965,7 @@ bool Preset::has_cali_lines(PresetBundle* preset_bundle)
 }
 
 static std::vector<std::string> s_Preset_print_options {
-    "layer_height", "initial_layer_print_height", "enable_mixed_color_sublayer", "zaa_enabled", "zaa_wall_lowering_min_slope", "zaa_slice_plane_offset", "zaa_lock_top_surface_fill_direction", "wall_loops", "alternate_extra_wall", "slice_closing_radius", "ignore_inner_color","spiral_mode", "spiral_mode_smooth", "spiral_mode_max_xy_smoothing", "slicing_mode",
+    "layer_height", "initial_layer_print_height", "enable_mixed_color_sublayer", "mixed_color_min_sublayer_height", "zaa_enabled", "zaa_wall_lowering_min_slope", "zaa_slice_plane_offset", "zaa_lock_top_surface_fill_direction", "wall_loops", "alternate_extra_wall", "slice_closing_radius", "ignore_inner_color","spiral_mode", "spiral_mode_smooth", "spiral_mode_max_xy_smoothing", "slicing_mode",
     "top_shell_layers", "top_shell_thickness", "bottom_shell_layers", "bottom_shell_thickness",
     "extra_perimeters_on_overhangs", "ensure_vertical_shell_thickness", "reduce_crossing_wall", "detect_thin_wall", "detect_overhang_wall", "overhang_reverse", "overhang_reverse_threshold","overhang_reverse_internal_only", "wall_direction","smooth_speed_discontinuity_area","smooth_coefficient",
     "seam_position",
@@ -1016,7 +1016,7 @@ static std::vector<std::string> s_Preset_print_options {
     "extrusion_rate_smoothing_external_perimeter_only",
     "msao_recovery_enable", "msao_safe_accel", "msao_safe_velocity",
     "acceleration_limit_mess_enable", "acceleration_limit_mess", "speed_limit_to_height_enable", "speed_limit_to_height",
-    "inner_wall_speed", "outer_wall_speed", "sparse_infill_speed", "internal_solid_infill_speed",
+    "inner_wall_speed", "outer_wall_speed", "sparse_infill_speed", "internal_solid_infill_speed", "vertical_shell_speed",
     "top_surface_speed", "support_speed", "support_object_xy_distance", "support_object_first_layer_gap", "support_interface_speed",
     "bridge_speed", "internal_bridge_speed", "gap_infill_speed", "travel_speed", "travel_speed_z", "initial_layer_speed",
     "outer_wall_acceleration", "initial_layer_acceleration", "top_surface_acceleration", "default_acceleration","skirt_type", "skirt_loops", "skirt_speed","min_skirt_length", "skirt_distance", "skirt_height", "draft_shield",
@@ -1040,7 +1040,7 @@ static std::vector<std::string> s_Preset_print_options {
     "flush_into_infill", "flush_into_objects", "flush_into_support", "flush_into_skeleton", "flush_into_solid_skeleton",
      "tree_support_branch_angle", "tree_support_angle_slow", "tree_support_wall_count", "tree_support_wall_count_tree", "tree_support_top_rate", "tree_support_branch_distance", "tree_support_tip_diameter",
      "tree_support_branch_diameter", "tree_support_branch_diameter_angle", "tree_support_branch_diameter_double_wall",
-     "detect_narrow_internal_solid_infill",
+     "detect_narrow_internal_solid_infill", "detect_floating_vertical_shell",
      "gcode_add_line_number", "enable_arc_fitting","arc_tolerance", "precise_z_height", "infill_combination", /*"adaptive_layer_height",*/
      "support_bottom_interface_spacing", "enable_overhang_speed", "slowdown_for_curled_perimeters", "overhang_1_4_speed", "overhang_2_4_speed", "overhang_3_4_speed", "overhang_4_4_speed","overhang_totally_speed",
      "initial_layer_infill_speed", "only_one_wall_top", 
@@ -1079,7 +1079,7 @@ static std::vector<std::string> s_Preset_print_options {
 
 static std::vector<std::string> s_Preset_filament_options {
     /*"filament_colour", */ "default_filament_colour","required_nozzle_HRC","filament_diameter", "pellet_flow_coefficient", "filament_type", "filament_soluble", "filament_is_support", "filament_max_volumetric_speed", "filament_adhesiveness_category",
-    "filament_flow_ratio", "filament_density", "filament_cost", "filament_minimal_purge_on_wipe_tower",
+    "filament_flow_ratio", "filament_density", "filament_cost", "filament_minimal_purge_on_wipe_tower", "filament_pre_flush_volume", "filament_pre_flush_speed_ratio",
     "nozzle_temperature", "nozzle_temperature_initial_layer","material_flow_dependent_temperature","material_flow_temp_graph",
     // BBS
     "cool_plate_temp", "eng_plate_temp", "hot_plate_temp", "textured_plate_temp", "cool_plate_temp_initial_layer", "eng_plate_temp_initial_layer", "hot_plate_temp_initial_layer","textured_plate_temp_initial_layer", "epoxy_resin_plate_temp","epoxy_resin_plate_temp_initial_layer", "customized_plate_temp","customized_plate_temp_initial_layer",
@@ -1122,6 +1122,7 @@ static std::vector<std::string> s_Preset_printer_options {
     "printer_technology",
     "printable_area", "bed_exclude_area","bed_custom_texture", "bed_custom_model", "gcode_flavor","prime_tower_position_type",
     "fan_kickstart", "fan_speedup_time", "fan_speedup_overhangs",
+    "time_flush_interval", "time_flush_gcode",
     "single_extruder_multi_material", "manual_filament_change", "machine_start_gcode", "machine_end_gcode", "before_layer_change_gcode", "printing_by_object_gcode", "layer_change_gcode", "time_lapse_gcode", "change_filament_gcode", "change_extrusion_role_gcode",
     "printer_model", "printer_variant", "printer_extruder_id", "printer_extruder_variant",
     "extruder_variant_list", "extruder_type", "default_nozzle_volume_type",
@@ -3845,14 +3846,19 @@ std::vector<std::string> PresetCollection::merge_presets(PresetCollection &&othe
 
 void PresetCollection::update_vendor_ptrs_after_copy(const VendorMap &new_vendors)
 {
-    for (Preset &preset : m_presets)
+    auto rebind = [&new_vendors](Preset &preset) {
         if (preset.vendor != nullptr) {
-            assert(! preset.is_default && ! preset.is_external);
-            // Re-assign a pointer to the vendor structure in the new PresetBundle.
+            assert(!preset.is_default && !preset.is_external);
             auto it = new_vendors.find(preset.vendor->id);
             assert(it != new_vendors.end());
-            preset.vendor = &it->second;
+            preset.vendor = it == new_vendors.end() ? nullptr : &it->second;
         }
+    };
+    for (Preset &preset : m_presets)
+        rebind(preset);
+    // Edited/saved copies also outlive the source bundle during a live reload.
+    rebind(m_edited_preset);
+    rebind(m_saved_preset);
 }
 
 void PresetCollection::update_map_alias_to_profile_name()

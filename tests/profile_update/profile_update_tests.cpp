@@ -129,5 +129,60 @@ int main()
     // A later check uses current visibility even if an earlier check found work.
     require(pending(allowed, empty, beta_files).size() == 1 && pending(empty, empty, beta_files).empty(),
             "Do not retain a pending package after whitelist removal");
+    // The native tip updates added profiles only, preserving catalog metadata
+    // for the completion dialog instead of reconstructing release notes.
+    json described = k3;
+    described["zipUrl"] = "https://example.invalid/k3.zip";
+    described["descriptionI18n"] = "New material\nAdjusted speed < 100";
+    const auto direct = select_added_updates(json::array({alias, described, k1}), beta_files,
+                                             installed_versions(old_receipt), beta_files);
+    require(direct.size() == 1 && direct.count("Creality K3") == 1,
+            "A click must not install unadded printers or duplicate multi-nozzle aliases");
+    require(direct.at("Creality K3")["zipUrl"] == described["zipUrl"] &&
+            release_notes(direct.at("Creality K3")) == described["descriptionI18n"],
+            "Keep the selected package URL and exact release notes for the actual install");
+    require(select_added_updates(allowed, beta_files, installed_versions(allowed), beta_files).empty(),
+            "A repeated click must not reinstall an already updated profile");
+    require(select_added_updates(allowed, beta_files, {{"Creality K3", "V3.99.0"}}, beta_files).empty(),
+            "A download must not downgrade a newer version installed in the meantime");
+    require(select_added_updates(allowed, {}, {}, beta_files).empty(),
+            "A removed printer must not be installed when download completes");
+    require(select_added_updates(empty, beta_files, {}, beta_files).empty(),
+            "A stale tip cannot authorize a profile missing from the fresh catalog");
+    require(select_added_updates(allowed, beta_files, installed_versions(allowed), {}).size() == 1,
+            "An added profile with a missing file must remain repairable");
+    require(release_notes(json::object()).empty() && release_notes({{"descriptionI18n", nullptr}}).empty(),
+            "Missing release notes must use the UI placeholder, not fabricated text");
+    require(release_notes({{"descriptionI18n", 42}}).empty(),
+            "Malformed release notes must not break an otherwise valid update");
+    // Only dismissed model/version pairs are suppressed; round-tripping models
+    // a restart without requiring any GUI or application settings singleton.
+    auto model_a = printer("K2 Plus", "V2.1.0", {"0.4"});
+    auto model_b = printer("SPARKX i8", "V3.8.2", {"0.4"});
+    const auto name_a = profile_name(model_a);
+    const auto name_b = profile_name(model_b);
+    const int64_t now = 1800000000;
+    json snoozes = json::object();
+    snooze(snoozes, "region/user", json::array({model_a, model_b}), now);
+    snoozes = json::parse(snoozes.dump());
+    require(is_snoozed(snoozes, "region/user", name_a, "V2.1.0", now + 60), "Explicit reminder survives restart");
+    auto legacy_snoozes = snoozes;
+    legacy_snoozes["region/user"][name_a].erase("explicit");
+    require(!is_snoozed(legacy_snoozes, "region/user", name_a, "V2.1.0", now + 60),
+            "Legacy X/Escape records must not suppress the next startup");
+    require(is_snoozed(legacy_snoozes, "region/user", name_b, "V3.8.2", now + 60),
+            "An explicit reminder for another printer remains effective");
+    require(is_snoozed(snoozes, "region/user", name_b, "V3.8.2", now + 86399), "Both shown printers are snoozed for 24 hours");
+    require(!is_snoozed(snoozes, "region/user", name_a, "V2.1.0", now + 86400), "Snooze expires at 24 hours");
+    require(!is_snoozed(snoozes, "region/user", name_a, "V2.1.1", now + 60), "A newer version can notify immediately");
+    require(!is_snoozed(snoozes, "other/user", name_a, "V2.1.0", now + 60), "Account/region snoozes are isolated");
+    require(!is_snoozed(snoozes, "region/user", "unadded", "V2.1.0", now + 60), "Do not suppress unrelated models");
+    require(!is_snoozed(json::array(), "region/user", name_a, "V2.1.0", now), "Corrupt snooze data is ignored");
+    require(!is_snoozed(snoozes, "region/user", name_a, "V2.1.0", now - 100), "Clock rollback cannot suppress indefinitely");
+    const auto two_models = json::array({model_a, model_b, printer("K1", "V9.0.0", {"0.4"})});
+    const std::set<std::string> only_added = {name_a, name_b};
+    require(select_added_updates(two_models, only_added, {}, {}).size() == 2, "Only the two added models appear in the dialog");
+    require(select_added_updates(two_models, only_added, {{name_a, "V2.1.0"}}, {name_a}).size() == 1,
+            "An up-to-date added model is not displayed or updated");
     std::cout << "Profile update policy tests passed\n";
 }

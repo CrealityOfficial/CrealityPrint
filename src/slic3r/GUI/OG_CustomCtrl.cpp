@@ -1678,6 +1678,12 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
 
     const std::vector<Option>& option_set = og_line.get_options();
 
+    // Clear hit regions before drawing any actions. Leading actions are drawn
+    // before the option loop, including fields with an inline unit label.
+    ensure_rects_size(option_set.size());
+    std::fill(rects_undo_icon.begin(), rects_undo_icon.end(), wxRect());
+    std::fill(rects_undo_to_sys_icon.begin(), rects_undo_to_sys_icon.end(), wxRect());
+
     const bool leading_actions = ctrl->uses_leading_action_layout(og_line);
     wxString label = og_line.label;
     wxColour blink_color = StateColor::darkModeColorFor("#15BF59");
@@ -1702,9 +1708,6 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
 
     if (leading_actions) {
         const auto layout = ctrl->get_field_layout(og_line);
-        ensure_rects_size(1);
-        rects_undo_icon[0] = wxRect();
-        rects_undo_to_sys_icon[0] = wxRect();
         if (field->is_enabled() && field->undo_to_sys_bitmap() != nullptr && field->undo_bitmap() != nullptr)
             draw_act_bmps(dc, wxPoint(layout.buttons_x, v_pos), field->undo_to_sys_bitmap()->bmp(),
                           field->undo_bitmap()->bmp(), field->blink());
@@ -1778,9 +1781,6 @@ void OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord h_pos, wxCoord v_pos)
         return;
     }
 
-    ensure_rects_size(option_set.size());
-    std::fill(rects_undo_icon.begin(), rects_undo_icon.end(), wxRect());
-    std::fill(rects_undo_to_sys_icon.begin(), rects_undo_to_sys_icon.end(), wxRect());
     bool is_multioption_line = option_set.size() > 1;
     for (size_t option_idx = 0; option_idx < option_set.size(); ++option_idx) {
         const Option& opt = option_set[option_idx];

@@ -13,6 +13,7 @@
 #include <memory>
 #include <string>
 #include <atomic>
+#include <thread>
 //#include "ImGuiWrapper.hpp"
 #include "ConfigWizard.hpp"
 #include "OpenGLManager.hpp"
@@ -280,6 +281,10 @@ private:
 
     //BBS
     bool m_is_closing {false};
+    bool m_profile_reload_pending {false};
+    bool m_profile_reload_requires_project {false};
+    bool m_native_profile_update_running {false};
+    std::thread m_native_profile_update_thread;
     // Deferred restore-project: set true at startup when a pending hot-update is
     // waiting so that the "Update Ready" dialog appears before the "Restore
     // unsaved project?" prompt.
@@ -644,6 +649,9 @@ private:
     bool            check_print_host_queue();
     bool            checked_tab(Tab* tab);
     bool            ensure_active_printer_filaments();
+    void            reload_updated_presets(bool project_boundary = false);
+    void            update_preset_params_from_notification(const nlohmann::json &confirmed);
+    bool            native_profile_update_running() const { return m_native_profile_update_running; }
     //BBS: add preset combox re-active logic
     void            load_current_presets(bool active_preset_combox = false, bool check_printer_presets = true);
     std::vector<std::string> &get_delete_cache_presets();
@@ -845,6 +853,7 @@ private:
 
 private:
     UITour* m_UITour = nullptr;
+    bool install_preset_packages(const nlohmann::json &request, const std::string &prepared_directory = {}, bool notify = false);
     int             updating_bambu_networking();
     bool            on_init_inner(bool isdump_launcher = false);
     void            parse_args();

@@ -5352,6 +5352,16 @@ msgstr ""
 msgid "Disable \"%1%\" (%2%)"
 msgstr ""
 
+msgid "Minimum mixed sublayer thickness"
+msgstr ""
+
+msgid "Minimum thickness of each mixed or gradient filament sublayer. Color ratios are adjusted when necessary while preserving the total layer height. Slicing stops with an error if the layer is too thin to fit all colors. Set to 0 to disable this limit."
+msgstr ""
+
+#, boost-format
+msgid "Mixed filament %1% at Z=%2% mm cannot fit %3% sublayers with a minimum thickness of %4% mm. Increase the layer height or reduce Minimum mixed sublayer thickness."
+msgstr ""
+
 msgid "affected Plate setting(s)"
 msgstr ""
 
@@ -14967,6 +14977,12 @@ msgstr ""
 msgid "Minimal purge on wipe tower"
 msgstr ""
 
+msgid "Filament pre-flush volume"
+msgstr ""
+
+msgid "After a filament change, the pre-flush volume of the new filament. Set to 0 to disable pre-flushing."
+msgstr ""
+
 msgid ""
 "After a tool change, the exact position of the newly loaded filament inside "
 "the nozzle may not be known, and the filament pressure is likely not yet "
@@ -19135,4 +19151,99 @@ msgid "Unknown file format. Input file must have .3mf or .zip.amf extension."
 msgstr ""
 
 msgid "Canceled"
+msgstr ""
+
+msgid "Pre-flush length slowdown"
+msgstr ""
+
+msgid "After a filament change, use the numeric value of Filament pre-flush volume as the model infill path distance in millimeters for this speed limit. For example, a value of 10 limits only the first 10 mm of printed infill path, then restores normal speed. The volumetric flow limit is this percentage of the filament's maximum volumetric speed. With a prime tower, applies when Flush into objects' infill is enabled. Without a tower, applies to skeleton infill. Travel and retraction do not count. The tower's original pre-flush behavior is unchanged. Lower printing speeds are preserved. Set to 0 to disable this additional speed limit."
+msgstr ""
+
+
+#: src/libslic3r/PrintConfig.cpp
+msgid "Minimum estimated printing time in seconds between time flushes. With a wipe tower, flushing runs before a filament change or before a normal tower visit on a sparse tower layer. The nozzle flushes outside the plate, then continues directly to the tower entry. Towers without sparse layers still flush only before filament changes. Without a tower, including single-color printing, flushing waits for an internal infill path boundary. Small or narrow model islands suppress time flushing. The actual interval may be longer. Set to 0 to disable time flushing."
+msgstr ""
+
+
+#: src/libslic3r/PrintConfig.cpp
+msgid "Runs when overdue before a tower filament change, before a normal tower visit on a sparse tower layer, or at an internal infill path boundary without a tower. Towers without sparse layers still flush only before filament changes. Time keeps accumulating outside these nodes. Layers with model islands smaller than 25 square millimeters or without a 2 mm inset suppress time flushing. Tower flushes continue directly to the tower entry; other flushes return to the model. The interval may be exceeded while waiting for a safe node. Like Time lapse G-code, supports [layer_num], [layer_z] and [max_layer_z] with the same layer values and expression syntax. Use [return_x], [return_y] and [return_z] for the final tower entry position on a normal tower visit, or the nozzle position at other triggers, [current_tool] for the zero-based tool index, and [time_flush_elapsed] for estimated seconds since the previous flush. Expressions such as {layer_z + 0.4} and {if time_flush_elapsed > 0}...{endif} are evaluated before G-code comments, even when preceded by a semicolon. The script must preserve coordinate origin, positioning modes and units; independent flushes must also preserve the active tool. The slicer restores position and absolute E for moves it can parse. Commands wrapped in M950 are passed through without tracking their motion, E resets or duration; firmware or the script must handle recovery. With or without a tower, use time_flush_has_toolchange in both Filament change G-code and Time flush G-code to combine an overdue flush with a filament change. It is true only for that combined event: skip the ordinary change and let Time flush G-code select [next_extruder] at the flush station using [new_filament_temp]. No-tower combined changes resume at the first new-filament print path. The active no-tower change branch must use this state; phased skeleton flushes keep their original flow."
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8124 src/slic3r/GUI/GUI_App.cpp:8131 src/slic3r/GUI/GUI_App.cpp:8493
+msgid "Updating parameter packages..."
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8134
+msgid "Failed to update parameter packages. Please try again."
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8135 src/slic3r/GUI/GUI_App.cpp:8138
+msgid "Parameter update"
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8499
+#, c-format
+msgid "Updated to %s"
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8501
+msgid "Update content:"
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8502
+msgid "No update description was provided."
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8505
+msgid "The update will be applied when you create or reopen a project."
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8507
+msgid "The update will be applied after slicing finishes."
+msgstr ""
+
+#: src/slic3r/GUI/GUI_App.cpp:8508
+msgid "Parameter packages updated"
+msgstr ""
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:32 src/slic3r/GUI/MainFrame.cpp:2924 src/slic3r/GUI/MainFrame.cpp:2924
+msgid "Check for Preset Updates"
+msgstr ""
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:37 src/slic3r/GUI/UpdateDialogs.cpp:95
+msgid "Checking preset updates..."
+msgstr ""
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:47 src/slic3r/GUI/UpdateDialogs.cpp:116
+msgid "Remind me later"
+msgstr ""
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:101
+msgid "Updates are available for the following added printers."
+msgstr ""
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:104
+#, c-format
+msgid "Target version: %s"
+msgstr ""
+
+#: src/slic3r/GUI/UpdateDialogs.cpp:118
+#, c-format
+msgid "Update all (%d)"
+msgstr ""
+
+#: src/slic3r/GUI/UpdateParams.cpp:197
+msgid "No printers have been added. Add a printer before checking for updates."
+msgstr ""
+
+#: src/slic3r/GUI/UpdateParams.cpp:258
+msgid "All added printers are up to date."
+msgstr ""
+
+#: src/slic3r/GUI/UpdateParams.cpp:222 src/slic3r/GUI/UpdateParams.cpp:233
+msgid "Failed to check preset updates. Please check your network and try again."
+msgstr ""
+
+#: src/slic3r/GUI/UpdateParams.cpp:217 src/slic3r/GUI/UpdateParams.cpp:285
+msgid "The printer list or account has changed. Please check again."
 msgstr ""

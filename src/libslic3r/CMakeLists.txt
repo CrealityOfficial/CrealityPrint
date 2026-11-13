@@ -124,6 +124,9 @@ set(lisbslic3r_sources
     Fill/FillConcentric.hpp
     Fill/FillConcentricInternal.cpp
     Fill/FillConcentricInternal.hpp
+    Fill/FillFloatingConcentric.cpp
+    Fill/FillFloatingConcentric.hpp
+    Fill/NarrowInfill.hpp
     Fill/FillCrossHatch.cpp
     Fill/FillCrossHatch.hpp
     Fill/FillHoneycomb.cpp

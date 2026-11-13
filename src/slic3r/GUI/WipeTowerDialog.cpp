@@ -3,6 +3,7 @@
 #include "libslic3r/FlushVolCalc.hpp"
 #include "WipeTowerDialog.hpp"
 #include "BitmapCache.hpp"
+#include "OfficialFilamentColorDialog.hpp"
 #include "GUI.hpp"
 #include "I18N.hpp"
 #include "GUI_App.hpp"
@@ -22,14 +23,15 @@ int scale(const int val) { return val * Slic3r::GUI::wxGetApp().em_unit() / 10; 
 int ITEM_WIDTH() { return scale(30); }
 static const wxColour g_text_color = wxColour(107, 107, 107, 255);
 
-#define ICON_SIZE               wxSize(FromDIP(16), FromDIP(16))
+static constexpr int wiping_swatch_dip = 20;
+#define WIPING_ICON_SIZE        FromDIP(wxSize(wiping_swatch_dip, wiping_swatch_dip))
 #define TABLE_BORDER            FromDIP(28)
-#define HEADER_VERT_PADDING     FromDIP(12)
-#define HEADER_BEG_PADDING      FromDIP(30)
-#define ICON_GAP                FromDIP(44)
+#define HEADER_VERT_PADDING     FromDIP(10)
+#define HEADER_BEG_PADDING      FromDIP(32)
+#define ICON_GAP                FromDIP(40)
 #define HEADER_END_PADDING      FromDIP(24)
-#define ROW_VERT_PADDING        FromDIP(6)
-#define ROW_BEG_PADDING         FromDIP(20)
+#define ROW_VERT_PADDING        FromDIP(4)
+#define ROW_BEG_PADDING         FromDIP(18)
 #define EDIT_BOXES_GAP          FromDIP(30)
 #define ROW_END_PADDING         FromDIP(21)
 #define BTN_SIZE                wxSize(FromDIP(58), FromDIP(24))
@@ -44,6 +46,61 @@ static const wxColour g_text_color = wxColour(107, 107, 107, 255);
 static void update_ui(wxWindow* window)
 {
     Slic3r::GUI::wxGetApp().UpdateDarkUI(window);
+}
+
+static void set_wiping_color_bitmap(wxStaticBitmap* icon, const std::string& color, size_t index)
+{
+    wxWindow* window = wxGetTopLevelParent(icon);
+    if (!window)
+        window = icon;
+    const wxSize size = window->FromDIP(wxSize(wiping_swatch_dip, wiping_swatch_dip));
+    // Copy the background before painting: never draw into the shared cache.
+    const wxBitmap* background = get_extruder_color_icon(color, "", size.x, size.y);
+    wxBitmap bitmap = background->GetSubBitmap(wxRect(wxPoint(0, 0), background->GetSize()));
+    {
+        wxMemoryDC dc(bitmap);
+        wxFont font = ::Label::Body_12;
+        font.MakeBold();
+        const wxString label = wxString::Format("%u", unsigned(index + 1));
+        const int padding = std::max(1, window->FromDIP(1));
+        const wxSize available(size.x - 2 * padding, size.y * 85 / 100);
+        // SetPixelSize is converted through the primary screen DPI on MSW,
+        // then remapped to the memory DC DPI. Use points at this DC's PPI so
+        // high desktop scaling cannot silently shrink the requested text.
+        double points = available.y * 72.0 / dc.GetPPI().y;
+        wxSize text_size;
+        for (;;) {
+            font.SetFractionalPointSize(points);
+            dc.SetFont(font);
+            text_size = dc.GetTextExtent(label);
+            if ((text_size.x <= available.x && text_size.y <= available.y) || points <= 1.0)
+                break;
+            points = std::max(1.0, points - 0.5);
+        }
+        const auto appearance = FilamentColorAppearance::resolve(size_t(-1), FilamentColorAppearance::parse(color));
+        const wxColour foreground = appearance.special()
+            ? FilamentColorAppearance::foreground(appearance)
+            : (FilamentColorAppearance::parse(color).GetLuminance() < 0.51 ? *wxWHITE : *wxBLACK);
+        const wxPoint origin((size.x - text_size.x) / 2, (size.y - text_size.y) / 2);
+        if (appearance.special()) {
+            dc.SetTextForeground(foreground == *wxBLACK ? *wxWHITE : *wxBLACK);
+            dc.DrawText(label, origin + wxPoint(-1, 0));
+            dc.DrawText(label, origin + wxPoint(1, 0));
+            dc.DrawText(label, origin + wxPoint(0, -1));
+            dc.DrawText(label, origin + wxPoint(0, 1));
+        }
+        dc.SetTextForeground(foreground);
+        dc.DrawText(label, origin);
+    }
+#ifdef __WXMSW__
+    // The raster is already in physical pixels. Tag this local copy so the
+    // control's wxBitmapBundle doesn't apply the display scale a second time.
+    // Keep the shared cache in physical pixels for its other consumers.
+    bitmap.SetScaleFactor(window->GetDPIScaleFactor());
+#endif
+    icon->SetBitmap(bitmap);
+    icon->SetMinSize(size);
+    icon->SetSize(size);
 }
 
 RammingDialog::RammingDialog(wxWindow* parent,const std::string& parameters)
@@ -485,9 +542,9 @@ void WipingPanel::create_panels(wxWindow* parent, const int num) {
         auto sizer = new wxBoxSizer(wxHORIZONTAL);
         panel->SetSizer(sizer);
 
-        // A static bitmap, not a wxButton: on GTK a 16 px button is smaller than the theme's padding
+        // A static bitmap, not a wxButton: on GTK a button this small is no larger than the theme's padding
         // and border, so GTK allocates no room to its image and the icon is never drawn.
-        wxStaticBitmap* icon = new wxStaticBitmap(panel, wxID_ANY, wxNullBitmap, wxDefaultPosition, ICON_SIZE);
+        wxStaticBitmap* icon = new wxStaticBitmap(panel, wxID_ANY, wxNullBitmap, wxDefaultPosition, WIPING_ICON_SIZE);
         std::string color_str;
         if (i < m_colours.size() && m_colours[i].IsOk()) {
             color_str = m_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
@@ -521,7 +578,7 @@ void WipingPanel::create_panels(wxWindow* parent, const int num) {
         BOOST_LOG_TRIVIAL(warning) << "[WipingPanel::create_panels] BEFORE SetBitmap (row icon) i=" << i
                                    << ", m_colours.size=" << m_colours.size()
                                    << ", color_str=" << color_str;
-        icon->SetBitmap(*get_extruder_color_icon(color_str, std::to_string(i + 1), FromDIP(16), FromDIP(16)));
+        set_wiping_color_bitmap(icon, color_str, i);
         BOOST_LOG_TRIVIAL(warning) << "[WipingPanel::create_panels] AFTER SetBitmap (row icon) i=" << i
                                    << ", icon_ptr=" << (void*)icon;
         icon_list2.push_back(icon);
@@ -533,7 +590,7 @@ void WipingPanel::create_panels(wxWindow* parent, const int num) {
             edit_boxes[j][i]->Reparent(panel);
             edit_boxes[j][i]->SetBackgroundColour(panel->GetBackgroundColour());
             edit_boxes[j][i]->SetFont(::Label::Body_13);
-            sizer->AddSpacer(EDIT_BOXES_GAP);
+            sizer->AddSpacer(j == 0 ? EDIT_BOXES_GAP - FromDIP(2) : EDIT_BOXES_GAP);
             sizer->Add(edit_boxes[j][i], 0, wxALIGN_CENTER_VERTICAL, 0);
         }
         sizer->AddSpacer(ROW_END_PADDING);
@@ -660,7 +717,7 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
     boost::log::core::get()->flush();
 
     for (unsigned int i = 0; i < m_number_of_extruders; ++i) {
-        wxStaticBitmap* icon = new wxStaticBitmap(header_line_panel, wxID_ANY, wxNullBitmap, wxDefaultPosition, ICON_SIZE);
+        wxStaticBitmap* icon = new wxStaticBitmap(header_line_panel, wxID_ANY, wxNullBitmap, wxDefaultPosition, WIPING_ICON_SIZE);
         std::string color_str;
         if (i < m_colours.size() && m_colours[i].IsOk()) {
             color_str = m_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
@@ -694,7 +751,7 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
         BOOST_LOG_TRIVIAL(warning) << "[WipingPanel::create_panels] BEFORE SetBitmap (header icon) i=" << i
                                    << ", m_colours.size=" << m_colours.size()
                                    << ", color_str=" << color_str;
-        icon->SetBitmap(*get_extruder_color_icon(color_str, std::to_string(i + 1), FromDIP(16), FromDIP(16)));
+        set_wiping_color_bitmap(icon, color_str, i);
         BOOST_LOG_TRIVIAL(warning) << "[WipingPanel::create_panels] AFTER SetBitmap (header icon) i=" << i
                                    << ", icon_ptr=" << (void*)icon;
         icon_list1.push_back(icon);
@@ -844,7 +901,7 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
         add_spin_ctrl(m_new, extruders[2 * i+1]);
 
         auto hsizer = new wxBoxSizer(wxHORIZONTAL);
-        wxWindow* w = new wxWindow(m_page_simple, wxID_ANY, wxDefaultPosition, ICON_SIZE, wxBORDER_SIMPLE);
+        wxWindow* w = new wxWindow(m_page_simple, wxID_ANY, wxDefaultPosition, WIPING_ICON_SIZE, wxBORDER_SIMPLE);
         w->SetCanFocus(false);
         w->SetBackgroundColour(m_colours[i]);
         hsizer->Add(w, wxALIGN_CENTER_VERTICAL);
@@ -876,7 +933,7 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
         wxSize to_text_size = dc.GetTextExtent(to_text);
 
         int base_y = (header_line_panel->GetSize().y - from_text_size.y - to_text_size.y) / 2;
-        int vol_width = ROW_BEG_PADDING + EDIT_BOXES_GAP / 2 + ICON_SIZE.x;
+        int vol_width = ROW_BEG_PADDING + EDIT_BOXES_GAP / 2 + WIPING_ICON_SIZE.x;
         int base_x = (vol_width - from_text_size.x - to_text_size.x) / 2;
 
         // draw from text
@@ -1108,10 +1165,12 @@ void WipingPanel::calc_flushing_volumes()
 void WipingPanel::msw_rescale()
 {
     for (unsigned int i = 0; i < icon_list1.size(); ++i) {
-        auto bitmap = *get_extruder_color_icon(m_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString(), std::to_string(i + 1), FromDIP(16), FromDIP(16));
-        icon_list1[i]->SetBitmap(bitmap);
-        icon_list2[i]->SetBitmap(bitmap);
+        const std::string color = m_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
+        set_wiping_color_bitmap(icon_list1[i], color, i);
+        set_wiping_color_bitmap(icon_list2[i], color, i);
     }
+    m_page_advanced->Layout();
+    Layout();
 }
 
 // Reads values from the (advanced) wiping matrix:

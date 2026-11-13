@@ -337,6 +337,146 @@ PresetsConfigSubstitutions PresetBundle::load_presets(AppConfig &config, Forward
     return substitutions;
 }
 
+namespace {
+
+bool same_profile_option(const ConfigOption *a, const ConfigOption *b)
+{
+    return (!a && !b) || (a && b && a->type() == b->type() && *a == *b);
+}
+
+// Three-way merge: new defaults win except where the user edited the old defaults.
+// Merge equal-sized vectors per element, so edits to one nozzle do not mask updates
+// to the other nozzles. A changed vector layout requires a project boundary.
+bool merge_profile_edits(const DynamicPrintConfig &base, const DynamicPrintConfig &edited,
+                         DynamicPrintConfig &target, std::string &reason)
+{
+    for (const std::string &key : edited.keys()) {
+        const ConfigOption *old_value = base.option(key);
+        const ConfigOption *user_value = edited.option(key);
+        if (same_profile_option(old_value, user_value))
+            continue;
+        ConfigOption *new_value = target.option(key);
+        if (!new_value || new_value->type() != user_value->type()) {
+            reason = "Edited option removed or changed type: " + key;
+            return false;
+        }
+        if (same_profile_option(old_value, new_value) || user_value->is_scalar()) {
+            target.set_key_value(key, user_value->clone());
+            continue;
+        }
+        const auto *old_vector = dynamic_cast<const ConfigOptionVectorBase *>(old_value);
+        const auto *user_vector = dynamic_cast<const ConfigOptionVectorBase *>(user_value);
+        auto *new_vector = dynamic_cast<ConfigOptionVectorBase *>(new_value);
+        if (!old_vector || old_value->type() != user_value->type() ||
+            old_vector->size() != user_vector->size() || old_vector->size() != new_vector->size()) {
+            reason = "Edited vector layout changed: " + key;
+            return false;
+        }
+        for (size_t i = 0; i < old_vector->size(); ++i) {
+            std::unique_ptr<ConfigOption> probe(old_value->clone());
+            static_cast<ConfigOptionVectorBase *>(probe.get())->set_at(user_value, i, i);
+            if (*probe != *old_value)
+                new_vector->set_at(user_value, i, i);
+        }
+    }
+    return true;
+}
+
+bool restore_profile_edits(const PresetCollection &previous, PresetCollection &next, std::string &reason)
+{
+    // Project/external presets are not on disk. Keep their explicit values and
+    // metadata, including unselected materials used by the current project.
+    for (const Preset &preset : previous.get_presets()) {
+        if (preset.is_project_embedded || preset.is_external) {
+            Preset &restored = next.load_preset(preset.file, preset.name, preset.config, false);
+            restored = preset;
+            restored.vendor = nullptr;
+        }
+    }
+    const std::string &name = previous.get_selected_preset().name;
+    if (!next.find_preset(name, false, true)) {
+        reason = "Active preset removed: " + name;
+        return false;
+    }
+    next.select_preset_by_name(name, true);
+    if (!merge_profile_edits(previous.get_selected_preset().config,
+                             previous.get_edited_preset().config,
+                             next.get_edited_preset().config, reason))
+        return false;
+    next.update_dirty();
+    return true;
+}
+
+} // namespace
+
+bool PresetBundle::apply_profile_update(const PresetBundle &updated, std::string &reason)
+{
+    reason.clear();
+    if (printers.get_edited_preset().printer_technology() != ptFFF ||
+        calibrate_printer != nullptr || !calibrate_filaments.empty()) {
+        reason = "Active technology or calibration requires a project boundary";
+        return false;
+    }
+    PresetBundle candidate(*this);
+    candidate.vendors = updated.vendors;
+    candidate.obsolete_presets = updated.obsolete_presets;
+    candidate.printers = updated.printers;
+    candidate.prints = updated.prints;
+    candidate.filaments = updated.filaments;
+    candidate.sla_prints = updated.sla_prints;
+    candidate.sla_materials = updated.sla_materials;
+    candidate.sla_prints.m_owner = &candidate;
+    candidate.sla_materials.m_owner = &candidate;
+    candidate.sla_prints.update_vendor_ptrs_after_copy(candidate.vendors);
+    candidate.sla_materials.update_vendor_ptrs_after_copy(candidate.vendors);
+    candidate.printers.m_owner = &candidate;
+    candidate.prints.m_owner = &candidate;
+    candidate.filaments.m_owner = &candidate;
+    candidate.printers.update_vendor_ptrs_after_copy(candidate.vendors);
+    candidate.prints.update_vendor_ptrs_after_copy(candidate.vendors);
+    candidate.filaments.update_vendor_ptrs_after_copy(candidate.vendors);
+    if (!restore_profile_edits(printers, candidate.printers, reason) ||
+        !restore_profile_edits(prints, candidate.prints, reason) ||
+        !restore_profile_edits(filaments, candidate.filaments, reason))
+        return false;
+
+    // Compare both defaults and edited values. User edits must not hide a change
+    // to the physical layout in the new printer profile.
+    for (const char *key : {"printer_technology", "printer_model", "nozzle_diameter",
+                           "extruder_type", "extruder_variant_list"}) {
+        if (!same_profile_option(printers.get_selected_preset().config.option(key),
+                                 candidate.printers.get_selected_preset().config.option(key)) ||
+            !same_profile_option(printers.get_edited_preset().config.option(key),
+                                 candidate.printers.get_edited_preset().config.option(key))) {
+            reason = std::string("Printer layout changed: ") + key;
+            return false;
+        }
+    }
+    for (const std::string &name : filament_presets) {
+        if (!candidate.filaments.find_preset(name)) {
+            reason = "Project filament removed: " + name;
+            return false;
+        }
+    }
+    candidate.update_system_maps();
+    candidate.update_compatible(PresetSelectCompatibleType::Never);
+    for (const std::string &name : filament_presets) {
+        const Preset *previous = filaments.find_preset(name);
+        const Preset *next = candidate.filaments.find_preset(name);
+        if (previous && previous->is_compatible && !next->is_compatible) {
+            reason = "Project filament compatibility changed: " + name;
+            return false;
+        }
+    }
+    if ((prints.get_edited_preset().is_compatible && !candidate.prints.get_edited_preset().is_compatible) ||
+        (filaments.get_edited_preset().is_compatible && !candidate.filaments.get_edited_preset().is_compatible)) {
+        reason = "Active preset compatibility changed";
+        return false;
+    }
+    *this = candidate;
+    return true;
+}
+
 //BBS: add function to generate differed preset for save
 //the pointer should be freed by the caller
 Preset* PresetBundle::get_preset_differed_for_save(Preset& preset)
@@ -1564,7 +1704,7 @@ void PresetBundle::update_system_preset_setting_ids(std::map<std::string, std::m
 
 //BBS: validate printers from previous project
 static std::set<std::string> gcodes_key_set =  {"filament_end_gcode", "filament_start_gcode", "change_filament_gcode", "layer_change_gcode", "machine_end_gcode", "machine_pause_gcode", "machine_start_gcode",
-            "template_custom_gcode", "printing_by_object_gcode", "before_layer_change_gcode", "time_lapse_gcode"};
+            "template_custom_gcode", "printing_by_object_gcode", "before_layer_change_gcode", "time_lapse_gcode", "time_flush_gcode"};
 int PresetBundle::validate_presets(const std::string &file_name, DynamicPrintConfig& config, std::set<std::string>& different_gcodes)
 {
     bool    validated = false;
