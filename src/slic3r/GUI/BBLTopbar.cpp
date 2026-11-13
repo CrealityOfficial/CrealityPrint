@@ -19,6 +19,10 @@
 #include <boost/log/core.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <vector>
+#include <wx/graphics.h>
+#include <memory>
+#include <cctype>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <wx/dcgraph.h>
@@ -63,6 +67,121 @@ static bool topbar_is_wayland_session()
 static bool topbar_should_draw_window_buttons() { return true; }
 #elif defined(__WXGTK__)
 static bool topbar_should_draw_window_buttons() { return topbar_is_wayland_session(); }
+#endif
+
+#ifdef __WXGTK__
+// GNOME (libadwaita) style window controls. On Wayland the top bar draws its own minimize, maximize and
+// close buttons; with the Windows-like icons and the green hover frame they were the one part of the
+// window that did not look like any other GNOME app. They are now drawn like libadwaita's: a 24 px circle
+// filled with the text colour at 10% (15% hovered, 30% pressed) and a symbolic glyph, and the buttons
+// shown are the ones GNOME's button layout lists, in its order.
+
+// The window control tools that GNOME's "gtk-decoration-layout" (Settings > Windows > Titlebar Buttons,
+// org.gnome.desktop.wm.preferences button-layout) asks for, in its order. GTK reads it through the
+// settings portal, so this also works inside the Flatpak.
+static std::vector<int> gnome_window_control_ids(int minimize_id, int maximize_id, int close_id)
+{
+    gchar* layout = nullptr;
+    if (GtkSettings* settings = gtk_settings_get_default())
+        g_object_get(settings, "gtk-decoration-layout", &layout, nullptr);
+    const std::string text = layout != nullptr ? layout : "menu:minimize,maximize,close";
+    g_free(layout);
+
+    std::vector<int> ids;
+    std::string      token;
+    auto flush = [&]() {
+        const int id = token == "minimize" ? minimize_id : token == "maximize" ? maximize_id : token == "close" ? close_id : 0;
+        if (id != 0 && std::find(ids.begin(), ids.end(), id) == ids.end())
+            ids.push_back(id);
+        token.clear();
+    };
+    for (const char c : text) {
+        if (c == ',' || c == ':')
+            flush();
+        else if (!std::isspace(static_cast<unsigned char>(c)))
+            token += c;
+    }
+    flush();
+    if (ids.empty())
+        ids.push_back(close_id); // a window always keeps a way to close it
+    return ids;
+}
+
+// The tools only reserve room for the 24 px circle plus the gap libadwaita leaves between controls; the art
+// provider draws the button itself.
+static wxBitmap gnome_window_control_placeholder(wxWindow* wnd)
+{
+    const int width  = wnd->FromDIP(32);
+    const int height = wnd->FromDIP(24);
+    wxImage   image(width, height);
+    image.InitAlpha();
+    std::memset(image.GetAlpha(), 0, size_t(width) * size_t(height));
+    return wxBitmap(image);
+}
+
+// Draws one window control in `rect`. `kind` is 'n' (minimize), 'x' (maximize), 'r' (restore) or 'c' (close).
+static void draw_gnome_window_control(wxDC& dc, wxWindow* wnd, const wxRect& rect, char kind, int state)
+{
+    std::unique_ptr<wxGraphicsContext> gc(wxGraphicsContext::CreateFromUnknownDC(dc));
+    if (!gc)
+        return;
+    gc->SetAntialiasMode(wxANTIALIAS_DEFAULT);
+
+    // libadwaita: window_fg_color is #ffffff in dark mode and rgba(0, 0, 6, 0.8) in light mode.
+    const bool          dark = Slic3r::GUI::wxGetApp().dark_mode();
+    const unsigned char red  = dark ? 255 : 0;
+    const unsigned char blue = dark ? 255 : 6;
+    int                 fill = 26; // 10%
+    if (state & wxAUI_BUTTON_STATE_PRESSED)
+        fill = 77; // 30%
+    else if (state & wxAUI_BUTTON_STATE_HOVER)
+        fill = 38; // 15%
+
+    const double cx = rect.x + rect.width / 2.0;
+    const double cy = rect.y + rect.height / 2.0;
+    const double d  = wnd->FromDIP(24);
+    gc->SetPen(*wxTRANSPARENT_PEN);
+    gc->SetBrush(gc->CreateBrush(wxBrush(wxColour(red, red, blue, fill))));
+    gc->DrawEllipse(cx - d / 2, cy - d / 2, d, d);
+
+    // The glyph lives in a 16x16 box, like the symbolic icons.
+    const double u  = wnd->FromDIP(16) / 16.0;
+    const double ox = cx - 8 * u;
+    const double oy = cy - 8 * u;
+    auto X = [&](double v) { return ox + v * u; };
+    auto Y = [&](double v) { return oy + v * u; };
+    gc->SetBrush(*wxTRANSPARENT_BRUSH);
+    gc->SetPen(gc->CreatePen(wxGraphicsPenInfo(wxColour(red, red, blue, dark ? 255 : 204))
+                                 .Width(1.5 * u)
+                                 .Cap(wxCAP_ROUND)
+                                 .Join(wxJOIN_ROUND)));
+
+    wxGraphicsPath path = gc->CreatePath();
+    switch (kind) {
+    case 'n': // minimize: a bar low in the box
+        path.MoveToPoint(X(4.5), Y(11.5));
+        path.AddLineToPoint(X(11.5), Y(11.5));
+        break;
+    case 'x': // maximize: a square
+        path.AddRoundedRectangle(X(4.5), Y(4.5), 7 * u, 7 * u, 1 * u);
+        break;
+    case 'r': // restore: a smaller square with another one behind it
+        path.AddRoundedRectangle(X(4.5), Y(6.5), 5 * u, 5 * u, 1 * u);
+        path.MoveToPoint(X(6.5), Y(6.5));
+        path.AddLineToPoint(X(6.5), Y(4.5));
+        path.AddLineToPoint(X(11.5), Y(4.5));
+        path.AddLineToPoint(X(11.5), Y(9.5));
+        path.AddLineToPoint(X(9.5), Y(9.5));
+        break;
+    default: // close: a cross
+        path.MoveToPoint(X(5), Y(5));
+        path.AddLineToPoint(X(11), Y(11));
+        path.MoveToPoint(X(11), Y(5));
+        path.AddLineToPoint(X(5), Y(11));
+        break;
+    }
+    gc->StrokePath(path);
+}
 #endif
 
 #ifdef __WXGTK__
@@ -750,6 +869,16 @@ void BBLTopbarArt::DrawBackground(wxDC& dc, wxWindow* wnd, const wxRect& rect)
 
 void BBLTopbarArt::DrawButton(wxDC& dc, wxWindow* wnd, const wxAuiToolBarItem& item, const wxRect& rect)
 {
+#ifdef __WXGTK__
+    if (item.GetId() == ID_MINBTN || item.GetId() == wxID_MAXIMIZE_FRAME || item.GetId() == wxID_CLOSE_FRAME) {
+        const auto* frame = dynamic_cast<wxTopLevelWindow*>(wxGetTopLevelParent(wnd));
+        const char  kind  = item.GetId() == ID_MINBTN ? 'n' :
+                            item.GetId() == wxID_CLOSE_FRAME ? 'c' :
+                            (frame != nullptr && frame->IsMaximized()) ? 'r' : 'x';
+        draw_gnome_window_control(dc, wnd, rect, kind, item.GetState());
+        return;
+    }
+#endif
     int textWidth = 0, textHeight = 0;
 
     if (m_flags & wxAUI_TB_TEXT)
@@ -1141,6 +1270,18 @@ void BBLTopbar::Init(wxFrame* parent)
     //EnableUpload3mf();
 #endif
 #ifdef BBL_TOPBAR_HAS_WINDOW_BUTTONS
+#ifdef __WXGTK__
+    maximize_btn = nullptr;
+    if (topbar_should_draw_window_buttons()) {
+        // GNOME style: the buttons the desktop's layout asks for, in its order, drawn by BBLTopbarArt.
+        const wxBitmap placeholder = gnome_window_control_placeholder(this);
+        for (const int id : gnome_window_control_ids(ID_MINBTN, wxID_MAXIMIZE_FRAME, wxID_CLOSE_FRAME)) {
+            wxAuiToolBarItem* control = this->AddTool(id, "", placeholder);
+            if (id == wxID_MAXIMIZE_FRAME)
+                maximize_btn = control;
+        }
+    }
+#else
     if (topbar_should_draw_window_buttons()) {
         wxBitmap iconize_bitmap = create_scaled_bitmap(is_dark ? "topbar_min" : "topbar_min_light", this, (TOPBAR_ICON_SIZE));
         wxAuiToolBarItem* iconize_btn    = this->AddTool(ID_MINBTN, "", iconize_bitmap);
@@ -1158,6 +1299,7 @@ void BBLTopbar::Init(wxFrame* parent)
         wxAuiToolBarItem* close_btn    = this->AddTool(wxID_CLOSE_FRAME, "", close_bitmap, wxString("Models"));
         //AddDipSpacer(this, 5);
     }
+#endif // __WXGTK__
 #endif
 
     m_toolbar_h = parent->FromDIP(40);
@@ -1634,6 +1776,9 @@ void BBLTopbar::SetMaximizedSize()
     
     if (maximize_btn && maximize_bitmap.IsOk())
         maximize_btn->SetBitmap(maximize_bitmap);
+#ifdef __WXGTK__
+    Refresh(); // the maximize/restore glyph follows the window state
+#endif
     
     ScheduleFileNameDisplayUpdate();
     --m_set_maximized_size_count;
@@ -1645,6 +1790,9 @@ void BBLTopbar::SetWindowSize()
 #ifndef __APPLE__
 if (maximize_btn && window_bitmap.IsOk())
     maximize_btn->SetBitmap(window_bitmap);
+#ifdef __WXGTK__
+    Refresh(); // the maximize/restore glyph follows the window state
+#endif
 	ScheduleFileNameDisplayUpdate();
 #endif
 }
@@ -1802,7 +1950,7 @@ void BBLTopbar::Rescale(bool isResize) {
     /*item = this->FindTool(ID_MODEL_STORE);
     item->SetBitmap(create_scaled_bitmap("topbar_store", this, TOPBAR_ICON_SIZE));
     */
-#ifdef BBL_TOPBAR_HAS_WINDOW_BUTTONS
+#if defined(BBL_TOPBAR_HAS_WINDOW_BUTTONS) && !defined(__WXGTK__) // GTK draws them in BBLTopbarArt, in the current colours
     if (topbar_should_draw_window_buttons()) {
         item = this->FindTool(ID_MINBTN);
         if (item)

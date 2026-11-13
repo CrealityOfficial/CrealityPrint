@@ -842,6 +842,9 @@ void Tab::create_preset_tab()
 #ifndef DISABLE_UNDO_SYS
     m_top_sizer->Add( m_undo_to_sys_btn, 0, wxALIGN_CENTER_VERTICAL);
     m_top_sizer->AddSpacer(8);
+#else
+    // Not laid out: hidden, or it stays at the panel's top-left corner, behind the preset combo.
+    m_undo_to_sys_btn->Hide();
 #endif
     m_top_sizer->Add( m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8  );
     m_top_sizer->Add( m_btn_delete_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8 );
@@ -6542,7 +6545,6 @@ void TabFilament::create_preset_tab()
     m_search_input->Bind(wxCUSTOMEVT_EXIT_SEARCH, [this](wxCommandEvent&) {
         Freeze();
 
-        m_undo_btn->Show();          // ORCA: fixes revert preset button visible while search box focused
         m_btn_search->Show();
         m_search_item->Hide();
 
@@ -6646,10 +6648,15 @@ void TabFilament::create_preset_tab()
     m_top_sizer->Add(m_boxPanel, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, FromDIP(20));
 
     //m_top_sizer->Add(m_undo_btn, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
+    // Not laid out in this tab either: hidden for the same reason.
+    m_undo_btn->Hide();
     const float scale_factor = /*wxGetApp().*/em_unit(this) * 0.1;// GetContentScaleFactor();
 #ifndef DISABLE_UNDO_SYS
     m_top_sizer->Add(m_undo_to_sys_btn, 0, wxALIGN_CENTER_VERTICAL);
     m_top_sizer->AddSpacer(8);
+#else
+    // Not laid out: hidden, or it stays at the panel's top-left corner, behind the preset combo.
+    m_undo_to_sys_btn->Hide();
 #endif
     //m_top_sizer->Add(m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
     //m_top_sizer->Add(m_btn_delete_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
@@ -8418,6 +8425,11 @@ void Tab::rebuild_page_tree()
          if (m_parent->is_active_and_shown_tab(this)) // FIX: modify state not update
             m_tabctrl->SelectItem(item);
     }
+
+    // update_changed_tree_ui() works out which pages hold modified values, but does nothing while the tree has
+    // no items, and the tree may only be built when the tab is first shown (see request_page_tree_rebuild()).
+    // Work the colours out again now that the items exist, or a page changed before that is not marked.
+    update_changed_tree_ui();
 }
 
 void Tab::request_page_tree_rebuild()
@@ -9860,7 +9872,6 @@ void TabPrinter::create_preset_tab()
     m_search_input->Bind(wxCUSTOMEVT_EXIT_SEARCH, [this](wxCommandEvent&) {
         Freeze();
 
-        m_undo_btn->Show();          // ORCA: fixes revert preset button visible while search box focused
         m_btn_search->Show();
         m_search_item->Hide();
 
@@ -9964,10 +9975,15 @@ void TabPrinter::create_preset_tab()
     m_top_sizer->Add(m_boxPanel, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, FromDIP(20));
 
     //m_top_sizer->Add(m_undo_btn, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
+    // Not laid out in this tab either: hidden for the same reason.
+    m_undo_btn->Hide();
     const float scale_factor = /*wxGetApp().*/em_unit(this) * 0.1;// GetContentScaleFactor();
 #ifndef DISABLE_UNDO_SYS
     m_top_sizer->Add(m_undo_to_sys_btn, 0, wxALIGN_CENTER_VERTICAL);
     m_top_sizer->AddSpacer(8);
+#else
+    // Not laid out: hidden, or it stays at the panel's top-left corner, behind the preset combo.
+    m_undo_to_sys_btn->Hide();
 #endif
     //m_top_sizer->Add(m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
     //m_top_sizer->Add(m_btn_delete_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);

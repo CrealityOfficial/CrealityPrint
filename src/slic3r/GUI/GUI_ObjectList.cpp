@@ -94,6 +94,18 @@ static DynamicPrintConfig& printer_config() { return wxGetApp().preset_bundle->p
 
 static int filaments_count() { return wxGetApp().filaments_cnt(); }
 
+// Whether the last ImGui item asks for its context menu. On GTK a popup menu opened while the right
+// button is still down closes when that button is released, so the menu only stayed open while the
+// button was held: open it on release there, as the 3D scene does. Elsewhere it opens on press, as before.
+static bool imgui_item_context_menu_requested()
+{
+#ifdef __WXGTK__
+    return ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Right);
+#else
+    return ImGui::IsItemClicked(ImGuiMouseButton_Right);
+#endif
+}
+
 static void take_snapshot(const std::string& snapshot_name)
 {
     Plater* plater = wxGetApp().plater();
@@ -6599,6 +6611,7 @@ void ObjectList::render_plate(ObjectDataViewModelNode* plate)
 
     bool left_clicked  = ImGui::IsItemClicked(ImGuiMouseButton_Left);
     bool right_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Right);
+    const bool open_context_menu = plate_idx >= 0 && imgui_item_context_menu_requested() && !ImGui::IsItemToggledOpen();
 
     if (plate_idx >= 0 && (left_clicked || right_clicked) && !ImGui::IsItemToggledOpen()) {
         if (the_plater->is_preview_shown()) {
@@ -6613,13 +6626,12 @@ void ObjectList::render_plate(ObjectDataViewModelNode* plate)
         if (plate_selected && left_clicked && sels.size() == 1) {
             rename_plate();
         }
+    }
 
-        if (right_clicked) {
-            // show_context_menu(true);
-            auto event = IntEvent(EVT_OBJ_LIST_COLUMN_SELECT, 0);
-            event.SetEventObject(this);
-            wxPostEvent(this, event);
-        }
+    if (open_context_menu) {
+        auto event = IntEvent(EVT_OBJ_LIST_COLUMN_SELECT, 0);
+        event.SetEventObject(this);
+        wxPostEvent(this, event);
     }
 
     float  view_scale = wxGetApp().plater()->get_current_canvas3D()->get_scale();
@@ -6940,6 +6952,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
 
             left_clicked       = ImGui::ImageTextButton(type_icon_size, node_name, icon_id, type_icon_size, uv0, uv1, 0);
             bool right_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Right);
+            const bool open_context_menu = imgui_item_context_menu_requested();
             bool left_draged   = false;
 
             // Our buttons are both drag sources and drag targets here!
@@ -6988,7 +7001,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
             // --- auto scroll to selection (one-shot) ---
             consume_scroll_request_imgui(node);
 
-            handle_obj_list_select_event(left_clicked, right_clicked, left_draged, shift_press, node_selected, node, sels);
+            handle_obj_list_select_event(left_clicked, right_clicked, open_context_menu, left_draged, shift_press, node_selected, node, sels);
         }
 
         ImGui::PopStyleVar(1);
@@ -7082,6 +7095,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
         }
 
         bool right_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Right);
+        const bool open_context_menu = imgui_item_context_menu_requested();
         bool left_draged   = false;
         if (type & ItemType::itObject) {
             // Our buttons are both drag sources and drag targets here!
@@ -7115,7 +7129,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
             }
         }
 
-        handle_obj_list_select_event(left_clicked, right_clicked, left_draged, shift_press, node_selected, node, sels);
+        handle_obj_list_select_event(left_clicked, right_clicked, open_context_menu, left_draged, shift_press, node_selected, node, sels);
 
         ImGui::PopStyleVar(1);
     }
@@ -7596,6 +7610,7 @@ void ObjectList::render_generic_columns(ObjectDataViewModelNode* node)
 
 void ObjectList::handle_obj_list_select_event(bool                     left_clicked,
                                               bool                     right_clicked,
+                                              bool                     open_context_menu,
                                               bool                     left_draged,
                                               bool                     shift_press,
                                               bool                     node_selected,
@@ -7633,13 +7648,11 @@ void ObjectList::handle_obj_list_select_event(bool                     left_clic
         }
     }
 
-    if (right_clicked) {
-        if (node_selected) {
-        } else {
-            select_node(node, node_selected);
-        }
+    // Select on press; the menu may come on release (see imgui_item_context_menu_requested()), for the item under the pointer.
+    if ((right_clicked || open_context_menu) && !node_selected)
+        select_node(node, node_selected);
 
-        // show_context_menu(true);
+    if (open_context_menu) {
         auto event = IntEvent(EVT_OBJ_LIST_COLUMN_SELECT, 0);
         event.SetEventObject(this);
         wxPostEvent(this, event);

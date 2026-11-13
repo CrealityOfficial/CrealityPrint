@@ -48,11 +48,11 @@ static void update_ui(wxWindow* window)
     Slic3r::GUI::wxGetApp().UpdateDarkUI(window);
 }
 
-static void set_wiping_color_bitmap(wxButton* button, const std::string& color, size_t index)
+static void set_wiping_color_bitmap(wxStaticBitmap* icon, const std::string& color, size_t index)
 {
-    wxWindow* window = wxGetTopLevelParent(button);
+    wxWindow* window = wxGetTopLevelParent(icon);
     if (!window)
-        window = button;
+        window = icon;
     const wxSize size = window->FromDIP(wxSize(wiping_swatch_dip, wiping_swatch_dip));
     // Copy the background before painting: never draw into the shared cache.
     const wxBitmap* background = get_extruder_color_icon(color, "", size.x, size.y);
@@ -94,14 +94,13 @@ static void set_wiping_color_bitmap(wxButton* button, const std::string& color, 
     }
 #ifdef __WXMSW__
     // The raster is already in physical pixels. Tag this local copy so the
-    // button's wxBitmapBundle doesn't apply the display scale a second time.
+    // control's wxBitmapBundle doesn't apply the display scale a second time.
     // Keep the shared cache in physical pixels for its other consumers.
     bitmap.SetScaleFactor(window->GetDPIScaleFactor());
 #endif
-    button->SetBitmap(bitmap);
-    button->SetBitmapMargins(0, 0);
-    button->SetMinSize(size);
-    button->SetSize(size);
+    icon->SetBitmap(bitmap);
+    icon->SetMinSize(size);
+    icon->SetSize(size);
 }
 
 RammingDialog::RammingDialog(wxWindow* parent,const std::string& parameters)
@@ -543,7 +542,9 @@ void WipingPanel::create_panels(wxWindow* parent, const int num) {
         auto sizer = new wxBoxSizer(wxHORIZONTAL);
         panel->SetSizer(sizer);
 
-        wxButton* icon = new wxButton(panel, wxID_ANY, {}, wxDefaultPosition, WIPING_ICON_SIZE, wxBORDER_NONE | wxBU_AUTODRAW);
+        // A static bitmap, not a wxButton: on GTK a button this small is no larger than the theme's padding
+        // and border, so GTK allocates no room to its image and the icon is never drawn.
+        wxStaticBitmap* icon = new wxStaticBitmap(panel, wxID_ANY, wxNullBitmap, wxDefaultPosition, WIPING_ICON_SIZE);
         std::string color_str;
         if (i < m_colours.size() && m_colours[i].IsOk()) {
             color_str = m_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
@@ -580,7 +581,6 @@ void WipingPanel::create_panels(wxWindow* parent, const int num) {
         set_wiping_color_bitmap(icon, color_str, i);
         BOOST_LOG_TRIVIAL(warning) << "[WipingPanel::create_panels] AFTER SetBitmap (row icon) i=" << i
                                    << ", icon_ptr=" << (void*)icon;
-        icon->SetCanFocus(false);
         icon_list2.push_back(icon);
 
         sizer->AddSpacer(ROW_BEG_PADDING);
@@ -717,7 +717,7 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
     boost::log::core::get()->flush();
 
     for (unsigned int i = 0; i < m_number_of_extruders; ++i) {
-        wxButton* icon = new wxButton(header_line_panel, wxID_ANY, {}, wxDefaultPosition, WIPING_ICON_SIZE, wxBORDER_NONE | wxBU_AUTODRAW);
+        wxStaticBitmap* icon = new wxStaticBitmap(header_line_panel, wxID_ANY, wxNullBitmap, wxDefaultPosition, WIPING_ICON_SIZE);
         std::string color_str;
         if (i < m_colours.size() && m_colours[i].IsOk()) {
             color_str = m_colours[i].GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
@@ -754,7 +754,6 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
         set_wiping_color_bitmap(icon, color_str, i);
         BOOST_LOG_TRIVIAL(warning) << "[WipingPanel::create_panels] AFTER SetBitmap (header icon) i=" << i
                                    << ", icon_ptr=" << (void*)icon;
-        icon->SetCanFocus(false);
         icon_list1.push_back(icon);
         
         header_line_sizer->AddSpacer(ICON_GAP);
@@ -828,6 +827,10 @@ WipingPanel::WipingPanel(wxWindow* parent, const std::vector<float>& matrix, con
         m_flush_multiplier_ebox = new wxTextCtrl(m_page_advanced, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(FromDIP(50), -1), wxTE_PROCESS_ENTER);
         m_flush_multiplier_ebox->SetValue(wxString::Format(("%.2f"), flush_multiplier));
         m_flush_multiplier_ebox->SetValidator(wxTextValidator(wxFILTER_NUMERIC));
+        // Set the text colour like the matrix boxes do. Left at the theme default, a dark GTK theme gives
+        // white (#FFFFFF), which the dialog's dark-mode pass then maps as a window background to #4B4B4D,
+        // the dialog's own grey, and the value disappears.
+        m_flush_multiplier_ebox->SetForegroundColour(StateColor::darkModeColorFor(*wxBLACK));
         param_sizer->Add(m_flush_multiplier_ebox, 0, wxALIGN_CENTER | wxALL, 0);
         param_sizer->AddSpacer(FromDIP(5));
         m_btn_reset = new ScalableButton(m_page_advanced, wxID_ANY, false ? "undo" : "undo", wxEmptyString,

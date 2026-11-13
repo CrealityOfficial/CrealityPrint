@@ -778,6 +778,14 @@ inline bool isRunningInFlatpak() {
     return flatpakInfo != nullptr;
 }
 
+// Ask GTK for the dark variant of the theme, so native widgets (menus, file dialogs, scroll bars)
+// match the app's own dark colours. Adwaita, the Flatpak's theme, ships both variants.
+static void apply_gtk_dark_preference(bool dark)
+{
+    if (GtkSettings* settings = gtk_settings_get_default())
+        g_object_set(settings, "gtk-application-prefer-dark-theme", dark ? TRUE : FALSE, nullptr);
+}
+
 static void ensure_flatpak_user_launcher()
 {
     static const std::string app_id = "io.github.crealityofficial.CrealityPrint";
@@ -4615,12 +4623,9 @@ bool GUI_App::on_init_inner(bool isdump_launcher)
 
 #ifndef __WINDOWS__
     #if __linux__
-        if(!isRunningInFlatpak())
-        {
-            wxSystemAppearance app = wxSystemSettings::GetAppearance();
-            GUI::wxGetApp().app_config->set("dark_color_mode", app.IsDark() ? "1" : "0");
-            GUI::wxGetApp().app_config->save();
-        }
+        // Linux keeps the Preferences choice instead of overwriting it with the system theme at
+        // every start; native GTK widgets are told to follow it.
+        apply_gtk_dark_preference(dark_mode());
     #else
         wxSystemAppearance app = wxSystemSettings::GetAppearance();
         GUI::wxGetApp().app_config->set("dark_color_mode", app.IsDark() ? "1" : "0");
@@ -5592,16 +5597,10 @@ bool GUI_App::dark_mode()
         // proper dark mode was first introduced.
         return wxPlatformInfo::Get().CheckOSVersion(10, 14) && mac_dark_mode();
     #elif __linux__
-        // return false;
-        if(isRunningInFlatpak())
-        {
-           const unsigned luma = get_colour_approx_luma(wxSystemSettings::GetColour(wxSYS_COLOUR_ACTIVECAPTION));
-           return luma < 128;
-        }else{
-            return wxSystemSettings::GetAppearance().IsDark();
-        }
-        
-        // return wxGetApp().app_config->get("dark_color_mode") == "1" ? true : false;
+        // The Preferences choice ("Enable Dark mode"), as on Windows. Detecting the system theme did
+        // not work in the Flatpak: the sandbox's GTK theme is the light Adwaita whatever the desktop
+        // uses, so the app was always light while its web pages (which read this key) were dark.
+        return wxGetApp().app_config->get("dark_color_mode") == "1";
     #else 
         return wxGetApp().app_config->get("dark_color_mode") == "1" ? true : check_dark_mode();
         //const unsigned luma = get_colour_approx_luma(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));

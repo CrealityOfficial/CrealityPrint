@@ -2010,6 +2010,14 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
         // Shrink the extruder_clearance_radius a tiny bit, so that if the object arrangement algorithm placed the objects
         // exactly by satisfying the extruder_clearance_radius, this test will not trigger collision.
         float obj_distance = all_objects_are_short ? scale_(std::max(0.5f * MAX_OUTER_NOZZLE_DIAMETER, object_skirt_offset) - 0.1) : scale_(0.5 * print.config().extruder_clearance_radius.value + object_skirt_offset - 0.1);
+        // Objects print one after another in object list order, which is the order of this loop: every hull
+        // already in convex_hulls_other prints before the one being checked. While the later object prints,
+        // the hotend body sits nozzle_height above the nozzle tip, so it passes over an earlier object that is
+        // shorter than that. Such a pair only needs the nozzle tips apart - the distance all_objects_are_short
+        // uses - instead of the full extruder clearance radius. (A 1 mm plate printed before a tall vase.)
+        const float  short_obj_distance = scale_(std::max(0.5f * MAX_OUTER_NOZZLE_DIAMETER, object_skirt_offset) - 0.1);
+        const double nozzle_height      = scale_(print.config().nozzle_height.value);
+        Polygons     short_hulls_other; // convex_hulls_other grown by short_obj_distance only
 
         for (const PrintObject *print_object : print.objects()) {
             assert(! print_object->model_object()->instances.empty());
@@ -2035,13 +2043,17 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
                 convex_hull0.rotate(z_diff);
             // Now we check that no instance of convex_hull intersects any of the previously checked object instances.
             for (const PrintInstance &instance : print_object->instances()) {
-                Polygon convex_hull_no_offset = convex_hull0, convex_hull;
+                Polygon convex_hull_no_offset = convex_hull0, convex_hull, short_hull;
                 auto tmp = offset(convex_hull_no_offset, obj_distance, jtRound, scale_(0.1));
                 if (!tmp.empty()) { // tmp may be empty due to clipper's bug, see STUDIO-2452
                     convex_hull = tmp.front();
                     // instance.shift is a position of a centered object, while model object may not be centered.
                     // Convert the shift from the PrintObject's coordinates into ModelObject's coordinates by removing the centering offset.
                     convex_hull.translate(instance.shift - print_object->center_offset());
+                }
+                if (auto short_tmp = offset(convex_hull0, short_obj_distance, jtRound, scale_(0.1)); !short_tmp.empty()) {
+                    short_hull = short_tmp.front();
+                    short_hull.translate(instance.shift - print_object->center_offset());
                 }
                 convex_hull_no_offset.translate(instance.shift - print_object->center_offset());
                 //juedge the exclude area
@@ -2062,6 +2074,10 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
                 // if output needed, collect indices (inside convex_hulls_other) of intersecting hulls
                 for (size_t i = 0; i < convex_hulls_other.size(); ++i) {
                     if (! intersection(convex_hulls_other[i], convex_hull).empty()) {
+                        // The other object prints first; if the hotend body clears it, only the nozzle tips count.
+                        if (print_instance_with_bounding_box[i].height < nozzle_height &&
+                            intersection(short_hulls_other[i], short_hull).empty())
+                            continue;
                         bool has_exception = false;
                         if (single_object_exception.string.empty()) {
                             single_object_exception.string = (boost::format(L("%1% is too close to others, and collisions may be caused.")) %instance.model_instance->get_object()->name).str();
@@ -2089,6 +2105,7 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
                 print_info.object_index = find_object_index(print.model(), print_object->model_object());
                 print_instance_with_bounding_box.push_back(std::move(print_info));
                 convex_hulls_other.emplace_back(std::move(convex_hull));
+                short_hulls_other.emplace_back(std::move(short_hull));
             }
         }
         if (!intersecting_idxs.empty()) {

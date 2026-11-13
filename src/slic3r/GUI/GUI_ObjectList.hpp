@@ -736,6 +736,7 @@ public:
     void handle_obj_list_select_event(
         bool left_clicked,
         bool right_clicked,
+        bool open_context_menu,
         bool left_draged, 
         bool shift_press, 
         bool node_selected, 
