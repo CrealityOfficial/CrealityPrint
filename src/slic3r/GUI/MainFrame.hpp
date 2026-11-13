@@ -48,6 +48,11 @@ class Plater;
 class MainFrame;
 class ParamsDialog;
 class PrinterDialog;
+
+// GNOME-style rounded window corners (Wayland, undecorated main window, not maximized/tiled/fullscreen).
+// Returns true and the corner radius in logical pixels when the window holding `window` is drawn with
+// rounded corners; OpenGL canvases use it to clear their own pixels outside the arc.
+bool window_corner_radius(wxWindow* window, double& radius);
 class WebModelLibraryView;
 enum QuickSlice
 {

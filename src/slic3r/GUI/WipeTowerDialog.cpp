@@ -382,7 +382,9 @@ WipingDialog::WipingDialog(wxWindow* parent, const std::vector<WipingNozzleData>
                 _(L("Flushing volumes for filament change")),
                 wxDefaultPosition,
                 wxDefaultSize,
-                wxDEFAULT_DIALOG_STYLE /* | wxRESIZE_BORDER*/),
+                // Resizable: on GTK the text boxes come out taller than the size computed for the
+                // dialog, and the Multiplier row at the bottom was cut off with no way to reach it.
+                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       m_nozzle_data(nozzle_data)
 {
     std::string icon_path = (boost::format("%1%/images/Creative3DTitle.ico") % Slic3r::resources_dir()).str();
@@ -438,6 +440,15 @@ WipingDialog::WipingDialog(wxWindow* parent, const std::vector<WipingNozzleData>
     main_sizer->Add(btn_sizer, 0, wxBOTTOM | wxRIGHT | wxEXPAND, BTN_GAP);
     SetSizer(main_sizer);
     main_sizer->SetSizeHints(this);
+#ifdef __WXGTK__
+    // GTK only knows the real height of its widgets once they are realized; size the dialog again
+    // then, so the whole matrix and the Multiplier row fit.
+    CallAfter([this] {
+        Layout();
+        GetSizer()->SetSizeHints(this);
+        Fit();
+    });
+#endif
 
     if (this->FindWindowById(wxID_OK, this)) {
         this->FindWindowById(wxID_OK, this)->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {                 // if OK button is clicked..
