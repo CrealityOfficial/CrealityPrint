@@ -196,6 +196,17 @@ static double print_time_for_display(const PrintEstimatedStatistics::Mode& mode)
     return mode.model_time_s();
 }
 
+// The printer's hourly rate (Printer settings > Time cost, per hour) times the print time. The
+// option existed but nothing used it, so the preview only ever showed what the filament costs.
+static double machine_cost_for_display(double print_time_s)
+{
+    const auto* bundle = wxGetApp().preset_bundle;
+    if (bundle == nullptr)
+        return 0.;
+    const auto* rate = bundle->printers.get_edited_preset().config.option<ConfigOptionFloat>("time_cost");
+    return rate != nullptr && rate->value > 0. ? rate->value * print_time_s / 3600. : 0.;
+}
+
 #if 0
 static unsigned char buffer_id(EMoveType type) {
     return static_cast<unsigned char>(type) - static_cast<unsigned char>(EMoveType::Retract);
@@ -1108,6 +1119,16 @@ public:
             ImGui::SameLine(160 * view_scale);
             ::sprintf(buf, "%s:%.2f", _u8L("Material Cost").c_str(), ps.total_cost);
             imgui->text(buf);
+
+            if (const double machine_cost = machine_cost_for_display(print_time_for_display(time_mode)); machine_cost > 0.) {
+                ImGui::Dummy(ImVec2(0, 3));
+                ::sprintf(buf, "%s:%.2f", _u8L("Machine Cost").c_str(), machine_cost);
+                imgui->text(buf);
+
+                ImGui::SameLine(160 * view_scale);
+                ::sprintf(buf, "%s:%.2f", _u8L("Total Cost").c_str(), ps.total_cost + machine_cost);
+                imgui->text(buf);
+            }
             ImGui::Dummy(ImVec2(0, 5));
             if (!s_preview_section_fold && !wxGetApp().easy_mode())
                 ImGui::Separator();
@@ -1862,6 +1883,22 @@ public:
             ImGui::SameLine();
             ::sprintf(buf, "%.2f", ps.total_cost);
             imgui->text(buf);
+
+            if (const double machine_cost = machine_cost_for_display(print_time_for_display(time_mode)); machine_cost > 0.) {
+                ImGui::Dummy({ window_padding, window_padding });
+                ImGui::SameLine();
+                imgui->text(_u8L("Machine Cost") + ":");
+                ImGui::SameLine();
+                ::sprintf(buf, "%.2f", machine_cost);
+                imgui->text(buf);
+
+                ImGui::Dummy({ window_padding, window_padding });
+                ImGui::SameLine();
+                imgui->text(_u8L("Total Cost") + ":");
+                ImGui::SameLine();
+                ::sprintf(buf, "%.2f", ps.total_cost + machine_cost);
+                imgui->text(buf);
+            }
         }
             break;
         case Slic3r::GUI::EViewType::LayerTime:
@@ -4321,11 +4358,20 @@ void BaseRenderer::render_all_plates_stats(const std::vector<const GCodeProcesso
         ImGui::Dummy(ImVec2(0.0f, ImGui::GetFontSize() * 0.1));
         ImGui::Dummy({ window_padding, window_padding });
         ImGui::SameLine();
+        // The material cost of every plate plus the machine's hourly rate over their total time.
+        const double machine_cost_all_plates = machine_cost_for_display(total_time_all_plates);
         imgui.text(_u8L("Total cost") + ":");
         ImGui::SameLine();
         char buf[64];
-        ::sprintf(buf, "%.2f", total_cost_all_plates);
+        ::sprintf(buf, "%.2f", total_cost_all_plates + machine_cost_all_plates);
         imgui.text(buf);
+        if (machine_cost_all_plates > 0.) {
+            ImGui::Dummy({ window_padding, window_padding });
+            ImGui::SameLine();
+            ::sprintf(buf, "%s:%.2f  %s:%.2f", _u8L("Material Cost").c_str(), total_cost_all_plates,
+                      _u8L("Machine Cost").c_str(), machine_cost_all_plates);
+            imgui.text(buf);
+        }
 
         if (!plate_time.empty()) {
             ImGui::Dummy(ImVec2(0.0f, ImGui::GetFontSize() * 0.1));

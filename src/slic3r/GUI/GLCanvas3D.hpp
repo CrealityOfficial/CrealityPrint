@@ -1010,6 +1010,8 @@ public:
     bool is_dragging() const { return m_gizmos.is_dragging() || m_moving; }
 
     void render(bool only_init = false);
+    // GNOME rounded window corners: clears this canvas's pixels outside the window's corner arc.
+    void clear_outside_window_corners();
     void render_on_image(wxImage& image);
     bool is_rendering_enabled() { return m_enable_render; }
     void enable_render(bool enabled) { m_enable_render = enabled; }

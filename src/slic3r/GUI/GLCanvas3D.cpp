@@ -2173,6 +2173,66 @@ float GLCanvas3D::get_collapse_toolbar_height() const
 
 bool GLCanvas3D::make_current_for_postinit() { return _set_current(); }
 
+// The main window has GNOME-style rounded corners on Wayland (see window_corner_radius()). An OpenGL canvas
+// is its own surface there, so where it fills a corner of the window, its pixels outside the arc are cleared
+// to transparent here, one scissored row at a time.
+void GLCanvas3D::clear_outside_window_corners()
+{
+    double radius = 0.;
+    if (m_canvas == nullptr || !window_corner_radius(m_canvas, radius))
+        return;
+    wxWindow* top = wxGetTopLevelParent(m_canvas);
+    if (top == nullptr)
+        return;
+
+    // The canvas rectangle in the window's client coordinates (logical pixels, no global coordinates needed).
+    wxPoint origin(0, 0);
+    for (wxWindow* w = m_canvas; w != nullptr && w != top; w = w->GetParent())
+        origin += w->GetPosition();
+    const wxSize canvas = m_canvas->GetClientSize();
+    const wxSize window = top->GetClientSize();
+    const bool   left   = origin.x <= 1;
+    const bool   right  = origin.x + canvas.x >= window.x - 1;
+    const bool   top_e  = origin.y <= 1;
+    const bool   bottom = origin.y + canvas.y >= window.y - 1;
+    if (!((top_e || bottom) && (left || right)))
+        return;
+
+    const double scale = m_canvas->GetContentScaleFactor();
+    const int    fb_w  = std::lround(canvas.x * scale);
+    const int    fb_h  = std::lround(canvas.y * scale);
+    const double r     = radius * scale;
+    const int    rows  = int(std::ceil(r));
+
+    GLfloat clear_color[4];
+    glsafe(::glGetFloatv(GL_COLOR_CLEAR_VALUE, clear_color));
+    GLboolean color_mask[4];
+    glsafe(::glGetBooleanv(GL_COLOR_WRITEMASK, color_mask));
+    const GLboolean scissor_was_enabled = ::glIsEnabled(GL_SCISSOR_TEST);
+    glsafe(::glEnable(GL_SCISSOR_TEST));
+    glsafe(::glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+    glsafe(::glClearColor(0.f, 0.f, 0.f, 0.f)); // premultiplied: fully transparent
+
+    for (int i = 0; i < rows; ++i) {
+        // Row i counted from the window edge; the width of the corner left outside the arc on that row.
+        const double dy    = r - (i + 0.5);
+        const int    width = int(std::ceil(r - std::sqrt(std::max(0., r * r - dy * dy))));
+        if (width <= 0)
+            continue;
+        const int y_bottom = i;              // GL rows count from the bottom
+        const int y_top    = fb_h - 1 - i;
+        if (bottom && left)  { glsafe(::glScissor(0, y_bottom, width, 1)); glsafe(::glClear(GL_COLOR_BUFFER_BIT)); }
+        if (bottom && right) { glsafe(::glScissor(fb_w - width, y_bottom, width, 1)); glsafe(::glClear(GL_COLOR_BUFFER_BIT)); }
+        if (top_e && left)   { glsafe(::glScissor(0, y_top, width, 1)); glsafe(::glClear(GL_COLOR_BUFFER_BIT)); }
+        if (top_e && right)  { glsafe(::glScissor(fb_w - width, y_top, width, 1)); glsafe(::glClear(GL_COLOR_BUFFER_BIT)); }
+    }
+
+    glsafe(::glClearColor(clear_color[0], clear_color[1], clear_color[2], clear_color[3]));
+    glsafe(::glColorMask(color_mask[0], color_mask[1], color_mask[2], color_mask[3]));
+    if (!scissor_was_enabled)
+        glsafe(::glDisable(GL_SCISSOR_TEST));
+}
+
 void GLCanvas3D::render(bool only_init)
 {
     if (m_in_render) {
@@ -2545,6 +2605,8 @@ void GLCanvas3D::render(bool only_init)
         wxGetApp().plater()->get_dailytips()->render();
     }
     wxGetApp().imgui()->render();
+
+    clear_outside_window_corners();
 
     m_canvas->SwapBuffers();
     report_lod_render_diagnostics(static_cast<int>(m_canvas_type));
@@ -3893,7 +3955,23 @@ void GLCanvas3D::on_char(wxKeyEvent& evt)
     int shiftMask = wxMOD_SHIFT;
 
     auto imgui = wxGetApp().imgui();
-    if (imgui->update_key_data(evt)) {
+    // ImGui asks for the keyboard whenever one of its windows has focus - the object tree right after
+    // an object is clicked in it - and that swallowed Ctrl+C/V/X and Delete until a click elsewhere on
+    // the plate took the focus away. Only a text field being edited should keep these shortcuts.
+    const bool clipboard_shortcut = (evt.GetModifiers() & ctrlMask) != 0 &&
+#ifdef __APPLE__
+        (keyCode == 'c' || keyCode == 'C' || keyCode == 'v' || keyCode == 'V' || keyCode == 'x' || keyCode == 'X');
+#else
+        (keyCode == WXK_CONTROL_C || keyCode == WXK_CONTROL_V || keyCode == WXK_CONTROL_X);
+#endif
+    const bool delete_shortcut = evt.GetModifiers() == wxMOD_NONE &&
+#ifdef __APPLE__
+        (keyCode == WXK_DELETE || keyCode == WXK_BACK);
+#else
+        keyCode == WXK_DELETE;
+#endif
+    const bool object_shortcut = clipboard_shortcut || delete_shortcut;
+    if (imgui->update_key_data(evt) && !(object_shortcut && !imgui->want_text_input())) {
         render();
         return;
     }

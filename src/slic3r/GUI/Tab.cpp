@@ -842,6 +842,9 @@ void Tab::create_preset_tab()
 #ifndef DISABLE_UNDO_SYS
     m_top_sizer->Add( m_undo_to_sys_btn, 0, wxALIGN_CENTER_VERTICAL);
     m_top_sizer->AddSpacer(8);
+#else
+    // Not laid out: hidden, or it stays at the panel's top-left corner, behind the preset combo.
+    m_undo_to_sys_btn->Hide();
 #endif
     m_top_sizer->Add( m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8  );
     m_top_sizer->Add( m_btn_delete_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8 );
@@ -956,8 +959,12 @@ void Tab::create_preset_tab()
 #ifdef __linux__
         // Events queue is opposite On Linux. wxEVT_SET_FOCUS invokes after wxEVT_TAB_SEL_CHANGED,
         // and a result wxEVT_KILL_FOCUS doesn't invoke for the TextCtrls.
-        // So, call SetFocus explicitly for this control before changing of the selection
-        m_tabctrl->SetFocus();
+        // So, call SetFocus explicitly for this control before changing of the selection.
+        // Only when the focus is already in these settings: a page change that follows a selection in the
+        // 3D scene must leave the keyboard there, or Delete and Ctrl+C/V go to this (often hidden) control.
+        if (wxWindow* focus = wxWindow::FindFocus();
+            focus != nullptr && (m_tabctrl->IsDescendant(focus) || (m_parent != nullptr && m_parent->IsDescendant(focus))))
+            m_tabctrl->SetFocus();
 #endif
             if (!m_disable_tree_sel_changed_event && !m_pages.empty()) {
                 if (m_page_switch_running)
@@ -1837,8 +1844,11 @@ void Tab::update_changed_tree_ui()
             }
 
             //m_sys_label_clr = wxColor(255, 0, 0);
-            const wxColor *clr = sys_page ? (m_is_default_preset ? &m_default_text_clr : &m_sys_label_clr) :
-                                 (modified_page || m_type >= Preset::TYPE_COUNT) ? &m_modified_label_clr : &m_default_text_clr;
+            // Unsaved changes come first: a value changed back to the parent preset's is still unsaved, and with
+            // DISABLE_UNDO_SYS the "same as system" state has no other mark, so it must not hide the change.
+            const wxColor *clr = modified_page ? &m_modified_label_clr :
+                                 sys_page ? (m_is_default_preset ? &m_default_text_clr : &m_sys_label_clr) :
+                                 m_type >= Preset::TYPE_COUNT ? &m_modified_label_clr : &m_default_text_clr;
 
             if (page->set_item_colour(clr))
                 m_tabctrl->SetItemTextColour(cur_item, clr == &m_modified_label_clr ? *clr : StateColor(
@@ -6542,7 +6552,6 @@ void TabFilament::create_preset_tab()
     m_search_input->Bind(wxCUSTOMEVT_EXIT_SEARCH, [this](wxCommandEvent&) {
         Freeze();
 
-        m_undo_btn->Show();          // ORCA: fixes revert preset button visible while search box focused
         m_btn_search->Show();
         m_search_item->Hide();
 
@@ -6646,10 +6655,15 @@ void TabFilament::create_preset_tab()
     m_top_sizer->Add(m_boxPanel, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, FromDIP(20));
 
     //m_top_sizer->Add(m_undo_btn, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
+    // Not laid out in this tab either: hidden for the same reason.
+    m_undo_btn->Hide();
     const float scale_factor = /*wxGetApp().*/em_unit(this) * 0.1;// GetContentScaleFactor();
 #ifndef DISABLE_UNDO_SYS
     m_top_sizer->Add(m_undo_to_sys_btn, 0, wxALIGN_CENTER_VERTICAL);
     m_top_sizer->AddSpacer(8);
+#else
+    // Not laid out: hidden, or it stays at the panel's top-left corner, behind the preset combo.
+    m_undo_to_sys_btn->Hide();
 #endif
     //m_top_sizer->Add(m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
     //m_top_sizer->Add(m_btn_delete_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
@@ -6769,8 +6783,12 @@ void TabFilament::create_preset_tab()
 #ifdef __linux__
         // Events queue is opposite On Linux. wxEVT_SET_FOCUS invokes after wxEVT_TAB_SEL_CHANGED,
         // and a result wxEVT_KILL_FOCUS doesn't invoke for the TextCtrls.
-        // So, call SetFocus explicitly for this control before changing of the selection
-        m_tabctrl->SetFocus();
+        // So, call SetFocus explicitly for this control before changing of the selection.
+        // Only when the focus is already in these settings: a page change that follows a selection in the
+        // 3D scene must leave the keyboard there, or Delete and Ctrl+C/V go to this (often hidden) control.
+        if (wxWindow* focus = wxWindow::FindFocus();
+            focus != nullptr && (m_tabctrl->IsDescendant(focus) || (m_parent != nullptr && m_parent->IsDescendant(focus))))
+            m_tabctrl->SetFocus();
 #endif
         if (!m_disable_tree_sel_changed_event && !m_pages.empty()) {
             if (m_page_switch_running)
@@ -8418,6 +8436,11 @@ void Tab::rebuild_page_tree()
          if (m_parent->is_active_and_shown_tab(this)) // FIX: modify state not update
             m_tabctrl->SelectItem(item);
     }
+
+    // update_changed_tree_ui() works out which pages hold modified values, but does nothing while the tree has
+    // no items, and the tree may only be built when the tab is first shown (see request_page_tree_rebuild()).
+    // Work the colours out again now that the items exist, or a page changed before that is not marked.
+    update_changed_tree_ui();
 }
 
 void Tab::request_page_tree_rebuild()
@@ -9860,7 +9883,6 @@ void TabPrinter::create_preset_tab()
     m_search_input->Bind(wxCUSTOMEVT_EXIT_SEARCH, [this](wxCommandEvent&) {
         Freeze();
 
-        m_undo_btn->Show();          // ORCA: fixes revert preset button visible while search box focused
         m_btn_search->Show();
         m_search_item->Hide();
 
@@ -9964,10 +9986,15 @@ void TabPrinter::create_preset_tab()
     m_top_sizer->Add(m_boxPanel, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, FromDIP(20));
 
     //m_top_sizer->Add(m_undo_btn, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
+    // Not laid out in this tab either: hidden for the same reason.
+    m_undo_btn->Hide();
     const float scale_factor = /*wxGetApp().*/em_unit(this) * 0.1;// GetContentScaleFactor();
 #ifndef DISABLE_UNDO_SYS
     m_top_sizer->Add(m_undo_to_sys_btn, 0, wxALIGN_CENTER_VERTICAL);
     m_top_sizer->AddSpacer(8);
+#else
+    // Not laid out: hidden, or it stays at the panel's top-left corner, behind the preset combo.
+    m_undo_to_sys_btn->Hide();
 #endif
     //m_top_sizer->Add(m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
     //m_top_sizer->Add(m_btn_delete_preset, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
@@ -10087,8 +10114,12 @@ void TabPrinter::create_preset_tab()
 #ifdef __linux__
         // Events queue is opposite On Linux. wxEVT_SET_FOCUS invokes after wxEVT_TAB_SEL_CHANGED,
         // and a result wxEVT_KILL_FOCUS doesn't invoke for the TextCtrls.
-        // So, call SetFocus explicitly for this control before changing of the selection
-        m_tabctrl->SetFocus();
+        // So, call SetFocus explicitly for this control before changing of the selection.
+        // Only when the focus is already in these settings: a page change that follows a selection in the
+        // 3D scene must leave the keyboard there, or Delete and Ctrl+C/V go to this (often hidden) control.
+        if (wxWindow* focus = wxWindow::FindFocus();
+            focus != nullptr && (m_tabctrl->IsDescendant(focus) || (m_parent != nullptr && m_parent->IsDescendant(focus))))
+            m_tabctrl->SetFocus();
 #endif
         if (!m_disable_tree_sel_changed_event && !m_pages.empty()) {
             if (m_page_switch_running)

@@ -6,6 +6,7 @@
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 #include <wx/stattext.h>
+#include <wx/statbmp.h>
 #include <wx/textctrl.h>
 #include <wx/checkbox.h>
 #include <wx/msgdlg.h>
@@ -98,8 +99,8 @@ private:
     wxButton* m_widget_button     = nullptr;
     Label* m_tip_message_label = nullptr;
     ScalableButton *m_btn_reset = nullptr;
-    std::vector<wxButton *> icon_list1;
-    std::vector<wxButton *> icon_list2;
+    std::vector<wxStaticBitmap *> icon_list1;
+    std::vector<wxStaticBitmap *> icon_list2;
 
     std::vector<int>       m_min_flush_volume;
     const int m_max_flush_volume;

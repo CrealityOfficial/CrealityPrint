@@ -1232,7 +1232,12 @@ Updates PresetUpdater::priv::get_printer_config_updates(bool update) const
     }
     Updates updates;
     Version version;
-    version.config_version = resc_version;
+    // Assigning the string went through Semver's throwing constructor, so a missing or unreadable
+    // printers/version.txt (the source tree's .gitignore drops it) stopped the app at startup.
+    if (const auto resc_ver = Semver::parse(resc_version))
+        version.config_version = *resc_ver;
+    else
+        BOOST_LOG_TRIVIAL(warning) << "[CrealityPrint Updater]: no readable " << (resc_folder / "version.txt").string();
     std::string change_log;
     if (update) {
         std::string changelog_file = (resc_folder / "printer.json").string();

@@ -88,6 +88,13 @@
 #include <dbt.h>
 #include <shlobj.h>
 #endif // _WIN32
+#include <cmath>
+#ifdef __WXGTK3__
+#include <gtk/gtk.h>
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/gdkwayland.h>
+#endif
+#endif
 #include <slic3r/GUI/CreatePresetsDialog.hpp>
 #include "slic3r/GUI/WebModelLibraryView.hpp"
 #include "print_manage/AppMgr.hpp"
@@ -103,6 +110,92 @@
 
 namespace Slic3r {
 namespace GUI {
+
+#if defined(__WXGTK3__) && defined(GDK_WINDOWING_WAYLAND)
+// On Wayland the main window has no system title bar (the top bar draws its own buttons), so it came out
+// with square corners, unlike every other GNOME window. Its corners are cut to libadwaita's window radius
+// whenever GNOME would round them: not maximized, tiled or fullscreen.
+static constexpr double GNOME_WINDOW_RADIUS = 12.; // libadwaita's $window_radius, logical pixels
+
+static GtkWidget* gtk_toplevel_of(wxWindow* window)
+{
+    wxWindow* top = window != nullptr ? wxGetTopLevelParent(window) : nullptr;
+    if (top == nullptr || top->GetHandle() == nullptr)
+        return nullptr;
+    GtkWidget* widget = gtk_widget_get_toplevel(GTK_WIDGET(top->GetHandle()));
+    return GTK_IS_WINDOW(widget) ? widget : nullptr;
+}
+
+static bool gtk_toplevel_rounds_corners(GtkWidget* toplevel)
+{
+    if (toplevel == nullptr || !GDK_IS_WAYLAND_DISPLAY(gtk_widget_get_display(toplevel)) ||
+        gtk_window_get_decorated(GTK_WINDOW(toplevel)))
+        return false;
+    GdkWindow* gdk_window = gtk_widget_get_window(toplevel);
+    if (gdk_window == nullptr)
+        return false;
+    const GdkWindowState square = GdkWindowState(GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN |
+                                                 GDK_WINDOW_STATE_TILED | GDK_WINDOW_STATE_TOP_TILED |
+                                                 GDK_WINDOW_STATE_RIGHT_TILED | GDK_WINDOW_STATE_BOTTOM_TILED |
+                                                 GDK_WINDOW_STATE_LEFT_TILED);
+    return (gdk_window_get_state(gdk_window) & square) == 0;
+}
+
+// Runs after the window and every GTK-drawn child have painted: keeps only the pixels inside the rounded
+// rectangle (DEST_IN is unbounded, so the fill clears everything outside the path, antialiased).
+static gboolean on_toplevel_draw_round_corners(GtkWidget* widget, cairo_t* cr, gpointer)
+{
+    if (!gtk_toplevel_rounds_corners(widget))
+        return FALSE;
+    const double w = gtk_widget_get_allocated_width(widget);
+    const double h = gtk_widget_get_allocated_height(widget);
+    const double r = GNOME_WINDOW_RADIUS;
+    cairo_save(cr);
+    cairo_new_path(cr);
+    cairo_arc(cr, w - r, r, r, -M_PI / 2, 0);
+    cairo_arc(cr, w - r, h - r, r, 0, M_PI / 2);
+    cairo_arc(cr, r, h - r, r, M_PI / 2, M_PI);
+    cairo_arc(cr, r, r, r, M_PI, 3 * M_PI / 2);
+    cairo_close_path(cr);
+    cairo_set_operator(cr, CAIRO_OPERATOR_DEST_IN);
+    cairo_set_source_rgba(cr, 0, 0, 0, 1);
+    cairo_fill(cr);
+    cairo_restore(cr);
+    return FALSE;
+}
+
+static gboolean on_toplevel_state_changed(GtkWidget* widget, GdkEventWindowState*, gpointer)
+{
+    gtk_widget_queue_draw(widget); // corners come and go with maximize/tile/fullscreen
+    return FALSE;
+}
+
+static void enable_gnome_rounded_corners(wxWindow* frame)
+{
+    GtkWidget* toplevel = gtk_toplevel_of(frame);
+    if (toplevel == nullptr || !GDK_IS_WAYLAND_DISPLAY(gtk_widget_get_display(toplevel)))
+        return;
+    // A transparent window background keeps GTK from declaring the whole surface opaque to the compositor,
+    // which would show the cleared corners as black. The children still cover every pixel inside.
+    GtkCssProvider* css = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(css, "window { background-color: transparent; }", -1, nullptr);
+    gtk_style_context_add_provider(gtk_widget_get_style_context(toplevel), GTK_STYLE_PROVIDER(css),
+                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(css);
+    g_signal_connect_after(toplevel, "draw", G_CALLBACK(on_toplevel_draw_round_corners), nullptr);
+    g_signal_connect(toplevel, "window-state-event", G_CALLBACK(on_toplevel_state_changed), nullptr);
+}
+
+bool window_corner_radius(wxWindow* window, double& radius)
+{
+    if (!gtk_toplevel_rounds_corners(gtk_toplevel_of(window)))
+        return false;
+    radius = GNOME_WINDOW_RADIUS;
+    return true;
+}
+#else
+bool window_corner_radius(wxWindow*, double&) { return false; }
+#endif
 
 static void ensure_web_model_view_ready(WebModelLibraryView* model_view)
 {
@@ -484,6 +577,10 @@ MainFrame::MainFrame()
 #endif
 
     Layout();
+
+#if defined(__WXGTK3__) && defined(GDK_WINDOWING_WAYLAND)
+    enable_gnome_rounded_corners(this);
+#endif
 
      update_title();
 
