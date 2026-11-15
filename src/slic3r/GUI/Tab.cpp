@@ -959,8 +959,12 @@ void Tab::create_preset_tab()
 #ifdef __linux__
         // Events queue is opposite On Linux. wxEVT_SET_FOCUS invokes after wxEVT_TAB_SEL_CHANGED,
         // and a result wxEVT_KILL_FOCUS doesn't invoke for the TextCtrls.
-        // So, call SetFocus explicitly for this control before changing of the selection
-        m_tabctrl->SetFocus();
+        // So, call SetFocus explicitly for this control before changing of the selection.
+        // Only when the focus is already in these settings: a page change that follows a selection in the
+        // 3D scene must leave the keyboard there, or Delete and Ctrl+C/V go to this (often hidden) control.
+        if (wxWindow* focus = wxWindow::FindFocus();
+            focus != nullptr && (m_tabctrl->IsDescendant(focus) || (m_parent != nullptr && m_parent->IsDescendant(focus))))
+            m_tabctrl->SetFocus();
 #endif
             if (!m_disable_tree_sel_changed_event && !m_pages.empty()) {
                 if (m_page_switch_running)
@@ -6776,8 +6780,12 @@ void TabFilament::create_preset_tab()
 #ifdef __linux__
         // Events queue is opposite On Linux. wxEVT_SET_FOCUS invokes after wxEVT_TAB_SEL_CHANGED,
         // and a result wxEVT_KILL_FOCUS doesn't invoke for the TextCtrls.
-        // So, call SetFocus explicitly for this control before changing of the selection
-        m_tabctrl->SetFocus();
+        // So, call SetFocus explicitly for this control before changing of the selection.
+        // Only when the focus is already in these settings: a page change that follows a selection in the
+        // 3D scene must leave the keyboard there, or Delete and Ctrl+C/V go to this (often hidden) control.
+        if (wxWindow* focus = wxWindow::FindFocus();
+            focus != nullptr && (m_tabctrl->IsDescendant(focus) || (m_parent != nullptr && m_parent->IsDescendant(focus))))
+            m_tabctrl->SetFocus();
 #endif
         if (!m_disable_tree_sel_changed_event && !m_pages.empty()) {
             if (m_page_switch_running)
@@ -10103,8 +10111,12 @@ void TabPrinter::create_preset_tab()
 #ifdef __linux__
         // Events queue is opposite On Linux. wxEVT_SET_FOCUS invokes after wxEVT_TAB_SEL_CHANGED,
         // and a result wxEVT_KILL_FOCUS doesn't invoke for the TextCtrls.
-        // So, call SetFocus explicitly for this control before changing of the selection
-        m_tabctrl->SetFocus();
+        // So, call SetFocus explicitly for this control before changing of the selection.
+        // Only when the focus is already in these settings: a page change that follows a selection in the
+        // 3D scene must leave the keyboard there, or Delete and Ctrl+C/V go to this (often hidden) control.
+        if (wxWindow* focus = wxWindow::FindFocus();
+            focus != nullptr && (m_tabctrl->IsDescendant(focus) || (m_parent != nullptr && m_parent->IsDescendant(focus))))
+            m_tabctrl->SetFocus();
 #endif
         if (!m_disable_tree_sel_changed_event && !m_pages.empty()) {
             if (m_page_switch_running)
