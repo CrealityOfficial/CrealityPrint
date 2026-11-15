@@ -1844,8 +1844,11 @@ void Tab::update_changed_tree_ui()
             }
 
             //m_sys_label_clr = wxColor(255, 0, 0);
-            const wxColor *clr = sys_page ? (m_is_default_preset ? &m_default_text_clr : &m_sys_label_clr) :
-                                 (modified_page || m_type >= Preset::TYPE_COUNT) ? &m_modified_label_clr : &m_default_text_clr;
+            // Unsaved changes come first: a value changed back to the parent preset's is still unsaved, and with
+            // DISABLE_UNDO_SYS the "same as system" state has no other mark, so it must not hide the change.
+            const wxColor *clr = modified_page ? &m_modified_label_clr :
+                                 sys_page ? (m_is_default_preset ? &m_default_text_clr : &m_sys_label_clr) :
+                                 m_type >= Preset::TYPE_COUNT ? &m_modified_label_clr : &m_default_text_clr;
 
             if (page->set_item_colour(clr))
                 m_tabctrl->SetItemTextColour(cur_item, clr == &m_modified_label_clr ? *clr : StateColor(
