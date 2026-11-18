@@ -7,6 +7,27 @@
 #include <fstream>
 #include <iostream>
 #include <jpeglib.h>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/udp.hpp>
+
+namespace {
+
+// Ask the OS for a UDP port that is free right now. metaRTC exits the whole
+// process when it cannot bind its local port, and its random port is the same
+// in every instance inside a Flatpak sandbox (the seed is mostly the pid).
+int32_t find_free_udp_port()
+{
+    try {
+        boost::asio::io_context io;
+        boost::asio::ip::udp::socket socket(io, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
+        return static_cast<int32_t>(socket.local_endpoint().port());
+    } catch (const std::exception&) {
+        return 0;
+    }
+}
+
+} // namespace
+
 WebRTCDecoder* WebRTCDecoder::g_pSingleton = new (std::nothrow) WebRTCDecoder();
 WebRTCDecoder::WebRTCDecoder()
 {
@@ -80,6 +101,8 @@ void WebRTCDecoder::startPlay(const std::string& strUrl)
     //m_recevie_frame_callback = recevie_frame;
     //QString url = "http://172.23.208.238:8000/call/demo";
     m_context->synMgr.session->playBuffer->resetVideoClock(m_context->synMgr.session->playBuffer->session);
+    if (const int32_t port = find_free_udp_port(); port > 0)
+        m_context->avinfo.rtc.rtcLocalPort = port;
     int32_t err = m_player->playRtc(0, const_cast<char*>(m_url.c_str()));
     std::cout << "connected!"<<err<<"\r\n";
     if (!err)
