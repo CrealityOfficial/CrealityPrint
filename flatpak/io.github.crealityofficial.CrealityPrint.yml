@@ -408,7 +408,7 @@ modules:
           -DSLIC3R_DESKTOP_INTEGRATION=OFF \
           -DCMAKE_BUILD_TYPE=Release \
           -DFLATPAK=ON \
-          -DCREALITYPRINT_VERSION=7.3.1.0 \
+          -DCREALITYPRINT_VERSION=7.3.2.0 \
           -DPROJECT_VERSION_EXTRA=Release \
           -DBBL_RELEASE_TO_PUBLIC=1 \
           -DCMAKE_PREFIX_PATH=/app \
