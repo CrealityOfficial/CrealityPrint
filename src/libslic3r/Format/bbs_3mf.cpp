@@ -10080,14 +10080,16 @@ public:
                     continue;
             }
             m_tasks.pop_front();
-            auto callback = m_post_callback;
             lock.unlock();
             process_task(t);
             lock.lock();
             if (t.type > None) {
                 m_ui_tasks.push_back(t);
-                if (m_ui_tasks.size() == 1 && callback)
-                    callback(0);
+                // Use the callback as it is now, not a copy taken before process_task(): the main
+                // frame clears it in MainFrame::shutdown() before it is destroyed, and calling an
+                // older copy would post an event to the destroyed frame.
+                if (m_ui_tasks.size() == 1 && m_post_callback)
+                    m_post_callback(0);
             }
         }
     }
