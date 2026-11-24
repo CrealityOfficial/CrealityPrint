@@ -3,16 +3,23 @@ set(_context_abi_line "")
 set(_context_arch_line "")
 set(_context_asm_flags "")
 set(_boost_zstd_args "")
+# CMake 4.x rejects a source_group() call in Boost 1.84's Boost.Locale; see
+# apply-locale-source-group-patch.cmake.
+set(_boost_patch_command
+    PATCH_COMMAND ${CMAKE_COMMAND}
+        -DBOOST_SOURCE_DIR=<SOURCE_DIR>
+        -P ${CMAKE_CURRENT_LIST_DIR}/apply-locale-source-group-patch.cmake
+)
 if (APPLE)
     # Boost 1.84 hard-codes zstd::libzstd_shared in Boost.Iostreams.  Our
     # macOS dependency bundle intentionally builds zstd as static-only, so
     # patch that target before configuring Boost and enforce the build order.
-    set(_boost_zstd_args
-        PATCH_COMMAND ${CMAKE_COMMAND}
+    list(APPEND _boost_patch_command
+        COMMAND ${CMAKE_COMMAND}
             -DBOOST_SOURCE_DIR=<SOURCE_DIR>
             -P ${CMAKE_CURRENT_LIST_DIR}/apply-static-zstd-patch.cmake
-        DEPENDS dep_zstd
     )
+    set(_boost_zstd_args DEPENDS dep_zstd)
 endif ()
 
 if (APPLE AND CMAKE_OSX_ARCHITECTURES)
@@ -34,6 +41,7 @@ endif ()
 orcaslicer_add_cmake_project(Boost
     URL "https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.tar.gz"
     URL_HASH SHA256=4d27e9efed0f6f152dc28db6430b9d3dfb40c0345da7342eaa5a987dde57bd95
+    ${_boost_patch_command}
     ${_boost_zstd_args}
     LIST_SEPARATOR |
     CMAKE_ARGS
