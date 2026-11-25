@@ -2269,7 +2269,12 @@ static bool profile_print_params_same(const DynamicPrintConfig &cfg_old, const D
                              "printer_model", "printer_variant", "default_print_profile", "default_filament_profile", "default_sla_print_profile", "default_sla_material_profile",
                              "mixed_filament_definitions", "mixed_filament_gradient_mode",
                              "mixed_filament_height_lower_bound", "mixed_filament_height_upper_bound",
-                             "mixed_filament_advanced_dithering", "mixed_color_layer_height_a", "mixed_color_layer_height_b"
+                             "mixed_filament_advanced_dithering", "mixed_color_layer_height_a", "mixed_color_layer_height_b",
+                             // Connection settings. load_external_preset() never takes them from a project (they stay at
+                             // the default there), so a printer whose profile has a host - the system "Creality Hi 0.4
+                             // nozzle" ships one - never matched the project and was loaded as a "(project.3mf)" copy.
+                             "print_host", "print_host_webui", "printhost_apikey", "printhost_cafile", "printhost_user",
+                             "printhost_password", "printhost_port", "printhost_authorization_type", "printhost_ssl_ignore_revoke"
                              })
         diff.erase(std::remove(diff.begin(), diff.end(), key), diff.end());
     // Preset with the same name as stored inside the config exists.
@@ -2763,11 +2768,9 @@ std::pair<Preset*, bool> PresetCollection::load_external_preset(
         BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(" The preset exists and it matches the values stored inside config. using original_name %1%")%original_name;
         return std::make_pair(&(*it), false);
     }
-    if (preserve_printer_name && found) {
-        // Same-name, equal-value presets were reused above. Keep differing local presets intact.
-        found = false;
-        it = m_presets.end();
-    }
+    // A local printer preset with the project's name but other values is selected below, with the project's
+    // values applied as unsaved changes, like print and filament presets. It used to become a separate
+    // "<name> (<project>.3mf)" preset, which left the user's own printer unselected on every reopen.
     if (!found && !preserve_printer_name && select != LoadAndSelect::Never && !inherits.empty()) {
         // Try to use a system profile as a base to select the system profile
         // and override its settings with the loaded ones.

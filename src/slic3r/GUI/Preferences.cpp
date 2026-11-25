@@ -35,6 +35,9 @@
 #include "dark_mode.hpp"
 #endif // _MSW_DARK_MODE
 #endif //__WINDOWS__
+#ifdef __WXGTK__
+#include <gtk/gtk.h>
+#endif
 #include "print_manage/AppMgr.hpp"
 #include "libslic3r/common_header/common_header.h"
 #include "buildinfo.h"
@@ -704,6 +707,17 @@ wxBoxSizer* PreferencesDialog::create_item_darkmode_checkbox(wxString title, wxW
         CallAfter([this,checkbox] {
             wxGetApp().send_app_message(std::string("dark_mode|") + (checkbox->GetValue() ? "1" : "0"),true);
          });
+#ifdef __WXGTK__
+        // Native GTK widgets (menus, file dialogs) follow the dark variant of the theme right away;
+        // most panels pick their colours when they are built, so those need a restart.
+        if (GtkSettings* settings = gtk_settings_get_default())
+            g_object_set(settings, "gtk-application-prefer-dark-theme", checkbox->GetValue() ? TRUE : FALSE, nullptr);
+        CallAfter([this] {
+            MessageDialog(this, _L("Restart the application to apply the theme to every window."), _L("Enable Dark mode"),
+                          wxOK | wxICON_INFORMATION)
+                .ShowModal();
+        });
+#endif
         e.Skip();
         });
 
@@ -1523,7 +1537,7 @@ wxWindow* PreferencesDialog::create_general_page()
 
     auto item_arrange = create_item_arrange_checkbox(_L("Automatically Layout on Model File Import"), page, 50, "is_arrange");
     //dark mode
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__linux__)
     // auto title_darkmode = create_item_title(_L("Dark Mode"), page, _L("Dark Mode"));
     auto item_darkmode = create_item_darkmode_checkbox(_L("Enable Dark mode"), page,_L("Enable Dark mode"), 50, "dark_color_mode");
 #endif
@@ -1545,7 +1559,7 @@ wxWindow* PreferencesDialog::create_general_page()
 #endif
     sizer_page->AddSpacer(FromDIP(20));
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__linux__)
     // sizer_page->Add(title_darkmode, 0, wxTOP | wxEXPAND, FromDIP(20));
     sizer_page->Add(item_darkmode, 0, wxTOP, FromDIP(3));
     sizer_page->AddSpacer(FromDIP(5));
