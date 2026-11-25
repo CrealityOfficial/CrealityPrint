@@ -244,6 +244,7 @@ private:
 
     bool m_left_panel_fold {false};
     bool m_obj_list_window_focus{false};
+    bool m_context_menu_pending{false};
 
     struct dragged_item_data
     {
