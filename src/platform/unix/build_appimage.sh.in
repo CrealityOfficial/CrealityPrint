@@ -55,6 +55,7 @@ Name=@SLIC3R_APP_NAME@
 Exec=AppRun %F
 Icon=@SLIC3R_APP_NAME@
 Type=Application
+StartupWMClass=Creality
 Categories=Utility;
 MimeType=model/stl;application/vnd.ms-3mfdocument;application/prs.wavefront-obj;application/x-amf;
 EOF
