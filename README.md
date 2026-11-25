@@ -106,22 +106,22 @@ Examples:
 Slice all plates from a 3MF project:
 
 ```console
-CrealityPrint.exe --slice 0 --outputdir "C:\output" "C:\models\example.3mf"
+CrealityPrint.exe --cli --slice 0 --outputdir "C:\output" --need-gcode-file "C:\models\example.3mf"
 ```
 
 Slice only the first plate and save a log:
 
 ```console
-CrealityPrint.exe --slice 1 --outputdir "C:\output" --logfile "C:\output\slice.log" "C:\models\example.3mf"
+CrealityPrint.exe --cli --slice 1 --outputdir "C:\output" --need-gcode-file --logfile "C:\output\slice.log" "C:\models\example.3mf"
 ```
 
 Slice an STL with external printer/process and filament presets:
 
 ```console
-CrealityPrint.exe --slice 0 --outputdir "C:\output" --load_settings "C:\presets\printer.json;C:\presets\process.json" --load_filaments "C:\presets\pla.json" "C:\models\part.stl"
+CrealityPrint.exe --cli --slice 0 --outputdir "C:\output" --need-gcode-file --load-settings "C:\presets\printer.json;C:\presets\process.json" --load-filaments "C:\presets\pla.json" "C:\models\part.stl"
 ```
 
-Run `CrealityPrint.exe --help` to see the full list of supported command line options.
+Pass `--cli` to use command-line mode instead of opening the GUI. Add `--need-gcode-file` with `--outputdir` to keep generated `plate_N.gcode` files there; without it, G-code is temporary and removed after slicing. Run `CrealityPrint.exe --cli --help` to see the full list of supported command-line options.
 
 # How to compile
 - Windows 64-bit  

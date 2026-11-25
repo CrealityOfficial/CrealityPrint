@@ -182,6 +182,11 @@ void print_help()
 
     boost::nowide::cout
         << std::endl
+        << "CLI slicing notes:" << std::endl
+        << "\tPass --cli to start command-line mode instead of the GUI." << std::endl
+        << "\tPass --need-gcode-file with --outputdir to retain plate_N.gcode files in that directory." << std::endl
+        << "\tWithout --need-gcode-file, generated G-code is temporary and removed after slicing." << std::endl
+        << std::endl
         << "Configuration priority:" << std::endl
         << "\t3MF: command-line print overrides > settings embedded in the project" << std::endl
         << "\tSTL/OBJ: command-line print overrides > --load_settings/--load_filaments presets" << std::endl;
