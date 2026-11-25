@@ -33,7 +33,18 @@ namespace pt = boost::property_tree;
 
 namespace Slic3r {
 
-Flashforge::Flashforge(DynamicPrintConfig* config) : m_host(config->opt_string("print_host")), m_console_port("8899")
+// Printers added from the device page are saved as "http://<ip>", but the Flashforge
+// console is plain TCP on port 8899, so only the host part can be passed to the resolver.
+static std::string get_console_host(std::string host)
+{
+    if (size_t pos = host.find("://"); pos != std::string::npos)
+        host.erase(0, pos + 3);
+    if (size_t pos = host.find('/'); pos != std::string::npos)
+        host.erase(pos);
+    return host;
+}
+
+Flashforge::Flashforge(DynamicPrintConfig* config) : m_host(get_console_host(config->opt_string("print_host"))), m_console_port("8899")
 {
 }
 
