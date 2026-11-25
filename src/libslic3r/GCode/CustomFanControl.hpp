@@ -23,7 +23,7 @@ public:
                 line.find_first_of(" \t\r\n", pos + marker.size()) == pos + marker.size());
     }
 
-    static int fan_speed_percent(const GCodeReader::GCodeLine& line, GCodeFlavor flavor)
+    static int fan_speed_percent(const GCodeReader::GCodeLine& line, GCodeFlavor flavor, bool accept_p0 = false)
     {
         if (flavor == gcfMakerWare || flavor == gcfSailfish) {
             if (line.cmd_is("M126"))
@@ -39,8 +39,10 @@ public:
                 return 0;
             return -1;
         }
-        // This slicer's part fan uses no P or P1. P2/P3 control other fans.
-        if (line.has('P') && line.p() != 1.f)
+        if (!line.cmd_is("M106") && !line.cmd_is("M107"))
+            return -1;
+        // Timed flushing also accepts P0. Other callers retain their channel convention.
+        if (line.has('P') && line.p() != 1.f && !(accept_p0 && line.p() == 0.f))
             return -1;
         if (line.cmd_is("M107"))
             return 0;
@@ -63,6 +65,36 @@ public:
             speed = fan_speed_percent(line, flavor);
         });
         return speed;
+    }
+
+    // Observe the upstream printing commands, including those in a replaced toolchange.
+    void track(const GCodeReader::GCodeLine& line, GCodeFlavor flavor, bool accept_p0 = false)
+    {
+        if (fan_speed_percent(line, flavor, accept_p0) >= 0)
+            m_last_command = command_text(line.raw());
+    }
+
+    void track(std::string_view gcode, GCodeFlavor flavor, bool accept_p0 = false)
+    {
+        GCodeReader reader;
+        for (size_t pos = 0; pos < gcode.size();) {
+            const size_t newline = gcode.find('\n', pos);
+            const size_t end = newline == std::string_view::npos ? gcode.size() : newline;
+            const std::string_view line = trim(gcode.substr(pos, end - pos));
+            if (!line.empty() && line.front() == 'M')
+                reader.parse_line(std::string(line), [this, flavor, accept_p0](GCodeReader&, const GCodeReader::GCodeLine& parsed) {
+                    track(parsed, flavor, accept_p0);
+                });
+            pos = newline == std::string_view::npos ? gcode.size() : newline + 1;
+        }
+    }
+
+    // Empty replacement restores the entry state. A replaced block supplies its exit state.
+    // The inserted custom script is excluded so temporary fan commands cannot become the target.
+    std::string restore_after(std::string_view replaced_gcode, GCodeFlavor flavor, bool accept_p0 = false)
+    {
+        track(replaced_gcode, flavor, accept_p0);
+        return m_last_command.empty() ? std::string() : m_last_command + "\n";
     }
 
     std::string process(std::string_view gcode, GCodeFlavor flavor)
@@ -90,7 +122,7 @@ public:
                     m_awaiting_restore = false;
                 }
                 const std::string_view command = replacement.empty() ? line : std::string_view(replacement);
-                m_last_command = std::string(trim(command.substr(0, command.find(';'))));
+                m_last_command = command_text(command);
                 if (m_depth == 0 && m_awaiting_restore)
                     // A new printing target after END supersedes the entry state.
                     m_entry_command = m_last_command;
@@ -118,6 +150,11 @@ public:
     }
 
 private:
+    static std::string command_text(std::string_view line)
+    {
+        return std::string(trim(line.substr(0, line.find(';'))));
+    }
+
     static int scaled_speed(float value)
     {
         return std::isfinite(value) ? static_cast<int>(std::clamp(value, 0.f, 255.f) * (100.f / 255.f)) : -1;

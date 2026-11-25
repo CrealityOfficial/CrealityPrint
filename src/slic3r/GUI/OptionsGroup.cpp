@@ -680,6 +680,11 @@ Option ConfigOptionsGroup::get_option(const std::string& opt_key, int opt_index 
 	    wxGetApp().sidebar().get_searcher().add_key(opt_id, static_cast<Preset::Type>(this->config_type()), title, this->config_category());
 
 	Option option(*m_config->def()->get(opt_key), opt_id);
+    if (opt_key == "time_flush_interval") {
+        option.opt.min /= 60.;
+        option.opt.max /= 60.;
+        option.opt.set_default_value(new ConfigOptionFloat(option.opt.default_value->getFloat() / 60.));
+    }
 	if (is_process_variant_input(opt_key) ||
 		(this->config_type() == Preset::TYPE_FILAMENT && opt_index == -1 &&
 		 filament_options_with_variant.count(opt_key) != 0 && !is_filament_variant_selector(opt_key)))
@@ -1442,6 +1447,8 @@ boost::any ConfigOptionsGroup::get_config_value(const DynamicPrintConfig& config
 					cfg.opt_float(opt_key, idx) :
 						opt->type == coFloat ? cfg.opt_float(opt_key) :
 						cfg.option<ConfigOptionPercents>(opt_key)->get_at(idx);
+        if (opt_key == "time_flush_interval")
+            val /= 60.;
 		ret = double_to_string(val);
 		}
 		break;
@@ -1617,6 +1624,8 @@ boost::any ConfigOptionsGroup::get_config_value2(const DynamicPrintConfig& confi
             cfg.opt_float(opt_key, idx) :
             opt->type == coFloat ? cfg.opt_float(opt_key) :
             cfg.option<ConfigOptionPercents>(opt_key)->get_at(idx);
+        if (opt_key == "time_flush_interval")
+            val /= 60.;
         ret = val;
     }
                 break;
@@ -1732,7 +1741,12 @@ std::pair<OG_CustomCtrl*, bool*> ConfigOptionsGroup::get_custom_ctrl_with_blinki
 void ConfigOptionsGroup::change_opt_value(const t_config_option_key& opt_key, const boost::any& value, int opt_index /*= 0*/)
 
 {
-	Slic3r::GUI::change_opt_value(const_cast<DynamicPrintConfig&>(*m_config), opt_key, value, opt_index);
+    // Convert only at the UI boundary, including undo/reset. File values and
+    // time_flush_interval in custom G-code remain seconds for compatibility.
+    boost::any stored_value = value;
+    if (opt_key == "time_flush_interval")
+        stored_value = boost::any_cast<double>(value) * 60.;
+	Slic3r::GUI::change_opt_value(const_cast<DynamicPrintConfig&>(*m_config), opt_key, stored_value, opt_index);
 	if (m_modelconfig)
 		m_modelconfig->touch();
 }

@@ -2,6 +2,7 @@ get_filename_component(_TEST_NAME ${CMAKE_CURRENT_LIST_DIR} NAME)
 # find_package(OpenSSL REQUIRED)
 add_executable(${_TEST_NAME}_tests
     ${_TEST_NAME}_tests_main.cpp
+    test_wipe_tower_preview_worker.cpp
     )
 
 target_link_libraries(${_TEST_NAME}_tests test_common libslic3r_gui libslic3r)

@@ -96,7 +96,7 @@ namespace GUI {
         void resetUpdateConfigFileTime();
         // Whether retrying after a network error has timed out
         bool isNetworkErrorRetryTimeout();
-        void resetNetworkErrorRetryTime();
+        void resetNetworkErrorRetryTime(long long retry_after_seconds = 0);
         bool isNetworkError();
         void setNetworkError(bool bError);
         void setConfigFileRetInfo(const PreUpdateProfileRetInfo& retInfo);
@@ -127,6 +127,8 @@ namespace GUI {
         ENDownloadConfigState                                     m_enDownloadConfigToLocalState = ENDownloadConfigState::ENDCS_NOT_DOWNLOAD;
         long long m_llUpdateConfigFileTimestamp = 0;
         long long m_llNetworkErrorRetryTimestamp = 0;
+        long long m_networkErrorRetryDelaySeconds = 0;
+        long long m_networkErrorRetryBackoffSeconds = 0;
         PreUpdateProfileRetInfo                                   m_configFileRetInfo;
         json                                                      m_jsonCXCloudSyncData = json();
         CXCloudLoginInfo                                          m_cxCloudLoginInfo;

@@ -2682,7 +2682,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("filament_pre_flush_volume", coFloats);
     def->label = L("Filament pre-flush volume");
     def->tooltip = L("After a filament change, the pre-flush volume of the new filament. "
-                     "Set to 0 to disable pre-flushing.");
+                     "With a prime tower, used for coarse pre-flushing on the tower. If Flush into objects' infill is enabled, the initial model infill is also printed at a reduced speed for this volume. Without a tower, controls the volume of internal infill initially printed at a reduced speed. Model infill slowdown works in conjunction with Pre-flush length slowdown. Set to 0 to disable these features.");
     def->sidetext = L("mm³");
     def->min = 0;
     def->mode = comAdvanced;
@@ -2690,12 +2690,28 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("filament_pre_flush_speed_ratio", coPercents);
     def->label = L("Pre-flush length slowdown");
-    def->tooltip = L("After a filament change, use the numeric value of Filament pre-flush volume as the model infill path distance in millimeters for this speed limit. For example, a value of 10 limits only the first 10 mm of printed infill path, then restores normal speed. The volumetric flow limit is this percentage of the filament's maximum volumetric speed. With a prime tower, applies when Flush into objects' infill is enabled. Without a tower, applies to skeleton infill. Travel and retraction do not count. The tower's original pre-flush behavior is unchanged. Lower printing speeds are preserved. Set to 0 to disable this additional speed limit.");
+    def->tooltip = L("After a filament change, apply this speed limit to the model infill extrusion volume specified by Filament pre-flush volume. For example, a value of 10 limits only the first 10 mm³ of infill extrusion, then restores normal speed. The volumetric flow limit is this percentage of the filament's maximum volumetric speed. With a prime tower, model infill speed limiting requires Flush into objects' infill to be enabled. Without a tower, applies to internal infill. Travel and retraction do not count toward the volume. This percentage also applies to coarse pre-flushing on the prime tower; tower purging does not reduce the model infill volume budget. Lower model printing speeds are preserved. Set to 0 to disable this additional speed limit.");
     def->sidetext = L("%");
     def->min = 0;
     def->max = 100;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionPercents { 20. });
+
+    def = this->add("filament_pre_flush_tower_time", coFloats);
+    def->label = L("Timed pre-flush into prime tower time");
+    def->tooltip = L("Estimated idle time in minutes at which the time-based prime tower purge reaches its maximum. The amount grows linearly from the target filament's Minimal purge on wipe tower. Periodic off-plate flushing does not reset the filament's idle time. Set to 0 to disable.");
+    def->sidetext = "min";
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloats { 0. });
+
+    def = this->add("filament_pre_flush_tower_volume", coFloats);
+    def->label = L("Timed pre-flush into prime tower volume");
+    def->tooltip = L("Maximum time-based purge volume on the prime tower. The tower uses the greater of the time-based amount and the color-change volume routed to the tower. A positive value below the target filament's Minimal purge on wipe tower uses that minimum. Set to 0 to disable.");
+    def->sidetext = L("mm³");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloats { 0. });
 
     def = this->add("filament_cooling_final_speed", coFloats);
     def->label = L("Speed of the last cooling move");
@@ -6750,9 +6766,10 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("time_flush_interval", coFloat);
     def->label = L("Time flush interval");
-    def->tooltip = L("Minimum estimated printing time in seconds between time flushes. With a wipe tower, flushing runs before a filament change or before a normal tower visit on a sparse tower layer. The nozzle flushes outside the plate, then continues directly to the tower entry. Towers without sparse layers still flush only before filament changes. Without a tower, including single-color printing, flushing waits for an internal infill path boundary. Small or narrow model islands suppress time flushing. The actual interval may be longer. Set to 0 to disable time flushing.");
-    def->sidetext = L("s");
+    def->tooltip = L("Minimum estimated printing time in minutes between time flushes. With a wipe tower, flushing runs before a filament change or before a normal tower visit on a sparse tower layer. The nozzle flushes outside the plate, then continues directly to the tower entry. Towers without sparse layers still flush only before filament changes. Without a tower, including single-color printing, flushing waits for an internal infill path boundary. Small or narrow model islands suppress time flushing. The actual interval may be longer. Set to 0 to disable time flushing.");
+    def->sidetext = "min";
     def->min = 0;
+    // Stored in seconds for existing profiles and G-code expressions; the GUI edits minutes.
     def->max = 86400;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(0.0));
@@ -7163,6 +7180,12 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->min = 0.;
     def->set_default_value(new ConfigOptionFloat(10.));
+
+    def = this->add("prime_tower_fillet_wall", coBool);
+    def->label = L("Fillet wall");
+    def->tooltip = L("The wall of prime tower will fillet");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
 
     def = this->add("wipe_tower_extra_flow", coPercent);
     def->label = L("Extra flow for purging");

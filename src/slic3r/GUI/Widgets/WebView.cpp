@@ -12,6 +12,8 @@
 #include <wx/msw/webview_edge.h>
 #elif defined(__WXMAC__)
 #include <wx/osx/webview_webkit.h>
+#elif defined(__WXGTK__)
+#include <wx/gtk/webview_webkit.h>
 #endif
 #include <wx/uri.h>
 #if defined(__WIN32__) || defined(__WXMAC__)
@@ -25,7 +27,6 @@
 #elif defined __linux__
 #include <gtk/gtk.h>
 #define WEBKIT_API
-struct WebKitWebView;
 struct WebKitJavascriptResult;
 struct WebKitSettings;
 typedef enum {
@@ -242,12 +243,12 @@ private:
     COREWEBVIEW2_PREFERRED_COLOR_SCHEME pendingColorScheme = COREWEBVIEW2_PREFERRED_COLOR_SCHEME_AUTO;
 };
 
-#elif defined __WXOSX__
+#elif defined(__WXOSX__) || defined(__WXGTK__)
 
 class WebViewWebKit : public wxWebViewWebKit
 {
 public:
-#if wxCHECK_VERSION(3, 3, 0)
+#if defined(__WXOSX__) && wxCHECK_VERSION(3, 3, 0)
     WebViewWebKit() : wxWebViewWebKit(wxWebView::NewConfiguration(wxWebViewBackendWebKit)) {}
 #endif
 
@@ -278,27 +279,18 @@ public:
         return added;
     }
 
+#ifdef __WXOSX__
     ~WebViewWebKit() override
     {
         RemoveScriptMessageHandler("wx");
     }
+#endif
 
 private:
     bool m_wx_bridge_ready{false};
     bool m_has_pending_url{false};
     wxString m_pending_url;
 };
-
-#elif defined __linux__
-
-    // TODO: release webview script message handle in Destructor
-    // class WebViewWebGTK : public wxWebview
-    // {
-    //     ~WebViewWebGTK() override
-    //     {
-    //         RemoveScriptMessageHandler("wx");
-    //     }
-    // };
 
 #endif
 
@@ -547,7 +539,7 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
     BOOST_LOG_TRIVIAL(warning)
         << __FUNCTION__ << ": WebView2 navigation mode="
         << (defer_navigation ? "deferred (GUI recreation)" : "direct (initial startup)");
-#elif defined(__WXOSX__)
+#elif defined(__WXOSX__) || defined(__WXGTK__)
     wxWebView *webView = new WebViewWebKit;
 #else
     auto webView = wxWebView::New();
@@ -601,7 +593,10 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
                 webView->RegisterHandler(wxSharedPtr<wxWebViewHandler>(new wxWebViewFSHandler("memory")));
                 g_linux_webview_schemes_registered = true;
             }
-            webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+            // GTK's Create() navigates directly, bypassing our LoadURL override.
+            webView->Create(parent, wxID_ANY, wxWebViewDefaultURLStr, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+            if (!url2.empty())
+                webView->LoadURL(url2);
         }
 #else
         // With WKWebView handlers need to be registered before creation

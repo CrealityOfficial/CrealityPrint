@@ -46,6 +46,7 @@ struct TempParamater;
 namespace Slic3r {
 
 class GCode;
+class ScopeGuard;
 class Layer;
 class LayerRegion;
 class Surface;
@@ -742,6 +743,34 @@ struct FakeWipeTower
     std::vector<ExtrusionPaths> getFakeExtrusionPathsFromWipeTower2() const;
 };
 
+// Pre-slice envelope in tower-local coordinates. Keep the anchor unchanged when
+// ribs or a cone extend outside the nominal rectangular body.
+struct WipeTowerPreview
+{
+    Vec3d size = Vec3d::Zero();
+    Vec2d offset = Vec2d::Zero();
+    double brim_width = 0.;
+    TriangleMesh tower_mesh;
+    TriangleMesh brim_mesh;
+
+    Polygon footprint(double rotation_degrees = 0., const Vec2d& position = Vec2d::Zero()) const;
+};
+
+// Value snapshot for estimating local geometry without reading a live Print or Model.
+struct WipeTowerPreviewInput
+{
+    PrintConfig config;
+    size_t filaments_count;
+    double layer_height;
+    double height;
+    std::vector<unsigned int> physical_filament_ids;
+
+    bool empty() const;
+    WipeTowerPreview estimate() const;
+};
+
+using WipeTowerPreviewLookup = std::function<std::shared_ptr<const WipeTowerPreview>(WipeTowerPreviewInput)>;
+
 struct WipeTowerData
 {
     struct WipeTowerMeshData
@@ -924,6 +953,11 @@ public:
     StringObjectException validate(StringObjectException *warning, Polygons* collison_polygons,
                                    std::vector<std::pair<Polygon, float>>* height_polygons,
                                    bool before_filament_mapping) const;
+    // No result until the requested preview is ready. The default synchronous
+    // validator supplies its own estimate and always completes the checks.
+    std::optional<StringObjectException> try_validate(StringObjectException* warning, Polygons* collison_polygons,
+                                   std::vector<std::pair<Polygon, float>>* height_polygons,
+                                   bool before_filament_mapping, const WipeTowerPreviewLookup& lookup) const;
     double              skirt_first_layer_height() const;
     Flow                brim_flow() const;
     Flow                skirt_flow() const;
@@ -995,7 +1029,9 @@ public:
     // 1-based physical filament for the Creality tower; 0 keeps automatic selection.
     int                         creality_wipe_tower_filament() const;
     // Estimate from an explicit configuration without changing the slicing cache.
-    static double               estimate_wipe_tower_depth(const PrintConfig& config, size_t filaments_cnt);
+    static WipeTowerPreview      estimate_wipe_tower_preview(const PrintConfig& config, size_t filaments_cnt,
+                                                            double layer_height, double height,
+                                                            const std::vector<unsigned int>& physical_filament_ids = {});
     const WipeTowerData&        wipe_tower_data(size_t filaments_cnt = 0) const;
     const ToolOrdering& 		tool_ordering() const { return m_tool_ordering; }
 
@@ -1016,6 +1052,8 @@ public:
     const float*                lockedzag_skin_infill_depth(const LayerRegion& layer_region, const Surface& surface) const;
     const float*                layer_filament_wipe_packing_sparse_infill_density(const LayerRegion& layer_region, const Surface& surface) const;
     bool                        layer_filament_wipe_packing_force_plain_infill(const LayerRegion& layer_region, const Surface& surface) const;
+    size_t                      no_tower_purge_extruder_count() const;
+    float                       no_tower_thermal_purge_volume(coordf_t print_z, unsigned int old_extruder, unsigned int new_extruder) const;
     bool                        layer_filament_wipe_packing_uses_infill(coordf_t print_z, unsigned int old_extruder, unsigned int new_extruder) const;
     const FillTower::LayerFilamentWipePackingTransitionRegionVolumes* layer_filament_wipe_packing_transition_region_volumes(coordf_t print_z, unsigned int old_extruder, unsigned int new_extruder) const;
 
@@ -1115,6 +1153,9 @@ protected:
 
 private:
     //BBS
+    StringObjectException validate_impl(StringObjectException* warning, Polygons* collison_polygons,
+        std::vector<std::pair<Polygon, float>>* height_polygons, bool before_filament_mapping,
+        const WipeTowerPreviewLookup& lookup, bool& tower_pending) const;
     static StringObjectException check_multi_filament_valid(const Print &print);
 
     bool                invalidate_state_by_config_options(const ConfigOptionResolver &new_config, const std::vector<t_config_option_key> &opt_keys);
@@ -1136,6 +1177,10 @@ private:
 
     void                _make_skirt();
     void                _make_wipe_tower();
+    void                process_impl(long long* time_cost_with_cache, bool use_cache);
+    ScopeGuard          cache_no_tower_purge_mode();
+    using NoTowerPurgePlan = std::map<FillTower::LayerFilamentWipePackingTransition, float>;
+    std::optional<NoTowerPurgePlan> revised_no_tower_idle_purge_plan(const GCode& gcode) const;
     void                clear_lockedzag_skin_infill_depths();
     bool                update_lockedzag_skin_infill_depths_from_actual(const ToolOrdering& tool_ordering, bool perform_density_search = true);
     void                rebuild_lockedzag_infill_after_skin_replan();
@@ -1183,6 +1228,10 @@ private:
     // Following section will be consumed by the GCodeGenerator.
     ToolOrdering 							m_tool_ordering;
     WipeTowerData                           m_wipe_tower_data {m_tool_ordering};
+    std::function<void(const std::vector<float>&)> m_regenerate_idle_purge_tower;
+    std::vector<float> m_normal_tower_purge_volumes; // In the same order as the idle purge events.
+    NoTowerPurgePlan m_no_tower_thermal_purge_volumes;
+    std::atomic<int> m_cached_no_tower_extruder_count{-1};
     std::map<const LayerRegion*, float>     m_lockedzag_skin_infill_depths;
     std::map<const Surface*, float>         m_lockedzag_surface_skin_infill_depths;
     std::map<const Surface*, float>         m_layer_filament_wipe_packing_sparse_infill_densities;

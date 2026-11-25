@@ -33,11 +33,7 @@ RequestExecutionLevel admin
   ; ======================
 ; 基础配置
 ; ======================
-  !define DLL_NAME "STLThumbWinShellExtension.dll"
-  !define BASE_CLSID "{AF07F051-9D08-44A7-8C63-9296ADFEDDD7}"      
-  Var NEW_DLL_NAME  ; 重命名后的DLL文件名
-  Var Thumbnail_DIR ; suo目录
-  Var IS_REGISTERED ; 注册状态标志
+  Var Thumbnail_DIR ; Captured for the current user before switching shell context.
 ;--------------------------------
 ;Include Modern UI
 
@@ -828,18 +824,14 @@ WriteRegStr HKCR "3mf_cxsw\shell\open\command" "" '"$INSTDIR\${PROCESS_NAME}" "%
 WriteRegStr HKCR "cxprj_cxsw\shell\open\command" "" '"$INSTDIR\${PROCESS_NAME}" "%1"'
 ;System::Call "Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)"
 
-  ;add stl thumb
-  StrCmp $IS_REGISTERED "0" 0 already_registered  ; 已注册则跳过
-  CopyFiles /SILENT "$INSTDIR\${DLL_NAME}" "$Thumbnail_DIR\$NEW_DLL_NAME"
-  CopyFiles /SILENT "$INSTDIR\stl-thumb.exe" "$Thumbnail_DIR\stl-thumb.exe"
-  ExecWait '"regsvr32" /s "$Thumbnail_DIR\$NEW_DLL_NAME"'
-  WriteRegStr HKCR ".stl\shellex\{e357fccd-a995-4576-b01f-234630154e96}" "" "{AF07F051-9D08-44A7-8C63-9296ADFEDDD7}"
-  WriteRegStr HKCR "CLSID\{AF07F051-9D08-44A7-8C63-9296ADFEDDD7}" "" "STLThumbWinShellExtension.STLThumbnailProvider Class"
-  WriteRegDWORD HKCR "CLSID\{AF07F051-9D08-44A7-8C63-9296ADFEDDD7}" "DisableProcessIsolation" 1
-  WriteRegStr HKCR "CLSID\{AF07F051-9D08-44A7-8C63-9296ADFEDDD7}\InprocServer32" "" "$Thumbnail_DIR\$NEW_DLL_NAME"
-  WriteRegStr HKCR "CLSID\{AF07F051-9D08-44A7-8C63-9296ADFEDDD7}\InprocServer32" "ThreadingModel" "Apartment"
-  
-already_registered:
+  ; Use the same SHA-256 pair comparison and lock-safe deployment as hot updates.
+  ClearErrors
+  ExecWait '"$INSTDIR\updater.exe" --thumbnail-action install --install-dir "$INSTDIR" --thumbnail-dir "$Thumbnail_DIR"' $0
+  ${If} ${Errors}
+    DetailPrint "WARNING: Could not start thumbnail maintenance."
+  ${ElseIf} $0 != 0
+    DetailPrint "WARNING: Thumbnail installation failed (code $0); existing files were retained."
+  ${EndIf}
   System::Call "Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)"
   ;-----------------------------------------------------------------------------
   ; get computer operation system name and version
@@ -909,6 +901,8 @@ FunctionEnd
 ;--------------------------------
 ; determine admin versus local install
 Function un.onInit
+  SetShellVarContext current
+  StrCpy $Thumbnail_DIR "$APPDATA\Creality_STLThumbnail"
 
   ClearErrors
   UserInfo::GetName
@@ -996,6 +990,17 @@ Section "Un.${APP_NAME}"
     "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "InstallToDesktop"
   ;MessageBox MB_OK "Install to desktop: $INSTALL_DESKTOP "
 
+  ; Run before the updater and other application files are deleted.
+  ClearErrors
+  ExecWait '"$INSTDIR\updater.exe" --thumbnail-action uninstall --thumbnail-dir "$Thumbnail_DIR"' $0
+  ${If} ${Errors}
+    DetailPrint "WARNING: Could not start thumbnail cleanup."
+  ${ElseIf} $0 == 3010
+    SetRebootFlag true
+  ${ElseIf} $0 != 0
+    DetailPrint "WARNING: Thumbnail cleanup was incomplete (code $0)."
+  ${EndIf}
+
 @CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS@
 
   ;Remove files we installed.
@@ -1008,17 +1013,6 @@ Section "Un.${APP_NAME}"
   Delete "$INSTDIR\AddRemove.exe"
 !endif
 
-  ; Remove stl thumb
-  ;=== 新增STL缩略图清理 ===
-  SetShellVarContext current
-StrCmp $IS_REGISTERED "1" 0 Jump_Del_Thumb  ; 已注册则跳过
-  IfFileExists "$Thumbnail_DIR\$NEW_DLL_NAME" 0 +1
-    ExecWait '"regsvr32" /s /u "$INSTDIR\STLThumbWinShellExtension.dll"'
-  Delete "$Thumbnail_DIR\stl-thumb.exe"
-  Delete "$Thumbnail_DIR\$NEW_DLL_NAME"
-  DeleteRegKey HKCR ".stl\shellex\{e357fccd-a995-4576-b01f-234630154e96}"
-  DeleteRegKey HKCR "CLSID\{AF07F051-9D08-44A7-8C63-9296ADFEDDD7}"
-Jump_Del_Thumb:
   ;Remove the uninstaller itself.
   Delete "$INSTDIR\@CPACK_NSIS_UNINSTALL_NAME@.exe"
   DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
@@ -1109,22 +1103,7 @@ SectionEnd
 
 Function .onInit
 SetShellVarContext current
-; 重命名DLL文件
-StrCpy $NEW_DLL_NAME "${DLL_NAME}"
 StrCpy $Thumbnail_DIR "$APPDATA\Creality_STLThumbnail"
-
-ReadRegStr $0 HKCR "CLSID\${BASE_CLSID}" ""
-StrCmp $0 "" 0 HasReg  ; 已注册则跳过
-  StrCpy $IS_REGISTERED "0"
-HasReg:
-  IfFileExists "$Thumbnail_DIR\$NEW_DLL_NAME" 0 not_exist
-    StrCpy $IS_REGISTERED "1"
-    Goto initContinue
-  not_exist:
-    CreateDirectory "$Thumbnail_DIR"
-    StrCpy $IS_REGISTERED "0"
-    
-initContinue:
 StrCpy $INSTALL_STATUS "ok"
 ; default is first install
 StrCpy $FIRST_INSTALL "1"

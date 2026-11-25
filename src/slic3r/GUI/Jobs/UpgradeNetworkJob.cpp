@@ -79,6 +79,10 @@ void UpgradeNetworkJob::process(Ctl &ctl)
 
     if (result < 0) {
         update_status(ctl, 0, _u8L("Download failed"));
+        if (name == "plugins") {
+            wxPostEvent(m_event_handle, wxCloseEvent(wxEVT_CLOSE_WINDOW));
+            return;
+        }
         wxCommandEvent event(EVT_DOWNLOAD_NETWORK_FAILED);
         event.SetEventObject(m_event_handle);
         wxPostEvent(m_event_handle, event);

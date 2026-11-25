@@ -1,4 +1,5 @@
 #include "FillBedJob.hpp"
+#include "libslic3r/ArrangeGrid.hpp"
 
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelInstance.hpp"
@@ -62,7 +63,7 @@ void FillBedJob::prepare()
         ModelObject* mo = model.objects[oidx];
         for (size_t inst_idx = 0; inst_idx < mo->instances.size(); ++inst_idx)
         {
-            bool selected = (oidx == m_object_idx);
+            bool selected = (oidx == m_object_idx && inst_idx == size_t(sel_id));
 
             ArrangePolygon ap = get_instance_arrange_poly(mo->instances[inst_idx], global_config);
             
@@ -78,6 +79,7 @@ void FillBedJob::prepare()
             }
 
             BoundingBox ap_bb = ap.transformed_poly().contour.bounding_box();
+            const bool on_current_plate = plate_bb.overlap(ap_bb);
 
             if(!is_seq_print) {
                 ap.height = 1;
@@ -85,7 +87,7 @@ void FillBedJob::prepare()
             
             ap.name = mo->name;
 
-            if (selected)
+            if (selected && on_current_plate)
             {
                 if (mo->instances[inst_idx]->printable)
                 {
@@ -95,7 +97,7 @@ void FillBedJob::prepare()
                 }
                 else
                 {
-                    if (plate_bb.contains(ap_bb))
+                    if (on_current_plate)
                     {
                         ap.bed_idx = 0;
                         ap.itemid = m_unselected.size();
@@ -115,7 +117,7 @@ void FillBedJob::prepare()
             }
             else
             {
-                if (plate_bb.contains(ap_bb))
+                if (on_current_plate)
                 {
                     ap.bed_idx = 0;
                     ap.itemid = m_unselected.size();
@@ -184,7 +186,7 @@ void FillBedJob::prepare()
                                         m_unselected.end(), 0.,
                                         [cur_plate_index](double s, const auto &ap) {
                                             //BBS: m_unselected instance is in the same partplate
-                                            return s + (ap.bed_idx == cur_plate_index) * ap.poly.area();
+                                            return s + (ap.bed_idx == 0) * ap.poly.area();
                                             //return s + (ap.bed_idx == 0) * ap.poly.area();
                                         }) / sc;
 
@@ -214,6 +216,8 @@ void FillBedJob::prepare()
             ModelObject *mo = m_plater->model().objects[m_object_idx];
             ModelObject* newObj = m_plater->model().add_object(*mo);
             newObj->name = mo->name +" "+ std::to_string(p.itemid);
+            newObj->clear_instances();
+            newObj->add_instance(*mi);
             for (ModelInstance *newInst : newObj->instances) { newInst->apply_arrange_result(p.translation.cast<double>(), p.rotation); }
             //m_plater->sidebar().obj_list()->paste_objects_into_list({m_plater->model().objects.size()-1});
         };
@@ -268,21 +272,10 @@ void FillBedJob::process(Ctl &ctl)
         do_stop = ap.bed_idx > 0 && ap.priority == 0;
     };
     // final align用的是凸包，在有fixed item的情况下可能找到的参考点位置是错的，这里就不做了。见STUDIO-3265
-    params.do_final_align = !is_bbl;
+    params.do_final_align = m_unselected.empty();
 
-    if (m_selected.size() > 100){
-        // too many items, just find grid empty cells to put them
-        Vec2f step = unscaled<float>(get_extents(m_selected.front().poly).size()) + Vec2f(m_selected.front().brim_width, m_selected.front().brim_width);
-        std::vector<Vec2f> empty_cells = Plater::get_empty_cells(step);
-        size_t n=std::min(m_selected.size(), empty_cells.size());
-        for (size_t i = 0; i < n; i++) {
-            m_selected[i].translation = scaled<coord_t>(empty_cells[i]);
-            m_selected[i].bed_idx= 0;
-        }
-        for (size_t i = n; i < m_selected.size(); i++) {
-            m_selected[i].bed_idx = -1;
-        }
-    }
+    if (m_selected.size() > 100)
+        arrangement::arrange_grid(m_selected, m_unselected, m_bedpts, params);
     else
         arrangement::arrange(m_selected, m_unselected, m_bedpts, params);
 
@@ -330,7 +323,7 @@ void FillBedJob::finalize(bool canceled, std::exception_ptr &eptr)
             else
                 ap.bed_idx = cur_plate;
 
-            if (m_selected.size() <= 100) {
+            { // Both placement paths return bed-local coordinates.
                 ap.row = ap.bed_idx / plate_cols;
                 ap.col = ap.bed_idx % plate_cols;
                 ap.translation(X) += bed_stride_x(m_plater) * ap.col;

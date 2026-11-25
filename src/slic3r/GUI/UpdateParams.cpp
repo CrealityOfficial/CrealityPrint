@@ -343,17 +343,25 @@ std::set<std::string> nsUpdateParams::getAddedPrinterNames()
 {
     std::set<std::string> printers;
 
-    const std::deque<Preset>& printer_presets = GUI::wxGetApp().preset_bundle->printers.get_presets();
-    for (const Preset& printer_preset : printer_presets) {
-        std::string preset_name = printer_preset.name;
-        if (!printer_preset.is_visible || printer_preset.is_default || printer_preset.is_project_embedded)
+    const auto& collection = GUI::wxGetApp().preset_bundle->printers;
+    for (const Preset& preset : collection.get_presets()) {
+        if (!preset.is_visible || preset.is_default || preset.is_project_embedded)
             continue;
-
-        if (printer_preset.is_user()) {
-            preset_name = printer_preset.inherits();
+        const Preset* system = preset.is_user() ? collection.get_preset_base(preset) : &preset;
+        if (!system || !system->is_system) {
+            // Preserve the added identity when a user preset's parent is missing.
+            if (!preset.inherits().empty())
+                printers.insert(preset.inherits());
+            continue;
         }
-        if (!preset_name.empty())
-            printers.insert(preset_name);
+        const auto* nozzles = system->config.option<ConfigOptionFloats>("nozzle_diameter");
+        if (system->vendor && system->vendor->id == "Creality" && nozzles && nozzles->values.size() > 1 &&
+            system->config.has("printer_model") && system->config.has("printer_variant")) {
+            printers.insert(ProfileUpdatePolicy::local_profile_name(system->name, system->config.opt_string("printer_model"),
+                system->config.opt_string("printer_variant"), nozzles->values.size()));
+        } else {
+            printers.insert(system->name);
+        }
     }
     return printers;
 }

@@ -11,6 +11,7 @@
 #include "PrintConfig.hpp"
 #include "GCode/AvoidCrossingPerimeters.hpp"
 #include "GCode/CoolingBuffer.hpp"
+#include "GCode/CustomFanControl.hpp"
 #include "GCode/FanMover.hpp"
 #include "GCode/RetractWhenCrossingPerimeters.hpp"
 #include "GCode/SpiralVase.hpp"
@@ -23,6 +24,8 @@
 #include "libslic3r/ObjectID.hpp"
 #include "GCode/ExtrusionProcessor.hpp"
 #include "FDM/NoWipeTowerPrintStart.hpp"
+#include "FDM/WipeTowerIdlePurge.hpp"
+#include "Fill/Tower/FillLayerFilamentWipePacking.hpp"
 
 #include "GCode/PressureEqualizer.hpp"
 #include "GCode/SmoothSpeedAndAcc.hpp"
@@ -42,6 +45,7 @@ namespace Slic3r {
 // Forward declarations.
 class GCode;
 class TimeFlushToolchanges;
+class WipeTowerTiming;
 struct TimeFlushToolchange;
 class Print;
 class PrintObject;
@@ -276,7 +280,20 @@ public:
 
     // throws std::runtime_exception on error,
     // throws CanceledException through print->throw_if_canceled().
-    void            do_export(Print* print, const char* path, GCodeProcessorResult* result = nullptr, ThumbnailsGeneratorCallback thumbnail_cb = nullptr, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb = nullptr);
+    // A candidate is published only after its timing is verified. False means no file was published.
+    bool            do_export(Print* print, const char* path, GCodeProcessorResult* result = nullptr,
+                              ThumbnailsGeneratorCallback thumbnail_cb = nullptr, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb = nullptr,
+                              const std::function<bool(const std::vector<float>&)>& accept_tower_plan = {}, WipeTowerTiming* timing = nullptr);
+
+    void analyze_idle_purges(Print* print, const char* path, WipeTowerTiming* timing = nullptr) {
+        m_idle_purge_analysis = true;
+        try { do_export(print, path, nullptr, {}, {}, {}, timing); }
+        catch (...) { m_idle_purge_analysis = false; throw; }
+        m_idle_purge_analysis = false;
+    }
+    const std::vector<float>& idle_purge_events() const { return m_idle_purge_events; }
+    using NoTowerIdlePurgeEvents = std::vector<std::pair<FillTower::LayerFilamentWipePackingTransition, float>>;
+    const NoTowerIdlePurgeEvents& no_tower_idle_purge_events() const { return m_no_tower_idle_purge_events; }
 
     //BBS: set offset for gcode writer
     void set_gcode_offset(double x, double y) { m_writer.set_xy_offset(x, y); m_processor.set_xy_offset(x, y);}
@@ -404,7 +421,9 @@ public:
 private:
     class GCodeOutputStream {
     public:
-        GCodeOutputStream(FILE *f, GCodeProcessor &processor) : f(f), m_processor(processor) {}
+        GCodeOutputStream(FILE *f, GCodeProcessor &processor, bool buffer_candidate, WipeTowerTiming* timing)
+            : f(f), m_processor(processor), m_buffer_candidate(buffer_candidate), m_timing(timing) {}
+        bool save_candidate(const std::string& path);
         ~GCodeOutputStream() { this->close(); }
 
         bool is_open() const { return f; }
@@ -422,7 +441,12 @@ private:
         void configure_time_flush(const DynamicPrintConfig& config, double interval, const std::string& script,
                                   std::shared_ptr<TimeFlushToolchanges> toolchanges);
         std::string process_and_build_time_flush(const std::string& gcode);
-        bool time_flush_enabled() const { return m_time_flush_toolchanges || m_time_flush_skip_tower_travel ||
+        void set_idle_purge_events(std::vector<float>* events, NoTowerIdlePurgeEvents* no_tower_events) {
+            m_idle_purge_events = events;
+            m_no_tower_idle_purge_events = no_tower_events;
+        }
+        bool collecting_idle_purge_events() const { return m_idle_purge_events != nullptr; }
+        bool time_flush_enabled() const { return m_idle_purge_events || m_time_flush_toolchanges || m_time_flush_skip_tower_travel ||
             (m_time_flush_interval > 0.0 && !m_time_flush_script.empty()); }
         // Write a string into a file.
         // Add a newline, if the string does not end with a newline already.
@@ -433,18 +457,36 @@ private:
         void write_format(const char* format, ...);
         void write_md5(std::string src_gcode_file);
     private:
+        WipeTowerIdlePurgeClock m_idle_purge_clock;
+        size_t m_pending_idle_purge = size_t(-1);
+        float m_pending_idle_purge_minimum = 0.f;
+        std::vector<float>* m_idle_purge_events = nullptr;
+        NoTowerIdlePurgeEvents* m_no_tower_idle_purge_events = nullptr;
+        bool m_pending_no_tower_idle_purge = false;
         FILE *f = nullptr;
         GCodeProcessor &m_processor;
+        void write_bytes(const char* data, size_t size);
+        void record_tower_change(const std::string& line);
+        bool m_buffer_candidate;
+        size_t m_buffer_size = 0;
+        std::vector<std::string> m_buffer;
+        WipeTowerTiming* m_timing;
         const DynamicPrintConfig* m_time_flush_config = nullptr;
         std::string m_time_flush_script;
         double m_time_flush_interval = 0.0;
         double m_time_flush_baseline = -1.0;
         double m_time_flush_feedrate = 0.0;
-        std::string m_time_flush_model_fan;
+        CustomFanControlTracker m_time_flush_model_fan;
         bool m_time_flush_skip_tower_travel = false;
         DynamicConfig m_time_flush_layer_context;
         std::shared_ptr<TimeFlushToolchanges> m_time_flush_toolchanges;
     };
+    bool m_idle_purge_analysis = false;
+    bool m_track_no_tower_idle_changes = false;
+    std::vector<float> m_idle_purge_events;
+    NoTowerIdlePurgeEvents m_no_tower_idle_purge_events;
+    std::optional<FillTower::LayerFilamentWipePackingTransition> m_no_tower_idle_change;
+    const Print* m_no_tower_thermal_purge_print = nullptr;
     void            _do_export(Print &print, GCodeOutputStream &file, ThumbnailsGeneratorCallback thumbnail_cb, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb);
 
     static std::vector<LayerToPrint>        		                   collect_layers_to_print(const PrintObject &object);
@@ -738,7 +780,8 @@ private:
     int m_last_time_flush_toolchange = -1;
     std::shared_ptr<TimeFlushToolchange> m_model_time_flush;
     int m_model_time_flush_id = -1;
-    std::string begin_model_time_flush(unsigned int tool);
+    std::string record_no_tower_idle_change(unsigned int tool, coordf_t print_z);
+    std::string begin_model_time_flush(unsigned int tool, coordf_t print_z);
     bool                                m_time_flush_layer_safe = false;
     bool                                m_time_flush_uses_tower = false;
     std::string time_flush_tower_marker(const Vec2d& target) const;
@@ -889,6 +932,8 @@ private:
     void _print_first_layer_extruder_temperatures(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait, bool current_extruder_only = false);
     // Captures the completed tower toolchange temperature/tool until departure wiping is done.
     std::string m_pending_temperature_wait_after_tower;
+    // Restore the model layer Z after departure retract/wipe from a low tower.
+    bool m_pending_low_tower_z_restore = false;
     std::string take_pending_temperature_wait_after_tower();
     std::string wait_for_temperature_before_model() const;
     std::string restore_motion_limits_after_toolchange();

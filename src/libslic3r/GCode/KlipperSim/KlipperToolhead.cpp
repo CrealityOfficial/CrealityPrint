@@ -2,15 +2,47 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
+#include <string>
 
 namespace Slic3r {
 namespace KlipperSim {
 
 static constexpr double LOOKAHEAD_FLUSH_TIME = 0.250;
 
+namespace {
+
+// Bound retained diagnostic/dispatch history even for finite but absurd times.
+// At the default 0.5 s cadence this allows about six days of simulated motion.
+constexpr size_t MAX_FLUSH_WINDOWS = 1024 * 1024;
+
+bool finite_nonnegative(double value)
+{
+    return std::isfinite(value) && value >= 0.0;
+}
+
+void invalid_motion(const char* reason, int line_idx)
+{
+    throw std::runtime_error(std::string("KlipperSim: ") + reason
+                             + " (G-code line index " + std::to_string(line_idx) + ")");
+}
+
+} // namespace
+
 // --- Move.__init__ (1:1) ---
 void PlanMove::init(const ToolheadLimits& lim, const double sp[4], const double ep[4], double speed)
 {
+    for (int i = 0; i < 4; ++i) {
+        if (!std::isfinite(sp[i]) || !std::isfinite(ep[i]))
+            invalid_motion("non-finite move position", line_idx);
+    }
+    if (!std::isfinite(speed) || speed <= 0.0
+        || !std::isfinite(lim.max_velocity) || lim.max_velocity <= 0.0
+        || !std::isfinite(lim.max_accel) || lim.max_accel <= 0.0
+        || !std::isfinite(lim.max_accel_to_decel) || lim.max_accel_to_decel <= 0.0
+        || !finite_nonnegative(lim.junction_deviation)
+        || !finite_nonnegative(lim.instant_corner_v))
+        invalid_motion("invalid move speed or acceleration limits", line_idx);
     for (int i = 0; i < 4; ++i) { start_pos[i]=sp[i]; end_pos[i]=ep[i]; }
     accel = lim.max_accel;
     junction_deviation = lim.junction_deviation;
@@ -39,6 +71,10 @@ void PlanMove::init(const ToolheadLimits& lim, const double sp[4], const double 
     delta_v2 = 2.0*move_d*accel;
     max_smoothed_v2 = 0.0;
     smooth_delta_v2 = 2.0*move_d*lim.max_accel_to_decel;
+    if (!finite_nonnegative(move_d) || !finite_nonnegative(min_move_t)
+        || !finite_nonnegative(max_cruise_v2) || !finite_nonnegative(delta_v2)
+        || !finite_nonnegative(smooth_delta_v2))
+        invalid_motion("non-finite move geometry or timing", line_idx);
 }
 
 // --- Move.calc_junction (1:1) ---
@@ -84,6 +120,10 @@ void PlanMove::calc_junction(const PlanMove& prev, const ToolheadLimits& lim)
 // --- Move.set_junction (1:1) ---
 void PlanMove::set_junction(double start_v2, double cruise_v2, double end_v2)
 {
+    if (!finite_nonnegative(start_v2) || !std::isfinite(cruise_v2) || cruise_v2 <= 0.0
+        || !finite_nonnegative(end_v2) || start_v2 > cruise_v2 || end_v2 > cruise_v2
+        || !std::isfinite(accel) || accel <= 0.0)
+        invalid_motion("invalid junction velocity or acceleration", line_idx);
     double half_inv_accel = 0.5 / accel;
     double accel_d = (cruise_v2 - start_v2) * half_inv_accel;
     double decel_d = (cruise_v2 - end_v2) * half_inv_accel;
@@ -158,6 +198,10 @@ void KlipperMoveQueue::flush(bool lazy)
 // --- MoveQueue.add_move (1:1) ---
 void KlipperMoveQueue::add_move(const PlanMove& m)
 {
+    // Firmware drops zero-distance moves before lookahead. Do not plan an
+    // all-zero trapezoid whose duration would contain 0 / 0.
+    if (m.move_d == 0.0)
+        return;
     m_queue.push_back(m);
     if (m_queue.size() == 1)
         return;
@@ -237,19 +281,53 @@ void KlipperHostToolhead::process_moves(const std::vector<PlanMove>& moves)
     }
 
     const double batch_start_time = m_print_time;
+    double next_move_time = m_print_time;
+    for (const PlanMove& move : moves) {
+        if (!std::isfinite(move.accel_t) || !std::isfinite(move.cruise_t)
+            || !std::isfinite(move.decel_t))
+            invalid_motion("non-finite planned move duration", move.line_idx);
+        next_move_time += move.accel_t + move.cruise_t + move.decel_t;
+        if (!std::isfinite(next_move_time))
+            invalid_motion("non-finite accumulated move time", move.line_idx);
+    }
+
+    // Validate before publishing this batch to trapq / step generation.
+    // Otherwise NaNs reach itersolve before update_move_time can fail.
+    validate_move_time(next_move_time);
     if (m_process)
         m_process(moves, batch_start_time);
-
-    double next_move_time = m_print_time;
-    for (const PlanMove& move : moves)
-        next_move_time += move.accel_t + move.cruise_t + move.decel_t;
 
     update_move_time(next_move_time);
     m_last_kin_move_time = next_move_time;
 }
 
+void KlipperHostToolhead::validate_move_time(double next_print_time) const
+{
+    if (!finite_nonnegative(m_print_time) || !finite_nonnegative(next_print_time)
+        || next_print_time < m_print_time
+        || !std::isfinite(m_timing.move_batch_time) || m_timing.move_batch_time <= 0.0
+        || !finite_nonnegative(m_timing.kin_flush_delay)
+        || !finite_nonnegative(m_timing.move_flush_time)
+        || !finite_nonnegative(m_timing.buffer_time_high)
+        || !finite_nonnegative(m_timing.buffer_time_start)
+        || !finite_nonnegative(m_last_kin_flush_time)
+        || !finite_nonnegative(m_host_eventtime)
+        || !std::isfinite(m_estimated_print_time))
+        throw std::runtime_error("KlipperSim: invalid toolhead flush time");
+
+    const double windows = std::max(1.0, std::ceil(
+        (next_print_time - m_print_time) / m_timing.move_batch_time));
+    if (m_flush_windows.size() >= MAX_FLUSH_WINDOWS
+        || windows > static_cast<double>(MAX_FLUSH_WINDOWS - m_flush_windows.size()))
+        throw std::runtime_error("KlipperSim: toolhead flush window limit exceeded");
+    if (next_print_time > m_print_time
+        && m_print_time + m_timing.move_batch_time <= m_print_time)
+        throw std::runtime_error("KlipperSim: toolhead flush time cannot advance");
+}
+
 void KlipperHostToolhead::update_move_time(double next_print_time)
 {
+    validate_move_time(next_print_time);
     const double batch_time = m_timing.move_batch_time;
     const double kin_flush_delay = m_timing.kin_flush_delay;
     const double lkft = m_last_kin_flush_time;
@@ -257,8 +335,15 @@ void KlipperHostToolhead::update_move_time(double next_print_time)
     double estimated_print_time = m_estimated_print_time;
     if (m_estimated_print_time_cb)
         estimated_print_time = m_estimated_print_time_cb(host_eventtime);
+    if (!std::isfinite(estimated_print_time))
+        throw std::runtime_error("KlipperSim: non-finite estimated print time");
     while (true) {
-        m_print_time = std::min(m_print_time + batch_time, next_print_time);
+        const double print_time = std::min(m_print_time + batch_time, next_print_time);
+        if (print_time < next_print_time && print_time <= m_print_time)
+            throw std::runtime_error("KlipperSim: toolhead flush time cannot advance");
+        if (m_flush_windows.size() >= MAX_FLUSH_WINDOWS)
+            throw std::runtime_error("KlipperSim: toolhead flush window limit exceeded");
+        m_print_time = print_time;
         ToolheadFlushWindow win;
         win.print_time = m_print_time;
         win.sg_flush_time = std::max(lkft, m_print_time - kin_flush_delay);

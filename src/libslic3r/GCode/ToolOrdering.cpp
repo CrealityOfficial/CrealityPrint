@@ -33,6 +33,7 @@
 
 #include <libslic3r.h>
 #include <tbb/parallel_for.h>
+#include <tbb/task_arena.h>
 
 namespace Slic3r {
 
@@ -1851,6 +1852,76 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
 }
 
 // Reorder extruders to minimize layer changes.
+std::vector<std::vector<unsigned int>> ToolOrdering::preview_extruder_order(
+    const PrintConfig& config, const std::vector<unsigned int>& tools, size_t layer_count)
+{
+    if (tools.empty() || layer_count == 0)
+        return {};
+    // Validation and scene refreshes request the same order while the user
+    // moves or resizes a tower. Cache only the order so that every edit still
+    // rebuilds the geometry with the current dimensions and purge settings.
+    static const t_config_option_keys order_keys{
+        "enable_prime_tower", "purge_in_prime_tower", "prime_volume", "flush_volumes_matrix",
+        "filament_diameter", "filament_soluble", "nozzle_diameter", "first_layer_print_sequence",
+        "other_layers_print_sequence", "other_layers_print_sequence_nums"
+    };
+    struct CachedOrder {
+        DynamicPrintConfig config;
+        std::vector<unsigned int> tools;
+        std::vector<std::vector<unsigned int>> layers;
+    };
+    // A preview worker may alternate between several plates and layer counts.
+    static thread_local std::vector<CachedOrder> cache;
+    DynamicPrintConfig order_config;
+    order_config.apply_only(config, order_keys);
+    for (const CachedOrder& entry : cache)
+        if (entry.layers.size() == layer_count && entry.tools == tools && entry.config == order_config)
+            return entry.layers;
+
+    ToolOrdering ordering;
+    ordering.m_print_config_ptr = &config;
+    ordering.m_layer_tools.reserve(layer_count);
+    for (size_t i = 0; i < layer_count; ++i) {
+        ordering.m_layer_tools.emplace_back(double(i + 1));
+        auto& layer = ordering.m_layer_tools.back();
+        layer.layer_index = int(i);
+        for (unsigned int tool : tools)
+            layer.extruders.push_back(tool + 1);
+    }
+    std::vector<unsigned int> first_order;
+    for (int id : config.first_layer_print_sequence.values)
+        if (id > 0 && std::find(tools.begin(), tools.end(), unsigned(id - 1)) != tools.end())
+            first_order.push_back(unsigned(id));
+    auto plan = [&] {
+        if (first_order.empty())
+            ordering.reorder_extruders(unsigned(-1));
+        else
+            ordering.reorder_extruders(std::move(first_order));
+    };
+    // Each starting tool has its own exact DP tables. Limit concurrent
+    // allocations on a cold preview while preserving the slicer's ordering.
+    const int concurrency = tbb::this_task_arena::max_concurrency();
+    int workers = concurrency;
+    if (tools.size() <= k_tsp_exact_max_extruders) {
+        constexpr size_t memory_budget = 256 * 1024 * 1024;
+        const size_t bytes_per_start = (size_t(1) << tools.size()) * tools.size() * (sizeof(float) + sizeof(int8_t));
+        workers = std::min(workers, int(std::max(size_t(1), memory_budget / bytes_per_start)));
+    }
+    if (workers < concurrency) {
+        tbb::task_arena arena(workers);
+        arena.execute(plan);
+    } else
+        plan();
+    std::vector<std::vector<unsigned int>> result;
+    result.reserve(layer_count);
+    for (auto& layer : ordering.m_layer_tools)
+        result.push_back(std::move(layer.extruders));
+    if (cache.size() == 4)
+        cache.erase(cache.begin());
+    cache.push_back({std::move(order_config), tools, result});
+    return result;
+}
+
 void ToolOrdering::reorder_extruders(unsigned int last_extruder_id)
 {
     if (m_layer_tools.empty())

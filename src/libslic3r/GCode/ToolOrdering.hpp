@@ -280,6 +280,11 @@ class ToolOrdering
 public:
     ToolOrdering() = default;
 
+    // Reuse the slicer ordering for a pre-slice stack with a known tool set.
+    // Tool IDs are zero-based. No model slicing or extrusion generation occurs.
+    static std::vector<std::vector<unsigned int>> preview_extruder_order(
+        const PrintConfig& config, const std::vector<unsigned int>& tools, size_t layer_count);
+
     // For the use case when each object is printed separately
     // (print->config().print_sequence == PrintSequence::ByObject is true).
     ToolOrdering(const PrintObject &object, unsigned int first_extruder, bool prime_multi_material = false);

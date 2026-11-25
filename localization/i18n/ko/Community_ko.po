@@ -1165,3 +1165,18 @@ msgstr "tutorial: %s"
 
 msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
 msgstr "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
+
+msgid "System presets for printers you have added"
+msgstr "추가한 프린터의 시스템 프리셋"
+
+msgid "Updates available"
+msgstr "업데이트 있음"
+
+msgid "No updates available"
+msgstr "사용 가능한 업데이트가 없습니다"
+
+msgid "Could not load online parameters"
+msgstr "온라인 매개변수를 불러올 수 없습니다"
+
+msgid "{label} ({count})"
+msgstr "{label} ({count})"

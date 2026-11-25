@@ -1034,7 +1034,7 @@ static std::vector<std::string> s_Preset_print_options {
     "inner_wall_line_width", "outer_wall_line_width", "sparse_infill_line_width", "internal_solid_infill_line_width", "external_infill_margin",
     "top_surface_line_width", "support_line_width", "infill_wall_overlap","top_bottom_infill_wall_overlap", "bridge_flow", "internal_bridge_flow",
     "elefant_foot_compensation", "elefant_foot_compensation_layers", "xy_contour_compensation", "xy_hole_compensation", "resolution", "enable_prime_tower",
-    "prime_tower_enhance_type","prime_tower_width","prime_tower_rib_wall","prime_tower_corner_rib_length","prime_tower_skip_points","prime_tower_enable_framework", "prime_tower_brim_width","prime_volume","skeleton_flush_slowdown_speed",
+    "prime_tower_enhance_type","prime_tower_width","prime_tower_rib_wall","prime_tower_corner_rib_length","prime_tower_fillet_wall","prime_tower_skip_points","prime_tower_enable_framework", "prime_tower_brim_width","prime_volume","skeleton_flush_slowdown_speed",
     "bottom_fill_flush_layers", "top_fill_flush_layers",
     "wipe_tower_no_sparse_layers", "compatible_printers", "compatible_printers_condition", "inherits",
     "flush_into_infill", "flush_into_objects", "flush_into_support", "flush_into_skeleton", "flush_into_solid_skeleton",
@@ -1079,7 +1079,7 @@ static std::vector<std::string> s_Preset_print_options {
 
 static std::vector<std::string> s_Preset_filament_options {
     /*"filament_colour", */ "default_filament_colour","required_nozzle_HRC","filament_diameter", "pellet_flow_coefficient", "filament_type", "filament_soluble", "filament_is_support", "filament_max_volumetric_speed", "filament_adhesiveness_category",
-    "filament_flow_ratio", "filament_density", "filament_cost", "filament_minimal_purge_on_wipe_tower", "filament_pre_flush_volume", "filament_pre_flush_speed_ratio",
+    "filament_flow_ratio", "filament_density", "filament_cost", "filament_minimal_purge_on_wipe_tower", "filament_pre_flush_volume", "filament_pre_flush_speed_ratio", "filament_pre_flush_tower_time", "filament_pre_flush_tower_volume",
     "nozzle_temperature", "nozzle_temperature_initial_layer","material_flow_dependent_temperature","material_flow_temp_graph",
     // BBS
     "cool_plate_temp", "eng_plate_temp", "hot_plate_temp", "textured_plate_temp", "cool_plate_temp_initial_layer", "eng_plate_temp_initial_layer", "hot_plate_temp_initial_layer","textured_plate_temp_initial_layer", "epoxy_resin_plate_temp","epoxy_resin_plate_temp_initial_layer", "customized_plate_temp","customized_plate_temp_initial_layer",

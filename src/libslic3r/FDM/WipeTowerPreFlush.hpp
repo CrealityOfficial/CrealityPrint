@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <stdexcept>
 #include <vector>
 
@@ -40,9 +41,12 @@ struct Parameters {
     double extra_flow = 1.;
     double spacing = 1.;
     double start_offset = 0.;
+    double coarse_width = 0.; // Optional override for idle-purge-only layouts.
     double pre_flush_volume = 0.;
     double wipe_volume = 0.;
     bool first_layer = false;
+    bool allow_fine_only = false;
+    bool complete_last_row = false;
 };
 
 struct Layout {
@@ -52,9 +56,12 @@ struct Layout {
     Point start;
     Point end;
     double coarse_volume = 0.;
+    double extruded_volume = 0.;
     double depth = 0.; // Extrusion footprint only; structural margins are added by the tower.
     double min_x = 0.;
     double max_x = 0.;
+    size_t prefix_move_count = 0;
+    double prefix_depth = 0.;
 };
 
 inline double coarse_base_width(double diameter)
@@ -70,7 +77,7 @@ inline double coarse_base_width(double diameter)
 inline Layout make_layout(const Parameters& p)
 {
     Layout result;
-    if (p.pre_flush_volume <= 0. || p.wipe_volume <= 0.)
+    if ((p.pre_flush_volume <= 0. && !p.allow_fine_only) || p.wipe_volume <= 0.)
         return result;
     if (!(p.layer_height > 0.) || !(p.filament_area > 0.) ||
         !(p.base_width > 0.) || !(p.spacing >= 1.))
@@ -78,7 +85,7 @@ inline Layout make_layout(const Parameters& p)
 
     const double cap = p.layer_height * (1. - std::acos(-1.) / 4.);
     const double fine_width = p.base_width * (p.first_layer ? 1. : p.extra_flow);
-    const double coarse_width = std::max(coarse_base_width(p.nozzle_diameter), fine_width);
+    const double coarse_width = std::max(p.coarse_width > 0. ? p.coarse_width : coarse_base_width(p.nozzle_diameter), fine_width);
     const double gap = p.first_layer ? 0. : fine_width * (p.spacing - 1.);
     const double coarse_gap =
         p.first_layer ? 0. : fine_width * (std::max(p.spacing, 1.2) - 1.);
@@ -100,14 +107,16 @@ inline Layout make_layout(const Parameters& p)
 
     const double total_e = p.wipe_volume / p.filament_area;
     // Share the existing tower purge budget, then convert volume to filament length.
-    const double coarse_volume = std::min(p.pre_flush_volume, p.wipe_volume);
+    const double coarse_volume = std::min(std::max(0., p.pre_flush_volume), p.wipe_volume);
     const double coarse_e = coarse_volume / p.filament_area;
     result.coarse_volume = coarse_volume;
-    Point current{result.coarse.left + std::min(std::max(0., p.start_offset),
-                     0.5 * (result.coarse.right - result.coarse.left)), coarse_width * 0.5};
+    const auto& initial = coarse_e > 0. ? result.coarse : result.fine;
+    const double initial_width = initial.e_per_mm * p.filament_area / p.layer_height + cap;
+    Point current{initial.left + std::min(std::max(0., p.start_offset),
+                     0.5 * (initial.right - initial.left)), initial_width * 0.5};
     result.start = current;
     double min_y = 0.;
-    double max_y = coarse_width;
+    double max_y = initial_width;
     result.min_x = p.tower_width;
     result.max_x = 0.;
 
@@ -126,6 +135,7 @@ inline Layout make_layout(const Parameters& p)
         // The first-layer fine flow boost changes its deposited footprint too.
         const double actual_width = g.e_per_mm * p.filament_area / p.layer_height + cap;
         result.moves.push_back(Move{current, actual, e, actual_width, coarse});
+        result.extruded_volume += e * p.filament_area;
         min_y = std::min(min_y, std::min(current.y, actual.y) - actual_width * 0.5);
         max_y = std::max(max_y, std::max(current.y, actual.y) + actual_width * 0.5);
         result.min_x = std::min(result.min_x, std::min(current.x, actual.x) - actual_width * 0.5);
@@ -153,17 +163,20 @@ inline Layout make_layout(const Parameters& p)
     }
 
     double fine_e = std::max(0., total_e - coarse_e);
-    if (fine_e > 0.) {
+    const bool coarse_reached_edge = std::abs(current.x - (left_to_right ? result.coarse.right : result.coarse.left)) <= 1e-12;
+    // A timed wipe may exhaust its entire target in the coarse phase. Use
+    // fine extrusion to complete the row without increasing the coarse budget.
+    if (fine_e > 0. || (p.complete_last_row && (coarse_ended_in_turn || !coarse_reached_edge))) {
         const double fine_footprint_width = result.fine.e_per_mm * p.filament_area / p.layer_height + cap;
         const double mixed_row_pitch = 0.5 * (std::max(coarse_width, fine_footprint_width) +
                                                    fine_footprint_width) + gap;
-        bool mixed_row = true;
+        bool mixed_row = coarse_e > 0.;
         if (coarse_ended_in_turn) {
             // Finish a partially extruded turn before traversing the next row.
             append(Point{current.x, std::max(turn_y, coarse_row_y + mixed_row_pitch)},
                    fine_e, result.fine, false);
             mixed_row = false;
-        } else if (std::abs(current.x - (left_to_right ? result.coarse.right : result.coarse.left)) <= 1e-12) {
+        } else if (coarse_reached_edge) {
             // A complete coarse row already reaches the wall; do not add a
             // short fine extension just because fine center bounds are wider.
             append(Point{current.x, current.y + mixed_row_pitch}, fine_e, result.fine, false);
@@ -196,6 +209,40 @@ inline Layout make_layout(const Parameters& p)
     result.end = current;
     result.depth = max_y - min_y;
     return result;
+}
+
+// Mark the virtual volume inside one continuous wipe. Splitting a move only
+// adds an accounting boundary; position, line width and speed phase continue.
+inline void mark_prefix(Layout& layout, double volume, double filament_area)
+{
+    if (!(filament_area > 0.) || volume < 0.)
+        throw std::invalid_argument("Invalid virtual purge volume.");
+    double remaining = volume / filament_area;
+    layout.prefix_move_count = 0;
+    layout.prefix_depth = 0.;
+    const double tolerance = 1e-10 * std::max(1., remaining);
+    for (size_t i = 0; i < layout.moves.size() && remaining > tolerance; ++i) {
+        Move& move = layout.moves[i];
+        if (move.filament_length > remaining + tolerance) {
+            Move tail = move;
+            const double ratio = remaining / move.filament_length;
+            const Point boundary{move.from.x + (move.to.x - move.from.x) * ratio,
+                                 move.from.y + (move.to.y - move.from.y) * ratio};
+            tail.from = boundary;
+            tail.filament_length -= remaining;
+            move.to = boundary;
+            move.filament_length = remaining;
+            layout.moves.insert(layout.moves.begin() + i + 1, tail);
+        }
+        // Insertion may have invalidated the reference above.
+        const Move& prefix_move = layout.moves[i];
+        remaining -= prefix_move.filament_length;
+        layout.prefix_move_count = i + 1;
+        layout.prefix_depth = std::max(layout.prefix_depth,
+            std::max(prefix_move.from.y, prefix_move.to.y) + prefix_move.width * .5);
+    }
+    if (remaining > tolerance)
+        throw std::invalid_argument("Virtual purge exceeds the planned wipe volume.");
 }
 
 inline Point place(const Layout& layout, Point point, double tower_width,

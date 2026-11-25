@@ -956,16 +956,14 @@ WXLRESULT MainFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam
             const LONG work_width = work_area.right - work_area.left;
             const LONG work_height = work_area.bottom - work_area.top;
 
-            // The maximized outer rectangle is exactly the current monitor's work area.
-            // Keep the maximum tracking size in sync as wxWidgets may have initialized it
-            // from the primary monitor, which clips the client layout on a larger secondary
-            // monitor when using the custom captionless frame.
+            // Maximize to this monitor's work area. Windows also applies the
+            // tracking limits when restoring a normal window, which may span monitors.
             min_max_info->ptMaxPosition.x = work_area.left - monitor_area.left;
             min_max_info->ptMaxPosition.y = work_area.top - monitor_area.top;
             min_max_info->ptMaxSize.x = work_width;
             min_max_info->ptMaxSize.y = work_height;
-            min_max_info->ptMaxTrackSize.x = work_width;
-            min_max_info->ptMaxTrackSize.y = work_height;
+            min_max_info->ptMaxTrackSize.x = std::max(min_max_info->ptMaxTrackSize.x, work_width);
+            min_max_info->ptMaxTrackSize.y = std::max(min_max_info->ptMaxTrackSize.y, work_height);
 
             // Enforce the current toolbar width during native edge dragging too:
             // deferred move/DPI handlers may not have refreshed wx size hints yet.

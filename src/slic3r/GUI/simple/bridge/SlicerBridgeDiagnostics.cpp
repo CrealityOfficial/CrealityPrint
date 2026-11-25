@@ -171,6 +171,11 @@ json BuildCurrentPlateValidationSnapshot(Plater* plater, bool model_fits, bool v
     const int plate_index = plate_list.get_curr_plate_index();
     const int plate_count = plate_list.get_plate_count();
     snapshot["plate_index"] = plate_index;
+    if (plater->is_tower_validation_pending()) {
+        snapshot["validate_error"] = false;
+        snapshot["reason"] = "validation_pending";
+        return snapshot;
+    }
     if (plate_count <= 0 || plate_index < 0 || plate_index >= plate_count) {
         snapshot["reason"] = "plate_unavailable";
         return snapshot;

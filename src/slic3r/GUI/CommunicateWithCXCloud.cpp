@@ -1,6 +1,9 @@
 #include "CommunicateWithCXCloud.hpp"
 #include "libslic3r/PresetSyncUtils.hpp"
 #include <mutex>
+#include <sstream>
+#include <curl/curl.h>
+#include <boost/algorithm/string.hpp>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -130,19 +133,65 @@ void CXCloudDataCenter::resetUpdateConfigFileTime() { m_llUpdateConfigFileTimest
 
 bool CXCloudDataCenter::isNetworkErrorRetryTimeout()
 {
-    long long now      = Slic3r::Utils::get_current_time_utc();
-    long long timediff = now - m_llNetworkErrorRetryTimestamp;
-    if (timediff >= 5 * 60 * 60) {
-        return true;
-    }
-    return false;
+    const auto elapsed = Slic3r::Utils::get_current_time_utc() - m_llNetworkErrorRetryTimestamp;
+    return elapsed >= m_networkErrorRetryDelaySeconds;
 }
 
-void CXCloudDataCenter::resetNetworkErrorRetryTime() { m_llNetworkErrorRetryTimestamp = Slic3r::Utils::get_current_time_utc(); }
+void CXCloudDataCenter::resetNetworkErrorRetryTime(long long retry_after_seconds)
+{
+    // Fallback when the service supplies no Retry-After: 60s, 120s, 240s, then 300s.
+    m_networkErrorRetryBackoffSeconds = m_networkErrorRetryBackoffSeconds == 0 ? 60 :
+        std::min(2 * m_networkErrorRetryBackoffSeconds, 300LL);
+    m_networkErrorRetryDelaySeconds = std::max(m_networkErrorRetryBackoffSeconds, retry_after_seconds);
+    m_llNetworkErrorRetryTimestamp = Slic3r::Utils::get_current_time_utc();
+    BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets retry deferred seconds=" << m_networkErrorRetryDelaySeconds;
+}
 
 bool CXCloudDataCenter::isNetworkError() { return m_bNetworkError; }
 
-void CXCloudDataCenter::setNetworkError(bool bError) { m_bNetworkError = bError; }
+void CXCloudDataCenter::setNetworkError(bool bError)
+{
+    m_bNetworkError = bError;
+    if (!bError) {
+        m_networkErrorRetryDelaySeconds = 0;
+        m_networkErrorRetryBackoffSeconds = 0;
+    }
+}
+
+static long long preset_sync_retry_after(const std::string& headers)
+{
+    // Http supplies the accumulated header block, not just the latest line.
+    std::istringstream stream(headers);
+    std::string line;
+    long long retry_after = 0;
+    while (std::getline(stream, line)) {
+        const auto colon = line.find(':');
+        if (colon == std::string::npos || !boost::iequals(line.substr(0, colon), "Retry-After"))
+            continue;
+        const std::string value = boost::trim_copy(line.substr(colon + 1));
+        long long seconds = 0;
+        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), seconds);
+        if (parsed.ec == std::errc() && parsed.ptr == value.data() + value.size() && seconds >= 0) {
+            retry_after = std::max(retry_after, seconds);
+        } else {
+            const auto date = curl_getdate(value.c_str(), nullptr);
+            if (date >= 0)
+                retry_after = std::max(retry_after, static_cast<long long>(date) - Slic3r::Utils::get_current_time_utc());
+        }
+    }
+    return retry_after;
+}
+
+static bool defer_limited_preset_sync(int code, long long retry_after_seconds)
+{
+    if (code != 1088 && code != 429)
+        return false;
+    auto& cloud = CXCloudDataCenter::getInstance();
+    cloud.setNetworkError(true);
+    cloud.resetNetworkErrorRetryTime(retry_after_seconds);
+    BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets rate limited code=" << code;
+    return true;
+}
 
 void CXCloudDataCenter::setConfigFileRetInfo(const PreUpdateProfileRetInfo& retInfo) { m_configFileRetInfo = retInfo; }
 const PreUpdateProfileRetInfo& CXCloudDataCenter::getConfigFileRetInfo() { return m_configFileRetInfo; }
@@ -162,7 +211,7 @@ void CXCloudDataCenter::setTokenInvalid(bool bTokenValid/* = false*/)
     m_cxCloudLoginInfoMutex.lock();
     m_cxCloudLoginInfo.tokenValid = bTokenValid;
     if (bTokenValid) {
-        m_bNetworkError = false;
+        setNetworkError(false);
     }
     m_cxCloudLoginInfoMutex.unlock();
 }
@@ -575,6 +624,7 @@ int CommunicateWithCXCloud::downloadUserPreset(const UserProfileListItem& userPr
 int CommunicateWithCXCloud::preUpdateProfile_create(const UploadFileInfo& fileInfo, PreUpdateProfileRetInfo& retInfo)
 {
     int nRet = -1;
+    long long retry_after_seconds = 0;
 
     std::string base_url = get_cloud_api_url();
     std::string new_setting_id;
@@ -591,8 +641,8 @@ int CommunicateWithCXCloud::preUpdateProfile_create(const UploadFileInfo& fileIn
         .timeout_connect(5)
         .timeout_max(15)
         .set_post_body(j.dump())
+        .on_header_callback([&](std::string header) { retry_after_seconds = std::max(retry_after_seconds, preset_sync_retry_after(header)); })
         .on_complete([&](std::string body, unsigned status) {
-            CXCloudDataCenter::getInstance().setNetworkError(false);
             json j;
             try {
                 j = json::parse(body);
@@ -601,6 +651,8 @@ int CommunicateWithCXCloud::preUpdateProfile_create(const UploadFileInfo& fileIn
                 return;
             }
             if (j["code"] != 0) {
+                if (defer_limited_preset_sync(j["code"].get<int>(), retry_after_seconds))
+                    nRet = j["code"].get<int>();
                 if (j["code"].get<int>() == 4) {
                     CXCloudDataCenter::getInstance().setTokenInvalid();
                     BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud preUpdateProfile_create fail.code=" << j["code"];
@@ -625,10 +677,18 @@ int CommunicateWithCXCloud::preUpdateProfile_create(const UploadFileInfo& fileIn
                 .form_add("Key", Key)
                 .form_add("Callback", Callback)
                 .form_add_file("File", fileInfo.file, fileInfo.name)
+                .on_header_callback([&](std::string header) { retry_after_seconds = std::max(retry_after_seconds, preset_sync_retry_after(header)); })
                 .timeout_connect(5)
                 .timeout_max(15)
-                .on_complete([&](std::string body, unsigned status) { auto ifs = fileInfo.file; })
+                .on_complete([&](std::string body, unsigned status) {
+                    nRet = 0;
+                    CXCloudDataCenter::getInstance().setNetworkError(false);
+                })
                 .on_error([&](std::string body, std::string error, unsigned status) {
+                    if (defer_limited_preset_sync(static_cast<int>(status), retry_after_seconds)) {
+                        nRet = static_cast<int>(status);
+                        return;
+                    }
                     nRet       = 0;
                     //updated_info = "hold";
                     retInfo.updatedInfo = "hold";
@@ -640,6 +700,10 @@ int CommunicateWithCXCloud::preUpdateProfile_create(const UploadFileInfo& fileIn
                 .perform_sync();
         })
         .on_error([&](std::string body, std::string error, unsigned status) {
+            if (defer_limited_preset_sync(static_cast<int>(status), retry_after_seconds)) {
+                nRet = static_cast<int>(status);
+                return;
+            }
             BOOST_LOG_TRIVIAL(error) << "CommunicateWithCXCloud preUpdateProfile_create fail.err=" << error << ",status=" << status;
             CXCloudDataCenter::getInstance().setNetworkError(true);
             CXCloudDataCenter::getInstance().resetNetworkErrorRetryTime();
@@ -649,7 +713,12 @@ int CommunicateWithCXCloud::preUpdateProfile_create(const UploadFileInfo& fileIn
         })
         .perform_sync();
     if (!new_setting_id.empty()) {
-        nRet                 = 0;
+        // The API may have allocated an ID before OSS throttled the file upload.
+        // Retain that ID and retry as an update, rather than creating it again.
+        if (nRet == 429 || nRet == 1088)
+            retInfo.updatedInfo = "update";
+        else
+            nRet = 0;
         retInfo.name      = fileInfo.name;
         retInfo.settingId = new_setting_id;
         //auto update_time_str = values_map[BBL_JSON_KEY_UPDATE_TIME];
@@ -662,6 +731,7 @@ int CommunicateWithCXCloud::preUpdateProfile_create(const UploadFileInfo& fileIn
 int CommunicateWithCXCloud::preUpdateProfile_update(const UploadFileInfo& fileInfo, PreUpdateProfileRetInfo& retInfo)
 { 
     int nRet = -1;
+    long long retry_after_seconds = 0;
 
     std::string version_type          = get_vertion_type();
     std::string base_url              = get_cloud_api_url();
@@ -677,8 +747,8 @@ int CommunicateWithCXCloud::preUpdateProfile_update(const UploadFileInfo& fileIn
         .timeout_connect(5)
         .timeout_max(15)
         .set_post_body(j.dump())
+        .on_header_callback([&](std::string header) { retry_after_seconds = std::max(retry_after_seconds, preset_sync_retry_after(header)); })
         .on_complete([&](std::string body, unsigned status) {
-            CXCloudDataCenter::getInstance().setNetworkError(false);
             json j = json();
             try {
                 j = json::parse(body);
@@ -687,6 +757,8 @@ int CommunicateWithCXCloud::preUpdateProfile_update(const UploadFileInfo& fileIn
                 return;
             }
             if (j["code"] != 0) {
+                if (defer_limited_preset_sync(j["code"].get<int>(), retry_after_seconds))
+                    nRet = j["code"].get<int>();
                 if (j["code"].get<int>() == 4) {
                     CXCloudDataCenter::getInstance().setTokenInvalid();
                     BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud preUpdateProfile_update fail.code=" << j["code"];
@@ -713,12 +785,18 @@ int CommunicateWithCXCloud::preUpdateProfile_update(const UploadFileInfo& fileIn
                 .form_add("Key", Key)
                 .form_add("Callback", Callback)
                 .form_add_file("File", fileInfo.file, fileInfo.name)
+                .on_header_callback([&](std::string header) { retry_after_seconds = std::max(retry_after_seconds, preset_sync_retry_after(header)); })
                 .timeout_connect(5)
                 .timeout_max(15)
                 .on_complete([&](std::string body, unsigned status) {
                     nRet = 0;
+                    CXCloudDataCenter::getInstance().setNetworkError(false);
                 })
                 .on_error([&](std::string body, std::string error, unsigned status) {
+                    if (defer_limited_preset_sync(static_cast<int>(status), retry_after_seconds)) {
+                        nRet = static_cast<int>(status);
+                        return;
+                    }
                     nRet       = 21;
                     retInfo.updatedInfo = "hold";
                     BOOST_LOG_TRIVIAL(error) << "CommunicateWithCXCloud preUpdateProfile_update post host fail.err=" << error << ",status=" << status;
@@ -729,6 +807,10 @@ int CommunicateWithCXCloud::preUpdateProfile_update(const UploadFileInfo& fileIn
                 .perform_sync();
         })
         .on_error([&](std::string body, std::string error, unsigned status) {
+            if (defer_limited_preset_sync(static_cast<int>(status), retry_after_seconds)) {
+                nRet = static_cast<int>(status);
+                return;
+            }
             nRet       = 1;
             retInfo.updatedInfo = "hold";
             BOOST_LOG_TRIVIAL(error) << "CommunicateWithCXCloud preUpdateProfile_update fail.err=" << error << ",status=" << status;
@@ -746,6 +828,7 @@ int CommunicateWithCXCloud::preUpdateProfile_update(const UploadFileInfo& fileIn
 int CommunicateWithCXCloud::deleteProfile(const std::string& ssDeleteSettingId)
 {
     int nRet = -1;
+    long long retry_after_seconds = 0;
     if (ssDeleteSettingId.empty())
         return nRet;
     std::string del_setting_id = ssDeleteSettingId;
@@ -762,8 +845,8 @@ int CommunicateWithCXCloud::deleteProfile(const std::string& ssDeleteSettingId)
         .timeout_connect(5)
         .timeout_max(15)
         .set_post_body(j.dump())
+        .on_header_callback([&](std::string header) { retry_after_seconds = std::max(retry_after_seconds, preset_sync_retry_after(header)); })
         .on_complete([&](std::string body, unsigned status) {
-            CXCloudDataCenter::getInstance().setNetworkError(false);
             json j;
             try {
                 j = json::parse(body);
@@ -773,9 +856,12 @@ int CommunicateWithCXCloud::deleteProfile(const std::string& ssDeleteSettingId)
             }
             if (j["code"] == 0) {
                 nRet = 0;
+                CXCloudDataCenter::getInstance().setNetworkError(false);
 
                 BOOST_LOG_TRIVIAL(trace) << "sync_preset: sync operation: delete success! setting id = " << del_setting_id;
             } else {
+                if (defer_limited_preset_sync(j["code"].get<int>(), retry_after_seconds))
+                    nRet = j["code"].get<int>();
                 if (j["code"].get<int>() == 4) {
                     CXCloudDataCenter::getInstance().setTokenInvalid();
                     BOOST_LOG_TRIVIAL(error) << "SyncUserPresets CommunicateWithCXCloud deleteProfile fail.code=" << j["code"];
@@ -784,6 +870,10 @@ int CommunicateWithCXCloud::deleteProfile(const std::string& ssDeleteSettingId)
             }
         })
         .on_error([&](std::string body, std::string error, unsigned status) {
+            if (defer_limited_preset_sync(static_cast<int>(status), retry_after_seconds)) {
+                nRet = static_cast<int>(status);
+                return;
+            }
             BOOST_LOG_TRIVIAL(error) << "CommunicateWithCXCloud deleteProfile fail.err=" << error << ",status=" << status;
             CXCloudDataCenter::getInstance().setNetworkError(true);
             CXCloudDataCenter::getInstance().resetNetworkErrorRetryTime();

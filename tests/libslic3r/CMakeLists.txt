@@ -22,6 +22,7 @@ add_executable(${_TEST_NAME}_tests
 	test_preset_config_cache.cpp
 	test_preset_normalize.cpp
 	test_prime_tower_options.cpp
+	test_wipe_tower_timing.cpp
 	test_project_variant_restore.cpp
 	test_preset_project_reset.cpp
 	test_live_profile_update.cpp

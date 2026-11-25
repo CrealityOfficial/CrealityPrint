@@ -1269,6 +1269,9 @@ void PrinterMgrView::OnScriptMessage(wxWebViewEvent& evt)
             commandJson["command"] = "send_print_cmd";
             commandJson["data"] = j["data"].dump(-1, ' ', true);
             ExecuteScriptCommand(RemotePrint::Utils::url_encode(commandJson.dump(-1, ' ', true)));
+        }else if (strCmd == "download_device_log")
+        {
+            startDeviceLogDownload(j);
         }else if(strCmd == "down_files")
         {
             std::string address = j.value("address", "");
@@ -1797,6 +1800,120 @@ std::string getFileNameFromURL(const std::string& url) {
     }
  
     return fileName;
+}
+
+void PrinterMgrView::startDeviceLogDownload(const nlohmann::json& request)
+{
+    const DeviceWebViewHandle weak_browser = make_device_webview_handle(m_browser);
+    const std::string request_id = json_string_value(request, "requestId");
+    const std::string url = json_string_value(request, "url");
+    const std::string filename = filterInvalidFileNameChars(json_string_value(request, "name"));
+    const auto terminal_sent = std::make_shared<std::atomic<bool>>(false);
+    auto send_result = [weak_browser, request_id, terminal_sent](
+                           const std::string& status, const std::string& error_code,
+                           unsigned status_code, const std::string& path) {
+        if (terminal_sent->exchange(true, std::memory_order_acq_rel))
+            return;
+        post_device_webview_command(weak_browser, "device_log_download_result", {
+            {"requestId", request_id}, {"status", status}, {"errorCode", error_code},
+            {"statusCode", status_code}, {"path", path}
+        });
+    };
+    auto send_progress = [weak_browser, request_id, terminal_sent](int progress) {
+        if (terminal_sent->load(std::memory_order_acquire))
+            return;
+        post_device_webview_command(weak_browser, "device_log_download_progress", {
+            {"requestId", request_id}, {"progress", progress}
+        });
+    };
+
+    if (request_id.empty() || filename.empty() || filename == "." || filename == ".." ||
+        (!boost::algorithm::istarts_with(url, "http://") && !boost::algorithm::istarts_with(url, "https://"))) {
+        send_result("failed", "invalid_request", 0, "");
+        return;
+    }
+    wxDirDialog dialog(this, _L("Please Select"), "", wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+    if (dialog.ShowModal() != wxID_OK) {
+        send_result("cancelled", "", 0, "");
+        return;
+    }
+    const fs::path target_path = into_path(dialog.GetPath()) / into_path(from_u8(filename));
+    const std::string saved_path = into_u8(dialog.GetPath()) + "/" + filename;
+    if (fs::exists(target_path)) {
+        MessageDialog overwrite_dialog(this,
+            wxString::Format(_L("A file exists with the same name: %s, do you want to override it."), from_u8(filename)),
+            _L("Overwrite file"), wxYES_NO | wxNO_DEFAULT);
+        if (overwrite_dialog.ShowModal() != wxID_YES) {
+            send_result("cancelled", "", 0, "");
+            return;
+        }
+    }
+
+    send_progress(0);
+    // Only the lifetime-checked webview handle crosses into the worker thread.
+    // Transfer progress never reports success; the result follows file close/rename.
+    boost::thread download_thread = Slic3r::create_thread([url, target_path, saved_path, request_id, send_progress, send_result] {
+        fs::path tmp_path = target_path;
+        tmp_path += "." + filterInvalidFileNameChars(request_id) + ".download";
+        auto remove_partial = [&tmp_path] {
+            boost::system::error_code ignored;
+            fs::remove(tmp_path, ignored);
+        };
+        try {
+            auto http = Http::get(url);
+            http.timeout_max(600);
+            if (boost::algorithm::istarts_with(url, "https://")) {
+                http.ca_file(Slic3r::resources_dir() + "/cert/ca.crt")
+                    .ssl_verify_peer(true).ssl_verify_host(false).ssl_ignore_certificate_time(true);
+            }
+            int last_percent = -1;
+            http.on_progress([&last_percent, send_progress](Http::Progress progress, bool&) {
+                if (progress.dltotal <= 0)
+                    return;
+                const int percent = static_cast<int>(std::max(0.0, std::min(99.0,
+                    static_cast<double>(progress.dlnow) * 100.0 / static_cast<double>(progress.dltotal))));
+                if (percent != last_percent) {
+                    last_percent = percent;
+                    send_progress(percent);
+                }
+            }).on_error([send_result](std::string, std::string error, unsigned status) {
+                BOOST_LOG_TRIVIAL(error) << "Log download failed: HTTP " << status << ", " << error;
+                send_result("failed", status ? "http_error" : "network_error", status, "");
+            }).on_complete([tmp_path, target_path, saved_path, send_result, remove_partial](std::string body, unsigned status) {
+                if (status != 200) {
+                    send_result("failed", "http_error", status, "");
+                    return;
+                }
+                try {
+                    fs::fstream file(tmp_path, std::ios::out | std::ios::binary | std::ios::trunc);
+                    if (!file.is_open()) {
+                        send_result("failed", "file_write_failed", status, "");
+                        return;
+                    }
+                    file.write(body.data(), static_cast<std::streamsize>(body.size()));
+                    file.close();
+                    if (file.fail()) {
+                        remove_partial();
+                        send_result("failed", "file_write_failed", status, "");
+                        return;
+                    }
+                    if (fs::exists(target_path))
+                        fs::remove(target_path);
+                    fs::rename(tmp_path, target_path);
+                    send_result("success", "", status, saved_path);
+                } catch (const std::exception& error) {
+                    remove_partial();
+                    BOOST_LOG_TRIVIAL(error) << "Saving log archive failed: " << error.what();
+                    send_result("failed", "file_write_failed", status, "");
+                }
+            }).perform_sync();
+        } catch (const std::exception& error) {
+            remove_partial();
+            BOOST_LOG_TRIVIAL(error) << "Log download failed: " << error.what();
+            send_result("failed", "download_failed", 0, "");
+        }
+    });
+    download_thread.detach();
 }
 
 void PrinterMgrView::down_files(const std::string& address, bool secureConnection, const std::vector<DownloadItem>& download_items, std::string savePath, std::string path_type )

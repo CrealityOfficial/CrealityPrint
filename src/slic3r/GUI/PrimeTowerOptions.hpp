@@ -154,20 +154,6 @@ inline bool apply_prime_tower_user_change(DynamicPrintConfig& config, bool enabl
     return true;
 }
 
-// Purge-in-tower belongs to the printer preset, so its system baseline must
-// come from the printer collection rather than the process or imported project.
-inline void apply_prime_tower_printer_user_change(DynamicPrintConfig& printer, bool enabled,
-                                                 bool link_no_tower_options, bool smooth_timelapse,
-                                                 const DynamicPrintConfig& system_printer)
-{
-    if (!link_no_tower_options || smooth_timelapse || !printer.has("purge_in_prime_tower"))
-        return;
-    if (!enabled)
-        printer.set_key_value("purge_in_prime_tower", new ConfigOptionBool(false));
-    else if (const auto* value = system_printer.option<ConfigOptionBool>("purge_in_prime_tower"))
-        printer.set_key_value("purge_in_prime_tower", value->clone());
-}
-
 // Restore only values still owned by a mode toggle, preserving later user edits.
 class LinkedOptionBackup
 {

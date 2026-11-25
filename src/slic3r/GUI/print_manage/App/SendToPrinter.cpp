@@ -194,6 +194,15 @@ CxSentToPrinterDialog::CxSentToPrinterDialog(Plater *plater,
     }
 #if defined(__linux__)
     WebView::ConfigureHardwareAccelerationForMjpeg(m_browser);
+    // UOS can reserve Ctrl+Alt+D for dictation. F12 also enables the page's context menu.
+    m_browser->AddUserScript(R"JS(
+        window.addEventListener('keydown', function (event) {
+            if (event.key === 'F12') {
+                event.preventDefault();
+                window.oncontextmenu = null;
+            }
+        });
+    )JS");
 #endif
 
     bind_events();

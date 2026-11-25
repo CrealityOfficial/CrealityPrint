@@ -183,6 +183,7 @@ private:
 
     void calc_print_time();
     void process_moves(const std::vector<PlanMove>& moves);
+    void validate_move_time(double next_print_time) const;
     void update_move_time(double next_print_time);
     void flush_step_generation();
 

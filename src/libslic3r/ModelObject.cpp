@@ -819,26 +819,36 @@ void ModelObject::center_around_origin(bool include_modifiers)
 
 void ModelObject::ensure_on_bed(bool allow_negative_z)
 {
+    const auto first = std::find_if(instances.begin(), instances.end(), [](const ModelInstance* instance) {
+        return instance->auto_drop;
+    });
+    if (first == instances.end())
+        return;
+
+    // Keep the relative placement of the instances that are being dropped.
+    const size_t ref = size_t(first - instances.begin());
+    const double min_z = ref == 0 ? this->min_z() : get_instance_min_z(ref);
     double z_offset = 0.0;
 
     if (allow_negative_z) {
+        const double max_z = ref == 0 ? this->max_z() : get_instance_max_z(ref);
         if (parts_count() == 1) {
-            const double min_z = this->min_z();
-            const double max_z = this->max_z();
             if (min_z >= SINKING_Z_THRESHOLD || max_z < 0.0)
                 z_offset = -min_z;
         }
         else {
-            const double max_z = this->max_z();
             if (max_z < SINKING_MIN_Z_THRESHOLD)
                 z_offset = SINKING_MIN_Z_THRESHOLD - max_z;
         }
     }
     else
-        z_offset = -this->min_z();
+        z_offset = -min_z;
 
-    if (z_offset != 0.0)
-        translate_instances(z_offset * Vec3d::UnitZ());
+    if (z_offset != 0.0) {
+        for (size_t i = ref; i < instances.size(); ++i)
+            if (instances[i]->auto_drop)
+                translate_instance(i, z_offset * Vec3d::UnitZ());
+    }
 }
 
 void ModelObject::translate_instances(const Vec3d& vector)

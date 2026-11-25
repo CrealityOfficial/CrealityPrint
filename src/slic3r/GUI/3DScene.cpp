@@ -1414,85 +1414,34 @@ void GLVolumeCollection::load_object_auxiliary(
 }
 
 int GLVolumeCollection::load_wipe_tower_preview(
-    int obj_idx, float pos_x, float pos_y, float width, float depth, float height,
-    float rotation_angle, bool size_unknown, float brim_width)
+    int obj_idx, float pos_x, float pos_y, const WipeTowerPreview& preview, float rotation_angle)
 {
-    int plate_idx = obj_idx - 1000;
-
-    if (depth < 0.01f)
+    if (preview.tower_mesh.empty())
         return int(this->volumes.size() - 1);
-    if (height == 0.0f)
-        height = 0.1f;
-
-    std::vector<ColorRGBA> extruder_colors = get_extruders_colors();
-    std::vector<ColorRGBA> colors;
-    GUI::PartPlateList& ppl = GUI::wxGetApp().plater()->get_partplate_list();
-    std::vector<int> plate_extruders = ppl.get_plate(plate_idx)->get_extruders(true);
-
-    // Resolve mixed (virtual) filament IDs to physical extruders for color display.
-    // A mixed filament's blended color should not be used; instead, show the
-    // component physical extruder colors on the wipe tower preview.
-    {
-        std::set<int> physical_extruder_set;
-        size_t num_physical = Slic3r::GUI::wxGetApp().preset_bundle->filament_presets.size();
-        const auto& mixed_mgr = Slic3r::GUI::wxGetApp().preset_bundle->mixed_filaments;
-        for (int eid : plate_extruders) {
-            if (eid >= 1 && eid <= (int) num_physical) {
-                physical_extruder_set.insert(eid);
-                continue;
-            }
-            const MixedFilament* mf = mixed_mgr.mixed_filament_from_id(unsigned(eid), num_physical);
-            if (mf == nullptr)
-                continue;
-            if (mf->component_a >= 1 && mf->component_a <= num_physical)
-                physical_extruder_set.insert((int) mf->component_a);
-            if (mf->component_b >= 1 && mf->component_b <= num_physical)
-                physical_extruder_set.insert((int) mf->component_b);
-            auto append_direct_ids = [&physical_extruder_set, num_physical](const std::string& ids) {
-                for (char c : ids) {
-                    if (c >= '1' && c <= '9') {
-                        unsigned comp = unsigned(c - '0');
-                        if (comp >= 1 && comp <= num_physical)
-                            physical_extruder_set.insert((int) comp);
-                    }
-                }
-            };
-            append_direct_ids(mf->gradient_component_ids);
-            append_direct_ids(mf->manual_pattern);
-        }
-        if (!physical_extruder_set.empty())
-            plate_extruders.assign(physical_extruder_set.begin(), physical_extruder_set.end());
-    }
-
-    TriangleMesh wipe_tower_shell = make_cube(width, depth, height);
-    for (int extruder_id : plate_extruders) {
-        if (extruder_id <= extruder_colors.size())
-            colors.push_back(extruder_colors[extruder_id - 1]);
-        else
-            colors.push_back(extruder_colors[0]);
-    }
-
-    // Orca: make it transparent
-    for(auto& color : colors)
-        color.a(0.66f);
-    volumes.emplace_back(new GLWipeTowerVolume(colors));
-    GLWipeTowerVolume& v = *dynamic_cast<GLWipeTowerVolume*>(volumes.back());
-    v.model_per_colors.resize(colors.size());
-    for (int i = 0; i < colors.size(); i++) {
-        TriangleMesh color_part = make_cube(width, depth / colors.size(), height);
-        color_part.translate({ 0.f, depth * i / colors.size(), 0. });
-        v.model_per_colors[i].init_from(color_part);
-    }
-    v.model.init_from(wipe_tower_shell);
-    v.mesh_raycaster = std::make_shared<GUI::MeshRaycaster>(std::make_shared<const TriangleMesh>(wipe_tower_shell));
-    v.set_convex_hull(wipe_tower_shell);
-    v.set_volume_offset(Vec3d(pos_x, pos_y, 0.0));
-    v.set_volume_rotation(Vec3d(0., 0., (M_PI / 180.) * rotation_angle));
+    const int plate_idx = obj_idx - 1000;
+    const auto extruder_colors = get_extruders_colors();
+    const auto plate_extruders = GUI::wxGetApp().plater()->get_partplate_list().get_plate(plate_idx)->get_extruders(true);
+    if (extruder_colors.empty())
+        return int(this->volumes.size() - 1);
+    const int first_tool = plate_extruders.empty() ? 1 : plate_extruders.front();
+    ColorRGBA color = extruder_colors[first_tool > 0 && size_t(first_tool) <= extruder_colors.size() ? first_tool - 1 : 0];
+    color.a(0.66f);
+    TriangleMesh mesh = preview.tower_mesh;
+    mesh.merge(preview.brim_mesh);
+    volumes.emplace_back(new GLWipeTowerVolume({color}));
+    GLWipeTowerVolume& v = *static_cast<GLWipeTowerVolume*>(volumes.back());
+    v.model_per_colors.resize(1);
+    v.model_per_colors.front().init_from(mesh);
+    v.model.init_from(mesh);
+    v.mesh_raycaster = std::make_shared<GUI::MeshRaycaster>(std::make_shared<const TriangleMesh>(mesh));
+    v.set_convex_hull(mesh.convex_hull_3d());
+    v.set_volume_offset(Vec3d(pos_x, pos_y, 0.));
+    v.set_volume_rotation(Vec3d(0., 0., Geometry::deg2rad(rotation_angle)));
     v.composite_id = GLVolume::CompositeID(obj_idx, 0, 0);
     v.geometry_id.first = 0;
-    v.geometry_id.second = wipe_tower_instance_id().id + (obj_idx - 1000);
+    v.geometry_id.second = wipe_tower_instance_id().id + plate_idx;
     v.is_wipe_tower = true;
-    v.shader_outside_printer_detection_enabled = !size_unknown;
+    v.shader_outside_printer_detection_enabled = true;
     return int(volumes.size() - 1);
 }
 
@@ -1545,6 +1494,7 @@ int GLVolumeCollection::load_real_wipe_tower_preview(int                 obj_idx
     v.geometry_id.first                        = 0;
     v.geometry_id.second                       = wipe_tower_instance_id().id + (obj_idx - 1000);
     v.is_wipe_tower                            = true;
+    v.is_sliced                                 = true;
     v.shader_outside_printer_detection_enabled = !size_unknown;
     return int(volumes.size() - 1);
 }

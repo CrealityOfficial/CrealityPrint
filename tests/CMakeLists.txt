@@ -87,3 +87,6 @@ if (WIN32)
 endif()
 add_test(NAME websocket_read_limit_tests COMMAND websocket_read_limit_tests)
 set_tests_properties(websocket_read_limit_tests PROPERTIES TIMEOUT 30)
+
+# Standalone motion-simulator regressions, including invalid-time termination.
+add_subdirectory(klipper_sim)

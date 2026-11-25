@@ -1178,6 +1178,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     
     //creality defined prime tower settings
     toggle_line("prime_tower_corner_rib_length", false);
+    toggle_line("prime_tower_fillet_wall", false);
     for (auto el : {"prime_tower_enhance_type"})
         toggle_line(el, false);
 
@@ -1191,6 +1192,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
         const auto selected_enhance_type = config->opt_enum<PrimeTowerEnhanceType>("prime_tower_enhance_type");
         bool is_cone = selected_enhance_type == PrimeTowerEnhanceType::pteCone;
         toggle_line("prime_tower_corner_rib_length", use_corner_rib);
+        toggle_line("prime_tower_fillet_wall", use_creality_tower && use_corner_rib);
         if(!is_cone)
             toggle_line("wipe_tower_cone_angle", false);
         toggle_line("wipe_tower_bridging", false);

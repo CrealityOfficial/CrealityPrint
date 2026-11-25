@@ -525,7 +525,7 @@ void GCodeProcessor::TimeMachine::simulate_st_synchronize_legacy(float additiona
     calculate_time(0);
 }
 
-void GCodeProcessor::TimeMachine::simulate_st_synchronize_klipper(float additional_time, bool count_as_flush)
+void GCodeProcessor::TimeMachine::simulate_st_synchronize_klipper(unsigned int layer_id, float additional_time, bool count_as_flush)
 {
     if (!runtime.enabled)
         return;
@@ -542,7 +542,7 @@ void GCodeProcessor::TimeMachine::simulate_st_synchronize_klipper(float addition
     if (count_as_flush)
         runtime.additional_flush_time += additional_time;
 
-    calculate_time_klipper_additional_time();
+    calculate_time_klipper_additional_time(layer_id);
 }
 
 static void planner_forward_pass_kernel(GCodeProcessor::TimeBlock& prev, GCodeProcessor::TimeBlock& curr)
@@ -631,15 +631,12 @@ bool GCodeProcessor::TimeMachine::should_flush() const
 }
 
 
-// Solve the ACCEL_TO_DECEL lookahead in-place and return the queue_ prefix that is safe to account.
-// The returned blocks stay in queue_ so flush_time_klipper() can consume them without a copy.
-size_t GCodeProcessor::TimeMachine::flush_accel_to_decel(bool lazy)
+// Solve the ACCEL_TO_DECEL lookahead in-place and return the prefix safe to account.
+size_t GCodeProcessor::TimeMachine::solve_accel_to_decel(std::vector<TimeBlock>& queue, bool lazy)
 {
     // AccelToDecel solver: reproduce the i7 MoveQueue.flush() lookahead that
     // propagates max_accel_to_decel limits via the start-speed budget.
-    junction_flush_time_ = default_flush_time_;
-
-    int flush_count = (int)queue_.size();
+    int flush_count = (int)queue.size();
     if (flush_count == 0)
         return 0;
 
@@ -657,7 +654,7 @@ size_t GCodeProcessor::TimeMachine::flush_accel_to_decel(bool lazy)
     float peak_cruise_v2               = 0.0f;
 
     for (int i = flush_count - 1; i >= 0; --i) {
-        TimeBlock& move = queue_[i];
+        TimeBlock& move = queue[i];
         float reachable_start_v2 = next_end_v2 + move.common.delta_v2;
         float start_v2           = std::min(move.common.max_start_v2, reachable_start_v2);
         float reachable_accel_to_decel_start_v2 = next_accel_to_decel_start_v2 + move.accel_to_decel.delta_v2;
@@ -798,6 +795,20 @@ void GCodeProcessor::TimeMachine::flush_minimum_cruise_ratio(std::vector<TimeBlo
 
 bool GCodeProcessor::TimeMachine::empty() const { return queue_.empty(); }
 
+double GCodeProcessor::TimeMachine::elapsed_time_klipper() const
+{
+    // The published time only includes finalized moves. Price the pending
+    // lookahead at this boundary without draining it or changing junction speeds.
+    double elapsed = runtime.time + runtime.additional_time;
+    if (!queue_.empty()) {
+        auto pending = queue_;
+        solve_accel_to_decel(pending, false);
+        for (const auto& block : pending)
+            elapsed += block.time();
+    }
+    return elapsed;
+}
+
 // Active Klipper flush path: solve queue_, account the stable prefix directly,
 // then remove only the blocks that were consumed.
 void GCodeProcessor::TimeMachine::flush_time_klipper(bool lazy)
@@ -806,7 +817,8 @@ void GCodeProcessor::TimeMachine::flush_time_klipper(bool lazy)
         return;
 
     assert(runtime.blocks.empty());
-    const size_t flush_count = flush_accel_to_decel(lazy);
+    junction_flush_time_ = default_flush_time_;
+    const size_t flush_count = solve_accel_to_decel(queue_, lazy);
     if (flush_count == 0)
         return;
 
@@ -820,12 +832,22 @@ void GCodeProcessor::TimeMachine::flush_time_klipper(bool lazy)
 }
 
 // Account time that is not attached to a motion block, such as dwell after a queue drain.
-void GCodeProcessor::TimeMachine::calculate_time_klipper_additional_time()
+void GCodeProcessor::TimeMachine::calculate_time_klipper_additional_time(unsigned int current_layer_id)
 {
     // No motion blocks to attribute this time to (eg. a dwell after a synchronize).
     if (runtime.additional_time <= 0.0f)
         return;
 
+    // Use the same one-based layer ID as motion blocks, including waits before the first layer.
+    const size_t layer_id = std::max(1u, current_layer_id);
+    if (runtime.layers_time.size() < layer_id) {
+        runtime.layers_time.resize(layer_id);
+#ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
+        runtime.layer_moves_time.resize(layer_id);
+        runtime.layer_roles_time.resize(layer_id);
+#endif
+    }
+    runtime.layers_time[layer_id - 1] += runtime.additional_time;
     update_print_start_tracker(runtime.additional_time, 0.0f);
     runtime.time += runtime.additional_time;
     runtime.gcode_time.cache += runtime.additional_time;
@@ -839,10 +861,8 @@ void GCodeProcessor::TimeMachine::calculate_time_klipper_additional_time()
 void GCodeProcessor::TimeMachine::account_klipper_blocks(std::vector<TimeBlock>::const_iterator begin,
                                                          std::vector<TimeBlock>::const_iterator end)
 {
-    if (begin == end) {
-        calculate_time_klipper_additional_time();
+    if (begin == end)
         return;
-    }
 
     size_t i = 0;
     for (auto it = begin; it != end; ++it, ++i) {
@@ -904,7 +924,7 @@ void GCodeProcessor::TimeMachine::account_klipper_blocks(std::vector<TimeBlock>:
     runtime.additional_flush_time = 0.0f;
 }
 
-void GCodeProcessor::TimeMachine::finalize_time_klipper()
+void GCodeProcessor::TimeMachine::finalize_time_klipper(unsigned int layer_id)
 {
     if (!runtime.enabled)
         return;
@@ -914,7 +934,7 @@ void GCodeProcessor::TimeMachine::finalize_time_klipper()
     if (!queue_.empty())
         flush_time_klipper(false);
 
-    calculate_time_klipper_additional_time();
+    calculate_time_klipper_additional_time(layer_id);
 
     assert(queue_.empty());
 }
@@ -1485,7 +1505,7 @@ void GCodeProcessor::UsedFilaments::process_support_cache(GCodeProcessor* proces
     }
 }
 
-void GCodeProcessor::UsedFilaments::update_flush_per_filament(size_t extrude_id, float flush_volume)
+void GCodeProcessor::UsedFilaments::update_flush_per_filament(size_t extrude_id, double flush_volume)
 {
     if (flush_volume != 0.f) {
         if (flush_per_filament.find(extrude_id) != flush_per_filament.end())
@@ -2566,6 +2586,7 @@ void GCodeProcessor::reset()
     m_cached_position.reset();
     m_wiping = false;
     m_flushing = false;
+    m_klipper_flush_net_volume.reset();
     m_flush_related_stage = false;
     m_cfs_change_stage = false;
     m_wipe_tower = false;
@@ -2771,6 +2792,14 @@ void GCodeProcessor::initialize(const std::string& filename)
     m_result.object_id_by_move_id.emplace_back(-1);
 }
 
+double GCodeProcessor::time_at_tower_change()
+{
+    if (m_flavor == gcfKlipper)
+        return m_time_processor.machines[static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Normal)].elapsed_time_klipper();
+    layer_time();
+    return get_time(PrintEstimatedStatistics::ETimeMode::Normal);
+}
+
 GCodeProcessor::TimeFlushSnapshot GCodeProcessor::time_flush_snapshot() const
 {
     return {{m_end_position[X] - m_origin[X], m_end_position[Y] - m_origin[Y],
@@ -2919,7 +2948,7 @@ void GCodeProcessor::finalize(bool post_process, float filament_used, float flus
         TimeMachine& machine = m_time_processor.machines[i];
         TimeMachine::CustomGCodeTime& gcode_time = machine.runtime.gcode_time;
         if (m_flavor == gcfKlipper) {
-            machine.finalize_time_klipper();
+            machine.finalize_time_klipper(m_layer_id);
         } else {
             machine.calculate_time();
         }
@@ -2927,6 +2956,7 @@ void GCodeProcessor::finalize(bool post_process, float filament_used, float flus
             gcode_time.times.push_back({ CustomGCode::ColorChange, gcode_time.cache });
     }
 
+    commit_klipper_flush_volume();
     m_used_filaments.process_caches(this);
 
     update_estimated_times_stats();
@@ -3978,6 +4008,7 @@ void GCodeProcessor::process_tags(const std::string_view comment, bool producers
     }
 
     if (boost::starts_with(comment, reserved_tag(ETags::Wipe_Tower_End))) {
+        commit_klipper_flush_volume();
         m_wipe_tower = false;
         m_flushing = false;
         m_flush_related_stage = false;
@@ -4014,6 +4045,7 @@ void GCodeProcessor::process_tags(const std::string_view comment, bool producers
 
     //BBS: flush end tag
     if (boost::starts_with(comment, GCodeProcessor::Flush_End_Tag)) {
+        commit_klipper_flush_volume();
         m_flushing = false;
         if (!m_cfs_change_stage && (!m_wipe_tower || !m_result.multicolor_method))
             m_flush_related_stage = false;
@@ -6203,23 +6235,9 @@ void GCodeProcessor::process_G1_klipper(const GCodeReader::GCodeLine& line)
         m_width_compare.update(m_width, m_extrusion_role);
 #endif // ENABLE_GCODE_VIEWER_DATA_CHECKING
     }
-    else if (type == EMoveType::Unretract && m_flushing) {
-        float volume_flushed_filament = area_filament_cross_section * delta_pos[E];
-        if (m_remaining_volume > volume_flushed_filament)
-        {
-            m_used_filaments.update_flush_per_filament(m_last_extruder_id, volume_flushed_filament);
-            m_remaining_volume -= volume_flushed_filament;
-        }
-        else {
-            m_used_filaments.update_flush_per_filament(m_last_extruder_id, m_remaining_volume);
-            m_used_filaments.update_flush_per_filament(m_extruder_id, volume_flushed_filament - m_remaining_volume);
-            m_remaining_volume = 0.f;
-        }
-    } else if (delta_pos[E] < 0.0f && m_flushing)
-    {
-        float volume_flushed_filament = area_filament_cross_section * delta_pos[E];
-
-        m_used_filaments.update_flush_per_filament(m_extruder_id, volume_flushed_filament);
+    else if (m_flushing && (type == EMoveType::Unretract || delta_pos[E] < 0.0f)) {
+        m_klipper_flush_net_volume = m_klipper_flush_net_volume.value_or(0.0)
+            + double(area_filament_cross_section) * delta_pos[E];
     }
 
     // time estimate section
@@ -8761,6 +8779,7 @@ void GCodeProcessor::process_T(const std::string_view command)
                 if (id >= m_result.extruders_count)
                     BOOST_LOG_TRIVIAL(error) << "Invalid T command (" << command << ").";
                 else {
+                    commit_klipper_flush_volume();
                     if (!m_has_extruded) {
                         m_extruder_id = id;
                         m_last_extruder_id = id;
@@ -11307,7 +11326,7 @@ void GCodeProcessor::process_custom_gcode_time(CustomGCode::Type code)
         //FIXME this simulates st_synchronize! is it correct?
         // The estimated time may be longer than the real print time.
         if (m_flavor == gcfKlipper)
-            machine.simulate_st_synchronize_klipper();
+            machine.simulate_st_synchronize_klipper(m_layer_id);
         else
             machine.simulate_st_synchronize_legacy();
         if (gcode_time.cache != 0.0f) {
@@ -11315,6 +11334,28 @@ void GCodeProcessor::process_custom_gcode_time(CustomGCode::Type code)
             gcode_time.cache = 0.0f;
         }
     }
+}
+
+void GCodeProcessor::commit_klipper_flush_volume()
+{
+    if (!m_klipper_flush_net_volume)
+        return;
+
+    // Net the E-only feeds and retractions for this tool before assigning the
+    // remaining nozzle contents to the old filament and the excess to the new one.
+    const double net = *m_klipper_flush_net_volume;
+    m_klipper_flush_net_volume.reset();
+    if (net <= 0.0) {
+        // An observed zero is authoritative; calculateVolume() estimates from
+        // the flush matrix only when there are no measured flush moves.
+        m_used_filaments.flush_per_filament.try_emplace(m_extruder_id, 0.0);
+        return;
+    }
+
+    const double old_volume = std::clamp(double(m_remaining_volume), 0.0, net);
+    m_used_filaments.update_flush_per_filament(m_last_extruder_id, old_volume);
+    m_used_filaments.update_flush_per_filament(m_extruder_id, net - old_volume);
+    m_remaining_volume -= static_cast<float>(old_volume);
 }
 
 void GCodeProcessor::process_filaments(CustomGCode::Type code)
@@ -11337,7 +11378,7 @@ void GCodeProcessor::simulate_st_synchronize(float additional_time, bool force_f
     for (size_t i = 0; i < static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count); ++i) {
         TimeMachine& machine = m_time_processor.machines[i];
         if (m_flavor == gcfKlipper)
-            machine.simulate_st_synchronize_klipper(additional_time, count_as_flush);
+            machine.simulate_st_synchronize_klipper(m_layer_id, additional_time, count_as_flush);
         else
             machine.simulate_st_synchronize_legacy(additional_time, count_as_flush);
     }

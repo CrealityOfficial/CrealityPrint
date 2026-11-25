@@ -169,7 +169,6 @@
 #include "ParamsDialog.hpp"
 
 #include "KBShortcutsDialog.hpp"
-#include "DownloadProgressDialog.hpp"
 #include "CloudDownloadProgressDialog.hpp"
 #include "AppUpdater.hpp"
 #include "AppUpdateDialogs.hpp"
@@ -1742,12 +1741,13 @@ static void register_win32_device_notification_event()
         auto plater = (main_frame == nullptr) ? nullptr : main_frame->plater();
 //        if (wParam == RIM_INPUTSINK && plater != nullptr && main_frame->IsActive()) {
         if (wParam == RIM_INPUT && plater != nullptr && main_frame->IsActive()) {
-        RAWINPUT raw;
-			UINT rawSize = sizeof(RAWINPUT);
-			::GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &raw, &rawSize, sizeof(RAWINPUTHEADER));
-			if (raw.header.dwType == RIM_TYPEHID && plater->get_mouse3d_controller().handle_raw_input_win32(raw.data.hid.bRawData, raw.data.hid.dwSizeHid))
-				return true;
-		}
+            RAWINPUT raw{};
+            UINT rawSize = sizeof(raw);
+            if (::GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &raw, &rawSize, sizeof(RAWINPUTHEADER)) != UINT(-1) &&
+                raw.header.dwType == RIM_TYPEHID &&
+                plater->get_mouse3d_controller().handle_raw_input_win32(raw.header.hDevice, raw.data.hid.bRawData, raw.data.hid.dwSizeHid))
+                return true;
+        }
         return false;
     });
 
@@ -2410,17 +2410,6 @@ void GUI_App::post_init()
         hms_query = new HMSQuery();
 
     m_show_gcode_window = app_config->get_bool("show_gcode_window");
-    if (m_networking_need_update) {
-        //updating networking
-        int ret = updating_bambu_networking();
-        if (!ret) {
-            BOOST_LOG_TRIVIAL(info) << __FUNCTION__<<":networking plugin updated successfully";
-            //restart_networking();
-        }
-        else {
-            BOOST_LOG_TRIVIAL(error) << __FUNCTION__<<":networking plugin updated failed";
-        }
-    }
 
     // The extra CallAfter() is needed because of Mac, where this is the only way
     // to popup a modal dialog on start without screwing combo boxes.
@@ -2443,10 +2432,10 @@ void GUI_App::post_init()
 #if CUSTOM_CXCLOUD
             std::string http_url = get_http_url(app_config->get_country_code());
             std::string language = GUI::into_u8(current_language_code());
-            std::string network_ver = Slic3r::NetworkAgent::get_version();
             bool        sys_preset  = app_config->get("sync_system_preset") == "true";
             
-            this->preset_updater->sync(http_url, language, network_ver, sys_preset ? preset_bundle : nullptr);
+            // The updater skips network plug-in downloads for the uninstalled version.
+            this->preset_updater->sync(http_url, language, "00.00.00.00", sys_preset ? preset_bundle : nullptr);
             if (sys_preset)
                 UpdateParams::getInstance().startPeriodicChecks();
 
@@ -2763,6 +2752,9 @@ static std::string decode(std::string const& extra, std::string const& path = {}
 
 int GUI_App::download_plugin(std::string name, std::string package_name, InstallProgressFn pro_fn, WasCancelledFn cancel_fn)
 {
+    if (name == "plugins")
+        return -1;
+
     int result = 0;
     json j;
     std::string err_msg;
@@ -3098,13 +3090,6 @@ void GUI_App::remove_old_networking_plugins()
             BOOST_LOG_TRIVIAL(error) << "Failed  removing the plugins directory " << plugin_folder.string();
         }
     }
-}
-
-int GUI_App::updating_bambu_networking()
-{
-    DownloadProgressDialog dlg(_L("Downloading Bambu Network Plug-in"));
-    dlg.ShowModal();
-    return 0;
 }
 
 bool GUI_App::check_networking_version()
@@ -6300,17 +6285,7 @@ if (res) {
 }
 
 void GUI_App::ShowDownNetPluginDlg() {
-    try {
-        auto iter = std::find_if(dialogStack.begin(), dialogStack.end(), [](auto dialog) {
-            return dynamic_cast<DownloadProgressDialog *>(dialog) != nullptr;
-        });
-        if (iter != dialogStack.end())
-            return;
-        DownloadProgressDialog dlg(_L("Downloading Bambu Network Plug-in"));
-        dlg.ShowModal();
-    } catch (std::exception &e) {
-        ;
-    }
+    // Legacy UI entry points still call this after setup or a preference change.
 }
 
 void GUI_App::ShowUserLogin(bool show,const wxString& loginUrl)
@@ -8489,7 +8464,6 @@ bool GUI_App::install_preset_packages(const json &request, const std::string &pr
             if (auto* current_plater = plater()) {
                 if (auto* canvas = current_plater->get_current_canvas3D())
                     canvas->set_as_dirty();
-                current_plater->Refresh();
             }
             // Updating unadded printers must not dismiss the pending
             // confirmation for printers already added by the user.
@@ -9054,6 +9028,16 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     }
                     mainframe->update_title();
                 }
+            } else if (command_str == "get_added_preset_params") {
+                const auto catalog = json::parse(cmd).at("data");
+                const auto added = nsUpdateParams::getAddedPrinterNames();
+                const auto installed = nsUpdateParams::loadInstalledPrinterVersions();
+                const auto files = existing_added_profile_files(added);
+                const auto rows = ProfileUpdatePolicy::added_preset_rows(catalog, added, installed, files);
+                return json({{"command", command_str}, {"sequence_id", sequence_id.value_or("")},
+                             {"data", rows}, {"updating", native_profile_update_running()}}).dump();
+            } else if (command_str == "update_added_preset_params") {
+                update_preset_params_from_notification(json::parse(cmd).at("data"));
             } else if (command_str.compare("get_preset_params") == 0) {
                 json j;
                 j["sequence_id"] = "";
@@ -13644,7 +13628,8 @@ void GUI_App::reload_updated_presets(bool project_boundary)
             preset_bundle->calibrate_printer = nullptr;
             preset_bundle->calibrate_filaments.clear();
         }
-        wxWindowUpdateLocker ui_locker(mainframe);
+        // Batch preset controls while allowing the 3D canvas to keep painting.
+        wxWindowUpdateLocker sidebar_locker(&plater()->sidebar());
         load_current_presets(false, false);
         plater()->set_bed_shape();
         plater()->update();

@@ -88,9 +88,10 @@ void SyncUserPresets::syncUserPresetsToLocal()
     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets syncUserPresetsToLocal";
     m_mutexLstSyncCmd.lock();
     if (std::find(m_lstSyncCmd.begin(), m_lstSyncCmd.end(), ENSyncCmd::ENSC_SYNC_TO_LOCAL) == m_lstSyncCmd.end()
-        && !m_bHasSyncToLocal) {
+        && (!m_bHasSyncToLocal || CXCloudDataCenter::getInstance().getDownloadPresetState() == ENDownloadPresetState::ENDPS_DOWNLOAD_FAILED)) {
         m_lstSyncCmd.push_back(ENSyncCmd::ENSC_SYNC_TO_LOCAL);
         m_bHasSyncToLocal = true;
+        CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOADING);
     }
     m_mutexLstSyncCmd.unlock();
 }
@@ -213,7 +214,11 @@ void SyncUserPresets::onRun()
                     flush_logs();
                 }
                 if (sync_result != 0) {
-                    CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_FAILED);
+                    auto& cloud = CXCloudDataCenter::getInstance();
+                    cloud.setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_FAILED);
+                    cloud.setNetworkError(true);
+                    cloud.resetNetworkErrorRetryTime();
+                    syncUserPresetsToLocal();
                     continue;
                 }
                 while (m_bRunning.load() && wxGetApp().plater()->isLoadingGCode()) {
@@ -227,11 +232,18 @@ void SyncUserPresets::onRun()
                     if (accountGeneration != m_accountGeneration.load())
                         return;
                     //delLocalUserPresetsInUiThread(syncToLocalRetInfo);
-                    reloadPresetsInUiThread();
-                    CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_SUCCESS);
+                    try {
+                        reloadPresetsInUiThread();
+                        // Release the upload gate only after IDs and sync states have
+                        // been reconciled and saved, not merely after downloading.
+                        CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_SUCCESS);
+                        syncConfigToCXCloud();
+                        syncUserPresetsToFrontPage();
+                    } catch (const std::exception& e) {
+                        BOOST_LOG_TRIVIAL(error) << "SyncUserPresets merge failed: " << e.what();
+                        CXCloudDataCenter::getInstance().setDownloadPresetState(ENDownloadPresetState::ENDPS_DOWNLOAD_FAILED);
+                    }
                 });
-                syncConfigToCXCloud();
-                syncUserPresetsToFrontPage();
             } else if (cmd == ENSyncCmd::ENSC_SYNC_TO_FRONT_PAGE) {
                 m_syncThreadState = ENSyncThreadState::ENTS_SYNC_TO_FRONT_PAGE;
                 std::string jsonData;
@@ -244,11 +256,18 @@ void SyncUserPresets::onRun()
                     wxGetApp().run_script(response_js); 
                 });
             } else if (cmd == ENSyncCmd::ENSC_SYNC_CONFIG_TO_CXCLOUD) {
-                if (CXCloudDataCenter::getInstance().isUpdateConfigFileTimeout() &&
+                if (!canSyncToCXCloud()) {
+                    syncConfigToCXCloud();
+                    continue;
+                }
+                if ((CXCloudDataCenter::getInstance().isUpdateConfigFileTimeout() || CXCloudDataCenter::getInstance().isNetworkError()) &&
                     CXCloudDataCenter::getInstance().getDownloadConfigToLocalState() != ENDownloadConfigState::ENDCS_NOT_DOWNLOAD) {
-                    CXCloudDataCenter::getInstance().resetUpdateConfigFileTime();
-                    //  检测是否配置文件需要同步到创想云
+                    // Only advance the normal interval after the request succeeds.
                     doCheckNeedSyncConfigToCXCloud();
+                    if (CXCloudDataCenter::getInstance().isNetworkError())
+                        syncConfigToCXCloud();
+                    else
+                        CXCloudDataCenter::getInstance().resetUpdateConfigFileTime();
                 } else {
                     //syncConfigToCXCloud();
                 }
@@ -263,7 +282,7 @@ void SyncUserPresets::onRun()
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     //  退出时，同步一次配置文件到创想云
-    if (m_bSync.load() && CXCloudDataCenter::getInstance().getDownloadConfigToLocalState() != ENDownloadConfigState::ENDCS_NOT_DOWNLOAD) {
+    if (canSyncToCXCloud() && CXCloudDataCenter::getInstance().getDownloadConfigToLocalState() != ENDownloadConfigState::ENDCS_NOT_DOWNLOAD) {
         //  检测是否配置文件需要同步到创想云
         doCheckNeedSyncConfigToCXCloud();
     }
@@ -399,9 +418,25 @@ int SyncUserPresets::doSyncToLocal(SyncToLocalRetInfo& syncToLocalRetInfo)
     return nRet; 
 }
 
+bool SyncUserPresets::canSyncToCXCloud() const
+{
+    auto& cloud = CXCloudDataCenter::getInstance();
+    return m_bRunning.load() && m_bSync.load() && cloud.isTokenValid() &&
+        cloud.getDownloadPresetState() == ENDownloadPresetState::ENDPS_DOWNLOAD_SUCCESS &&
+        (!cloud.isNetworkError() || cloud.isNetworkErrorRetryTimeout());
+}
+
+static bool preset_sync_snapshot_current(PresetCollection& collection, const Preset& snapshot)
+{
+    std::lock_guard<PresetCollection> lock(collection);
+    const Preset* current = collection.find_preset(snapshot.name, false, true);
+    return current && current->is_user() && current->setting_id == snapshot.setting_id &&
+        current->sync_info == snapshot.sync_info && current->updated_time == snapshot.updated_time;
+}
+
 int SyncUserPresets::doCheckNeedSyncToCXCloud() { 
     int nRet = 0;
-    if (!m_bRunning.load() || !m_bSync.load())
+    if (!canSyncToCXCloud())
         return -1;
     if (doCheckNeedSyncPrinterToCXCloud() != 0) {
         nRet = 1;
@@ -409,7 +444,7 @@ int SyncUserPresets::doCheckNeedSyncToCXCloud() {
             return nRet;
         }
     }
-    if (!m_bRunning.load() || !m_bSync.load())
+    if (!canSyncToCXCloud())
         return -1;
     if (doCheckNeedSyncFilamentToCXCloud() != 0) {
         nRet = 1;
@@ -417,7 +452,7 @@ int SyncUserPresets::doCheckNeedSyncToCXCloud() {
             return nRet;
         }
     }
-    if (!m_bRunning.load() || !m_bSync.load())
+    if (!canSyncToCXCloud())
         return -1;
     if (doCheckNeedSyncProcessToCXCloud() != 0) {
         nRet = 1;
@@ -425,7 +460,7 @@ int SyncUserPresets::doCheckNeedSyncToCXCloud() {
             return nRet;
         }
     }
-    if (!m_bRunning.load() || !m_bSync.load())
+    if (!canSyncToCXCloud())
         return -1;
     if (doCheckNeedDeleteFromCXCloud() != 0) {
         nRet = 1;
@@ -450,7 +485,7 @@ int SyncUserPresets::doCheckNeedSyncPrinterToCXCloud() {
     if (sync_count > 0) {
         BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncPrinterToCXCloud start...";
         for (Preset& preset : presets_to_sync) {
-            if (!m_bRunning.load() || !m_bSync.load())
+            if (!canSyncToCXCloud())
                 return -1;
             auto setting_id = preset.setting_id;
 
@@ -467,6 +502,8 @@ int SyncUserPresets::doCheckNeedSyncPrinterToCXCloud() {
                     fileInfo.name = preset.name;
                     fileInfo.type = preset.get_cloud_type_string(preset.type);
 
+                    if (!preset_sync_snapshot_current(preset_bundle->printers, preset))
+                        continue;
                     ret = m_commWithCXCloud.preUpdateProfile_create(fileInfo, retInfo);
                     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncPrinterToCXCloud preUpdateProfile_create ret=" << ret;
                     if (ret == 0) {
@@ -503,6 +540,8 @@ int SyncUserPresets::doCheckNeedSyncPrinterToCXCloud() {
                     fileInfo.name = preset.name;
                     fileInfo.settingId = preset.setting_id;
 
+                    if (!preset_sync_snapshot_current(preset_bundle->printers, preset))
+                        continue;
                     ret = m_commWithCXCloud.preUpdateProfile_update(fileInfo, retInfo);
                     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncPrinterToCXCloud preUpdateProfile_update ret=" << ret;
                     if (ret == 0 || ret == 1 || ret == 21) {
@@ -550,7 +589,7 @@ int SyncUserPresets::doCheckNeedSyncFilamentToCXCloud()
     if (sync_count > 0) {
         BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncFilamentToCXCloud start...";
         for (Preset& preset : presets_to_sync) {
-            if (!m_bRunning.load() || !m_bSync.load())
+            if (!canSyncToCXCloud())
                 return -1;
             auto setting_id = preset.setting_id;
 
@@ -572,6 +611,8 @@ int SyncUserPresets::doCheckNeedSyncFilamentToCXCloud()
                     fileInfo.name = preset.name;
                     fileInfo.type = preset.get_cloud_type_string(preset.type);
 
+                    if (!preset_sync_snapshot_current(preset_bundle->filaments, preset))
+                        continue;
                     ret = m_commWithCXCloud.preUpdateProfile_create(fileInfo, retInfo);
                     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncFilamentToCXCloud preUpdateProfile_create ret=" << ret;
                     if (ret == 0) {
@@ -614,6 +655,8 @@ int SyncUserPresets::doCheckNeedSyncFilamentToCXCloud()
                     fileInfo.name      = preset.name;
                     fileInfo.settingId = preset.setting_id;
 
+                    if (!preset_sync_snapshot_current(preset_bundle->filaments, preset))
+                        continue;
                     ret = m_commWithCXCloud.preUpdateProfile_update(fileInfo, retInfo);
                     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncFilamentToCXCloud preUpdateProfile_update ret=" << ret;
                     if (ret == 0 || ret == 1 || ret == 21) {
@@ -662,7 +705,7 @@ int SyncUserPresets::doCheckNeedSyncProcessToCXCloud()
     if (sync_count > 0) {
         BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncProcessToCXCloud start...";
         for (Preset& preset : presets_to_sync) {
-            if (!m_bRunning.load() || !m_bSync.load())
+            if (!canSyncToCXCloud())
                 return -1;
             auto setting_id = preset.setting_id;
 
@@ -684,6 +727,8 @@ int SyncUserPresets::doCheckNeedSyncProcessToCXCloud()
                     fileInfo.name = preset.name;
                     fileInfo.type = preset.get_cloud_type_string(preset.type);
 
+                    if (!preset_sync_snapshot_current(preset_bundle->prints, preset))
+                        continue;
                     ret = m_commWithCXCloud.preUpdateProfile_create(fileInfo, retInfo);
                     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncProcessToCXCloud preUpdateProfile_create ret=" << ret;
                     if (ret == 0) {
@@ -726,6 +771,8 @@ int SyncUserPresets::doCheckNeedSyncProcessToCXCloud()
                     fileInfo.name      = preset.name;
                     fileInfo.settingId = preset.setting_id;
 
+                    if (!preset_sync_snapshot_current(preset_bundle->prints, preset))
+                        continue;
                     ret = m_commWithCXCloud.preUpdateProfile_update(fileInfo, retInfo);
                     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncProcessToCXCloud preUpdateProfile_update ret=" << ret;
                     if (ret == 0 || ret == 1 || ret == 21) {
@@ -812,7 +859,7 @@ int SyncUserPresets::doCheckNeedDeleteFromCXCloud()
     //  获取需要删除的preset
     std::vector<string> delete_cache_presets = GUI::wxGetApp().get_delete_cache_presets_lock();
     for (auto it = delete_cache_presets.begin(); it != delete_cache_presets.end(); it++) {
-        if (!m_bRunning.load() || !m_bSync.load())
+        if (!canSyncToCXCloud())
             return -1;
         if ((*it).empty())
             continue;
@@ -830,6 +877,8 @@ int SyncUserPresets::doCheckNeedDeleteFromCXCloud()
 
 int SyncUserPresets::doCheckNeedSyncConfigToCXCloud()
 {
+    if (!canSyncToCXCloud())
+        return -1;
     BOOST_LOG_TRIVIAL(warning) << "SyncUserPresets doCheckNeedSyncConfigToCXCloud start...";
     int nRet = 0;
 
@@ -846,10 +895,10 @@ int SyncUserPresets::doCheckNeedSyncConfigToCXCloud()
         fileInfo.type = "sync_data";
 
         int ret = m_commWithCXCloud.preUpdateProfile_create(fileInfo, retInfo);
-        if (ret == 0) {
+        if (ret == 0 || (!retInfo.settingId.empty() && retInfo.updatedInfo == "update")) {
             CXCloudDataCenter::getInstance().setConfigFileRetInfo(retInfo);
             CXCloudDataCenter::getInstance().setDownloadConfigToLocalState(ENDownloadConfigState::ENDCS_DOWNLOAD_SUCCESS);
-        } else {
+        } else if (!CXCloudDataCenter::getInstance().isNetworkError()) {
             CXCloudDataCenter::getInstance().setDownloadConfigToLocalState(ENDownloadConfigState::ENDCS_DOWNLOAD_FAIL);
         }
     } else if (CXCloudDataCenter::getInstance().getDownloadConfigToLocalState() == ENDownloadConfigState::ENDCS_DOWNLOAD_SUCCESS) {

@@ -1524,3 +1524,18 @@ msgstr "tutorial: %s"
 
 msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
 msgstr "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
+
+msgid "System presets for printers you have added"
+msgstr "Preajustes del sistema para las impresoras que has añadido"
+
+msgid "Updates available"
+msgstr "Actualizaciones disponibles"
+
+msgid "No updates available"
+msgstr "No hay actualizaciones disponibles"
+
+msgid "Could not load online parameters"
+msgstr "No se han podido cargar los parámetros en línea"
+
+msgid "{label} ({count})"
+msgstr "{label} ({count})"

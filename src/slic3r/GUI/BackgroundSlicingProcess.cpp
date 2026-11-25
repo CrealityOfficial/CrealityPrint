@@ -826,14 +826,18 @@ bool BackgroundSlicingProcess::empty() const
 
 StringObjectException BackgroundSlicingProcess::validate(StringObjectException *warning, Polygons* collison_polygons, std::vector<std::pair<Polygon, float>>* height_polygons, bool before_filament_mapping)
 {
-	assert(m_print != nullptr);
-    assert(m_print == m_fff_print);
+    return *try_validate(warning, collison_polygons, height_polygons, before_filament_mapping, {});
+}
 
+std::optional<StringObjectException> BackgroundSlicingProcess::try_validate(StringObjectException* warning, Polygons* collison_polygons,
+    std::vector<std::pair<Polygon, float>>* height_polygons, bool before_filament_mapping, const WipeTowerPreviewLookup& lookup)
+{
+    assert(m_print != nullptr);
+    if (m_print != m_fff_print)
+        return m_print->validate(warning, collison_polygons, height_polygons);
     m_fff_print->set_is_BBL_printer(wxGetApp().preset_bundle->is_bbl_vendor());
-	m_fff_print->set_is_CX_printer(wxGetApp().preset_bundle->is_cx_vendor());
-    if (before_filament_mapping && m_print == m_fff_print)
-        return m_fff_print->validate(warning, collison_polygons, height_polygons, true);
-    return m_print->validate(warning, collison_polygons, height_polygons);
+    m_fff_print->set_is_CX_printer(wxGetApp().preset_bundle->is_cx_vendor());
+    return m_fff_print->try_validate(warning, collison_polygons, height_polygons, before_filament_mapping, lookup);
 }
 
 

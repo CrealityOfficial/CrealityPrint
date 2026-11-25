@@ -465,6 +465,7 @@ set(SLIC3R_GUI_SOURCES
     GUI/TextureImportDialog.hpp
     GUI/TextureImportDialog.cpp
     GUI/WipeTowerDialog.cpp
+    GUI/WipeTowerPreviewCache.hpp
     GUI/RammingChart.cpp
     GUI/RammingChart.hpp
     GUI/RemovableDriveManager.cpp

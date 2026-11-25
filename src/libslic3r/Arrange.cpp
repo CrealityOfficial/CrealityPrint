@@ -1,4 +1,8 @@
 #include "Arrange.hpp"
+#include "libslic3r/ArrangeGrid.hpp"
+#include "WipeTowerPlacement.hpp"
+#include "Tesselate.hpp"
+#include "Geometry/ConvexHull.hpp"
 #include "Print.hpp"
 #include "BoundingBox.hpp"
 #include "libslic3r.h"
@@ -53,6 +57,129 @@ template<class S> struct NfpImpl<S, NfpLevel::CONVEX_ONLY>
 } // namespace libnest2d
 
 namespace Slic3r {
+
+std::optional<Point> nearest_wipe_tower_position(const Polygon& footprint, const Polygon& bed,
+                                                const Polygons& obstacles, const Point& anchor)
+{
+    if (footprint.empty() || bed.empty())
+        return std::nullopt;
+    auto valid = [&](const Point& position) {
+        Polygon placed = footprint;
+        placed.translate(position);
+        return diff_ex(Polygons{placed}, Polygons{bed}).empty() &&
+               intersection_ex(Polygons{placed}, obstacles).empty();
+    };
+    if (valid(anchor))
+        return anchor;
+
+    const BoundingBox tower_box = get_extents(footprint);
+    const BoundingBox bed_box = get_extents(bed);
+    // Tiny clearance protects boundary projections from integer rounding.
+    constexpr coord_t epsilon = 20;
+    const Point low(bed_box.min.x() - tower_box.min.x() + epsilon,
+                    bed_box.min.y() - tower_box.min.y() + epsilon);
+    const Point high(bed_box.max.x() - tower_box.max.x() - epsilon,
+                     bed_box.max.y() - tower_box.max.y() - epsilon);
+    if (low.x() >= high.x() || low.y() >= high.y())
+        return std::nullopt;
+    const Polygon anchor_domain({low, Point(high.x(), low.y()), high, Point(low.x(), high.y())});
+    Polygons forbidden;
+    auto add_obstacle = [&](const Polygon& obstacle) {
+        Points sums;
+        sums.reserve(obstacle.size() * footprint.size());
+        for (const Point& p : obstacle.points)
+            for (const Point& q : footprint.points)
+                sums.emplace_back(p.x() - q.x(), p.y() - q.y());
+        if (sums.size() >= 3)
+            forbidden.push_back(Geometry::convex_hull(std::move(sums)));
+    };
+    for (const Polygon& obstacle : obstacles)
+        add_obstacle(obstacle);
+    // Treat the area outside a concave/round bed as obstacles as well.
+    const Polygon bounding_bed({bed_box.min, Point(bed_box.max.x(), bed_box.min.y()),
+                                bed_box.max, Point(bed_box.min.x(), bed_box.max.y())});
+    const auto outside = diff_ex(Polygons{bounding_bed}, Polygons{bed});
+    if (!outside.empty()) {
+        const auto triangles = triangulate_expolygons_2d(outside);
+        for (size_t i = 0; i + 2 < triangles.size(); i += 3)
+            add_obstacle(Polygon({scaled(triangles[i]), scaled(triangles[i + 1]), scaled(triangles[i + 2])}));
+    }
+    const auto free_regions = diff_ex(Polygons{anchor_domain}, offset(union_(forbidden), double(epsilon)));
+    std::optional<Point> nearest;
+    double best_distance = std::numeric_limits<double>::max();
+    for (const ExPolygon& region : free_regions) {
+        const Point candidate = region.contains(anchor) ? anchor : region.point_projection(anchor);
+        const double distance = (candidate.cast<double>() - anchor.cast<double>()).squaredNorm();
+        if (distance < best_distance && valid(candidate)) {
+            nearest = candidate;
+            best_distance = distance;
+        }
+    }
+    return nearest;
+}
+
+static std::optional<Point> wipe_tower_position_with_clearance(const Polygon& footprint, Polygon bed, const Polygons& obstacles,
+                                                              const Point& anchor, bool is_sliced)
+{
+    // Bambu Studio leaves more room while the tower geometry is still an estimate.
+    const double margin_mm = is_sliced ? 0.2 : 15.0;
+    std::optional<Point> nearest;
+    double best_distance = std::numeric_limits<double>::max();
+    // Insetting a concave plate can leave several disconnected printable regions.
+    bed.make_counter_clockwise();
+    for (const Polygon& inset : offset(bed, -scaled(margin_mm))) {
+        const auto candidate = nearest_wipe_tower_position(footprint, inset, obstacles, anchor);
+        if (!candidate)
+            continue;
+        const double distance = (candidate->cast<double>() - anchor.cast<double>()).squaredNorm();
+        if (distance < best_distance) {
+            best_distance = distance;
+            nearest = candidate;
+        }
+    }
+    return nearest;
+}
+
+std::optional<Point> dragged_wipe_tower_position(const Polygon& footprint, Polygon bed, const Point& anchor, bool is_sliced)
+{
+    return wipe_tower_position_with_clearance(footprint, std::move(bed), {}, anchor, is_sliced);
+}
+
+std::optional<WipeTowerPose> find_loaded_wipe_tower_pose(const Polygon& local_footprint, const Polygon& bed,
+    const Polygons& obstacles, WipeTowerPose saved, bool allow_rotation, const std::function<bool()>& canceled)
+{
+    if (local_footprint.empty() || bed.empty() || std::abs(local_footprint.area()) > std::abs(bed.area()))
+        return std::nullopt;
+    auto try_angle = [&](double angle) -> std::optional<WipeTowerPose> {
+        Polygon footprint = local_footprint;
+        footprint.rotate(Geometry::deg2rad(angle));
+        auto anchor = wipe_tower_position_with_clearance(footprint, bed, obstacles, saved.anchor, false);
+        if (!anchor)
+            anchor = wipe_tower_position_with_clearance(footprint, bed, obstacles, saved.anchor, true);
+        if (!anchor)
+            anchor = nearest_wipe_tower_position(footprint, bed, obstacles, saved.anchor);
+        if (anchor)
+            return WipeTowerPose{*anchor, angle};
+        return std::nullopt;
+    };
+    auto pose = try_angle(saved.rotation_degrees);
+    if (pose || !allow_rotation)
+        return pose;
+
+    // A plate-aligned tower is easiest to edit. Search intermediate angles as
+    // well for irregular beds or free space between diagonal model edges.
+    for (int step : {90, 1}) {
+        for (int angle = 0; angle < 360; angle += step) {
+            if (canceled && canceled())
+                return std::nullopt;
+            if ((step == 1 && angle % 90 == 0) || std::abs(std::remainder(saved.rotation_degrees - angle, 360.)) < EPSILON)
+                continue;
+            if (auto rotated = try_angle(angle))
+                return rotated;
+        }
+    }
+    return std::nullopt;
+}
 
 template<class Tout = double, class = FloatingOnly<Tout>, int...EigenArgs>
 inline constexpr Eigen::Matrix<Tout, 2, EigenArgs...> unscaled(
@@ -1155,6 +1282,60 @@ template<class Fn> auto call_with_bed(const Points &bed, Fn &&fn)
             return fn(circ);
         else
             return fn(Polygon(bed));
+    }
+}
+
+void arrange_grid(ArrangePolygons& items, const ArrangePolygons& excludes, const Points& bed, const ArrangeParams& params)
+{
+    for (auto& item : items)
+        item.bed_idx = UNARRANGED;
+    if (items.empty() || bed.size() < 3)
+        return;
+
+    const Polygon bed_poly(bed);
+    const BoundingBox bed_box(bed);
+    std::vector<BoundingBox> bounds;
+    Vec2crd step = Vec2crd::Zero();
+    for (const auto& item : items) {
+        ExPolygon poly = item.poly;
+        poly.rotate(item.rotation);
+        const coord_t margin = std::max<coord_t>(0, item.inflation);
+        const BoundingBox box = get_extents(offset(poly, double(margin)));
+        step = step.cwiseMax(box.size());
+        bounds.push_back(box);
+    }
+    if (step.x() <= 0 || step.y() <= 0)
+        return;
+
+    Polygons obstacles;
+    for (const auto& fixed : excludes) {
+        if (fixed.bed_idx != 0 || fixed.poly.empty())
+            continue;
+        auto inflated = offset(fixed.transformed_poly(), double(std::max<coord_t>(0, fixed.inflation)));
+        obstacles.insert(obstacles.end(), inflated.begin(), inflated.end());
+    }
+    obstacles = union_(obstacles);
+    size_t next = 0;
+    for (coord_t x = bed_box.min.x(); x <= bed_box.max.x() - step.x(); x += step.x()) {
+        for (coord_t y = bed_box.min.y(); y <= bed_box.max.y() - step.y(); y += step.y()) {
+            if (params.stopcondition && params.stopcondition())
+                return;
+            const Polygon cell({Point(x, y), Point(x + step.x(), y),
+                                Point(x + step.x(), y + step.y()), Point(x, y + step.y())});
+            // Checking the complete cell is conservative and also handles concave beds,
+            // rotated towers, brim, and objects that only partly overlap the plate.
+            if (!diff_ex(Polygons{cell}, Polygons{bed_poly}).empty() ||
+                !intersection_ex(Polygons{cell}, obstacles).empty())
+                continue;
+            auto& item = items[next];
+            item.translation = Vec2crd(x, y) + (step - Vec2crd(bounds[next].size())) / 2 - Vec2crd(bounds[next].min);
+            item.bed_idx = 0;
+            item.itemid = int(next);
+            if (params.on_packed)
+                params.on_packed(item);
+            if (++next == items.size())
+                return;
+        }
     }
 }
 

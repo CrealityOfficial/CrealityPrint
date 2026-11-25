@@ -1,6 +1,7 @@
 #ifndef slic3r_Plater_hpp_
 #define slic3r_Plater_hpp_
 
+#include <chrono>
 #include <memory>
 #include <vector>
 #include <boost/filesystem/path.hpp>
@@ -50,6 +51,8 @@ class ModelObject;
 class ModelInstance;
 class Print;
 class SLAPrint;
+struct WipeTowerPreview;
+struct WipeTowerPreviewInput;
 //BBS: add partplatelist and SlicingStatusEvent
 class PartPlateList;
 class SlicingStatusEvent;
@@ -805,7 +808,9 @@ public:
 
     //BBS: partplate list related functions
     PartPlateList& get_partplate_list();
+    std::shared_ptr<const WipeTowerPreview> request_wipe_tower_preview(int plate_index, WipeTowerPreviewInput input, bool for_shell = false);
     void validate_current_plate(bool& model_fits, bool& validate_error);
+    bool is_tower_validation_pending() const;
     //BBS: select the plate by index
     int select_plate(int plate_index, bool need_slice = false);
     //BBS: update progress result
@@ -1039,7 +1044,11 @@ private:
     void single_snapshots_enter(SingleSnapshot *single);
     void single_snapshots_leave(SingleSnapshot *single);
     // BBS: add project slice related functions
+    bool try_validate_current_plate(bool& model_fits, bool& validate_error);
     int start_next_slice();
+    void continue_reslice(std::chrono::steady_clock::time_point reslice_started_at,
+                          std::chrono::steady_clock::time_point update_background_started_at);
+    void abort_preflight_timing(std::chrono::steady_clock::time_point reslice_started_at, const char* reason);
 
     bool _calib_pa_pattern(const Calib_Params& params);
     void _calib_pa_tower(const Calib_Params& params);

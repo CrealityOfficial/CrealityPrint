@@ -49,6 +49,7 @@ protected:
     void onRun();
     void reloadPresetsInUiThread();
     int  doSyncToLocal(SyncToLocalRetInfo& syncToLocalRetInfo);
+    bool canSyncToCXCloud() const;
     int  doCheckNeedSyncToCXCloud();
     int  doCheckNeedSyncPrinterToCXCloud();
     int  doCheckNeedSyncFilamentToCXCloud();

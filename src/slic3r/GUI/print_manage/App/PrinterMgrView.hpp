@@ -140,6 +140,7 @@ namespace Slic3r {
                 std::string path;
             };
             void down_file(std::string url, std::string name, std::string path_type);
+            void startDeviceLogDownload(const nlohmann::json& request);
             void down_files(const std::string& address, bool secureConnection, const std::vector<DownloadItem>& download_items, std::string savePath, std::string path_type);
             void scan_device(const std::string& request_id = {});
             void correct_device();

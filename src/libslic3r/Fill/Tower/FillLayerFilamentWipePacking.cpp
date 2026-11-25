@@ -826,7 +826,8 @@ PackingSolution choose_best_packable_subset_for_plates(const std::vector<const P
 }
 
 void apply_solution_to_plan(const PackingSolution& solution, const std::vector<PackingPlate>& plates,
-                            bool use_actual_trajectory_capacity, LayerFilamentWipePackingPlan& plan)
+                            bool use_actual_trajectory_capacity, LayerFilamentWipePackingPlan& plan,
+                            bool require_full_transition = false)
 {
     for (size_t plate_idx = 0; plate_idx < solution.items_by_plate.size(); ++plate_idx) {
         const std::vector<const PackingItem*>& plate_items = solution.items_by_plate[plate_idx];
@@ -860,11 +861,12 @@ void apply_solution_to_plan(const PackingSolution& solution, const std::vector<P
             const double remaining = consume_plate_capacity(bins, *item, target_density,
                                                              use_actual_trajectory_capacity, plan);
             const double consumed = item->volume_mm3 - remaining;
-            if (remaining <= EPSILON || (use_actual_trajectory_capacity && consumed > EPSILON)) {
+            if (remaining <= EPSILON ||
+                (use_actual_trajectory_capacity && !require_full_transition && consumed > EPSILON)) {
                 plan.infill_transitions.insert(item->transition);
             } else {
-                // Density-expanding plans keep transitions atomic. Fixed-capacity
-                // plans commit any usable prefix in the branch above.
+                // A rejected no-tower change must leave every candidate available
+                // to later changes, including candidates in other host regions.
                 for (const BinState& state : previous_states) {
                     state.bin->assigned_base_mm3  = state.assigned_base_mm3;
                     state.bin->assigned_extra_mm3 = state.assigned_extra_mm3;
@@ -1080,10 +1082,11 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
             if (force_external_fill_flush || old_extruder == (unsigned int)-1 ||
                 new_extruder == (unsigned int)-1 || old_extruder == new_extruder)
                 return;
-            const float required_volume = flush_volume_from_matrix(print.config(),
-                                                                   old_extruder,
-                                                                   new_extruder);
             const bool no_wipe_mode = no_wipe_tower_no_purge_mode_enabled(print);
+            const float matrix_volume = flush_volume_from_matrix(print.config(), old_extruder, new_extruder);
+            const float required_volume = no_wipe_mode ?
+                std::max(matrix_volume, print.no_tower_thermal_purge_volume(layer_tools.print_z, old_extruder, new_extruder)) :
+                matrix_volume;
             const float mandatory_tower_volume = no_wipe_mode ? 0.f : std::max(
                 float(print.config().prime_volume.value),
                 float(print.config().filament_minimal_purge_on_wipe_tower.get_at(new_extruder)));
@@ -1200,10 +1203,15 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
                     maximum_capacity += std::max(0., region.maximum.volume - region.selected.volume);
                 }
 
-                // If the requested transition volume exceeds the actual
-                // maximum, only the available portion can be assigned to the
-                // skeleton; the remainder will use the normal external path.
-                required = std::min(required, maximum_capacity);
+                // A no-tower change is either completely absorbed by the shared
+                // layer pool or completely flushed outside. Reject oversized
+                // changes before growing any region, then reuse that capacity
+                // for the remaining complete changes.
+                std::vector<const PackingItem*> items;
+                items.reserve(work.items.size());
+                for (const PackingItem& item : work.items)
+                    items.push_back(&item);
+                required = items_total_volume(choose_packable_items(items, maximum_capacity));
                 while (capacity + EPSILON < required) {
                     const double deficit = required - capacity;
                     Region* chosen = nullptr;
@@ -1430,12 +1438,18 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
             }
             return;
         }
-        // Use the UI-density trajectories as a fixed shared pool. Assign
-        // transitions in print order and allow the final one to use a partial
-        // prefix; G-code leaves the unassigned tail on the wipe tower.
-        solution.items_by_plate.resize(1);
-        solution.items_by_plate.front() = items;
-        apply_solution_to_plan(solution, plates, true, layer_plan);
+        const bool require_full_transition = no_wipe_tower_no_purge_mode_enabled(print);
+        if (require_full_transition) {
+            // Maximize complete changes across all regions, then minimize the
+            // capacity they consume. Rejected changes leave the pool available
+            // to the selected changes, which are emitted in print order.
+            solution = solve_items_at_current_capacity(items, plates);
+        } else {
+            // Tower packing may leave a partial tail on the wipe tower.
+            solution.items_by_plate.resize(1);
+            solution.items_by_plate.front() = items;
+        }
+        apply_solution_to_plan(solution, plates, true, layer_plan, require_full_transition);
         for (const PackingItem& item : layer_items)
             if (layer_plan.infill_transitions.find(item.transition) == layer_plan.infill_transitions.end())
                 layer_plan.external_flush_transitions.insert(item.transition);
@@ -1518,15 +1532,23 @@ LayerFilamentWipePackingPlan plan_layer_filament_wipe_packing(
     auto force_bin_surfaces_plain = [&](const PackingBin& bin) {
         if (bin.surface != nullptr) {
             plan.plain_infill_surfaces.insert(bin.surface);
+            if (no_wipe_tower_no_purge_mode_enabled(print))
+                plan.sparse_infill_densities[bin.surface] = bin.base_density;
             return;
         }
 
         if (bin.layer_region == nullptr)
             return;
 
-        for (const Surface& surface : bin.layer_region->fill_surfaces.surfaces)
-            if (surface.surface_type == stInternal)
-                plan.plain_infill_surfaces.insert(&surface);
+        for (const Surface& surface : bin.layer_region->fill_surfaces.surfaces) {
+            if (surface.surface_type != stInternal)
+                continue;
+            plan.plain_infill_surfaces.insert(&surface);
+            // Final ordinary skeletons retain the configured structural density;
+            // only the extra density from an unsuccessful trial is discarded.
+            if (no_wipe_tower_no_purge_mode_enabled(print))
+                plan.sparse_infill_densities[&surface] = bin.base_density;
+        }
     };
 
     std::map<const LayerRegion*, std::vector<const PackingBin*>> actual_bins_by_region;

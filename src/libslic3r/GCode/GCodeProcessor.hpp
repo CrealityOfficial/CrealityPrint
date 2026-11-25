@@ -952,12 +952,13 @@ enum class PathologicalProbeLifecycle {
             // Simulates firmware st_synchronize() for legacy planner-backed firmware.
             void simulate_st_synchronize_legacy(float additional_time = 0.0f, bool count_as_flush = false);
             // Simulates firmware st_synchronize() for Klipper queue-backed timing.
-            void simulate_st_synchronize_klipper(float additional_time = 0.0f, bool count_as_flush = false);
+            void simulate_st_synchronize_klipper(unsigned int layer_id, float additional_time = 0.0f, bool count_as_flush = false);
             void calculate_time(size_t keep_last_n_blocks = 0);
             // Active Klipper path: solve queue_ and account the flushed prefix without copying it to runtime.blocks.
             void flush_time_klipper(bool lazy);
+            double elapsed_time_klipper() const;
             // Final Klipper drain. Klipper motion must be fully owned by queue_, never runtime.blocks.
-            void finalize_time_klipper();
+            void finalize_time_klipper(unsigned int layer_id);
 
             bool add_move(TimeBlock&& move);
             bool should_flush() const;
@@ -965,13 +966,13 @@ enum class PathologicalProbeLifecycle {
         private:
             void accumulate_print_start_init_time(double block_time);
             void update_print_start_tracker(double block_time, float extruder_e);
-            // Handles pending additional time when there is no motion block to attach it to.
-            void calculate_time_klipper_additional_time();
+            // Attribute synchronization time to the logical layer containing the command.
+            void calculate_time_klipper_additional_time(unsigned int current_layer_id);
             // Shared accumulator for finalized Klipper blocks from queue_.
             void account_klipper_blocks(std::vector<TimeBlock>::const_iterator begin,
                                         std::vector<TimeBlock>::const_iterator end);
             // Runs ACCEL_TO_DECEL lookahead and returns the stable queue_ prefix length.
-            size_t flush_accel_to_decel(bool lazy);
+            static size_t solve_accel_to_decel(std::vector<TimeBlock>& queue, bool lazy);
 
             // Current active canonical motion lookahead queue of Klipper.
             std::vector<TimeBlock> queue_;
@@ -1049,7 +1050,7 @@ enum class PathologicalProbeLifecycle {
             void process_support_cache(GCodeProcessor* processor);
             void process_total_volume_cache(GCodeProcessor* processor);
 
-            void update_flush_per_filament(size_t extrude_id, float flush_length);
+            void update_flush_per_filament(size_t extrude_id, double flush_volume);
             void process_role_cache(GCodeProcessor* processor);
             void process_caches(GCodeProcessor* processor);
 
@@ -1216,6 +1217,7 @@ enum class PathologicalProbeLifecycle {
         bool m_wipe_tower;
         bool m_has_extruded = false;
         float m_remaining_volume;
+        std::optional<double> m_klipper_flush_net_volume;
         bool m_manual_filament_change;
 
         // creality
@@ -1422,6 +1424,7 @@ enum class PathologicalProbeLifecycle {
             bool model_motion;
         };
         TimeFlushSnapshot time_flush_snapshot() const;
+        double time_at_tower_change();
         void process_buffer(const std::string& buffer);
         // Validate that motion commands written to disk match the parsed command sequence.
         void record_written_line(std::string_view line);
@@ -1688,6 +1691,7 @@ enum class PathologicalProbeLifecycle {
         int   get_filament_vitrification_temperature(size_t extrude_id);
         void process_custom_gcode_time(CustomGCode::Type code);
         void process_filaments(CustomGCode::Type code);
+        void commit_klipper_flush_volume();
 
         // Simulates firmware st_synchronize() call
         void simulate_st_synchronize(float additional_time = 0.0f, bool force_flush_time = false);

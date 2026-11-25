@@ -3015,7 +3015,49 @@ void BaseRenderer::update_marker_curr_move()
 void BaseRenderer::load_shells(const Print& print, bool initialized, bool force_previewing)
 {
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": initialized=%1%, force_previewing=%2%")%initialized %force_previewing;
+    // Model shells may stay cached while a parameter edit invalidates toolpaths.
+    // Refresh the tower from the current plate configuration even before the
+    // background Print has applied that edit.
+    auto refresh_tower_shell = [&]() {
+        auto& volumes = m_shells.volumes.volumes;
+        for (auto it = volumes.begin(); it != volumes.end();) {
+            if ((*it)->is_wipe_tower) {
+                m_shells.volumes.release_volume(*it);
+                delete *it;
+                it = volumes.erase(it);
+            } else
+                ++it;
+        }
+        Plater* plater = wxGetApp().plater();
+        PartPlate* plate = plater->get_partplate_list().get_plate(print.get_plate_index());
+        if (plate && !plate->is_slice_result_valid() && plate->printable_instance_size() > 0 &&
+            wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptFFF) {
+            DynamicPrintConfig config = wxGetApp().preset_bundle->full_config();
+            config.apply(*plate->config());
+            if (config.opt_bool("enable_prime_tower") &&
+                (config.opt_enum<PrintSequence>("print_sequence") != PrintSequence::ByObject || plate->printable_instance_size() == 1)) {
+                const auto preview = plater->request_wipe_tower_preview(plate->get_index(), plate->wipe_tower_preview_input(config), true);
+                if (preview && !preview->tower_mesh.empty()) {
+                    const int plate_idx = print.get_plate_index();
+                    const Vec3d origin = plate->get_origin();
+                    const int volume_idx = m_shells.volumes.load_wipe_tower_preview(1000 + plate_idx,
+                        float(config.option<ConfigOptionFloats>("wipe_tower_x")->get_at(plate_idx) + origin.x()),
+                        float(config.option<ConfigOptionFloats>("wipe_tower_y")->get_at(plate_idx) + origin.y()),
+                        *preview, float(config.opt_float("wipe_tower_rotation_angle")));
+                    GLVolume* volume = volumes[volume_idx];
+                    volume->zoom_to_volumes = false;
+                    volume->color.a(0.5f);
+                    volume->force_native_color = true;
+                    volume->set_render_color();
+                }
+            }
+        }
+        m_shell_bounding_box = BoundingBoxf3();
+        for (const GLVolume* volume : volumes)
+            m_shell_bounding_box.merge(volume->transformed_bounding_box());
+    };
     if ((print.id().id == m_shells.print_id)&&(print.get_modified_count() == m_shells.print_modify_count)) {
+        refresh_tower_shell();
         //BBS: update force previewing logic
         if (force_previewing)
             m_shells.previewing = force_previewing;
@@ -3088,27 +3130,7 @@ void BaseRenderer::load_shells(const Print& print, bool initialized, bool force_
         object_count++;
     }
 
-    // Orca: disable wipe tower shell
-    // if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptFFF) {
-        //     // BBS: adds wipe tower's volume
-        //     std::vector<unsigned int> print_extruders = print.extruders(true);
-        //     int extruders_count = print_extruders.size();
-
-        //     const double max_z = print.objects()[0]->model_object()->get_model()->bounding_box().max(2);
-        //     const PrintConfig& config = print.config();
-        //     if (config.enable_prime_tower &&
-            //         (print.enable_timelapse_print() || (extruders_count > 1 && (config.print_sequence == PrintSequence::ByLayer)))) {
-            //         const float depth = print.wipe_tower_data(extruders_count).depth;
-            //         const float brim_width = print.wipe_tower_data(extruders_count).brim_width;
-
-            //         int plate_idx = print.get_plate_index();
-            //         Vec3d plate_origin = print.get_plate_origin();
-            //         double wipe_tower_x = config.wipe_tower_x.get_at(plate_idx) + plate_origin(0);
-            //         double wipe_tower_y = config.wipe_tower_y.get_at(plate_idx) + plate_origin(1);
-            //         m_shells.volumes.load_wipe_tower_preview(1000, wipe_tower_x, wipe_tower_y, config.prime_tower_width, depth, max_z, config.wipe_tower_rotation_angle,
-                //             !print.is_step_done(psWipeTower), brim_width, initialized);
-        //     }
-    // }
+    refresh_tower_shell();
 
     // remove modifiers
     while (true) {

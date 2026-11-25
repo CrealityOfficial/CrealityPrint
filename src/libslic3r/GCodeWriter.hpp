@@ -128,15 +128,7 @@ public:
     void        set_position(const Vec3d& in) { m_pos = in; }
     Vec3d       get_position_on_plate() const { return Vec3d(m_pos(0) - m_x_offset, m_pos(1) - m_y_offset, m_pos(2)); }
     void        set_position_on_plate(const Vec3d& in) { m_pos = Vec3d(in(0) + m_x_offset, in(1) + m_y_offset, in(2)); }
-    void       sync_lifted_to_nominal_z(double nominal_z)
-    {
-        m_to_lift = 0.;
-        m_lifted = std::max(0., m_pos(2) - nominal_z);
-        // Parsed G-code Z and accumulated layer Z may differ only by roundoff.
-        // Do not let that residual suppress the next lift(), which checks for zero.
-        if (m_lifted < EPSILON)
-            m_lifted = 0.;
-    }
+    void       sync_lifted_to_nominal_z(double nominal_z);
     double      get_zhop() const { return m_lifted; }
 
     //BBS: set offset for gcode writer

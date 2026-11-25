@@ -8,18 +8,19 @@ namespace Slic3r {
 
 struct FloatingThickline : public ThickLine
 {
-    FloatingThickline(const Point& a, const Point& b, double wa, double wb, bool a_floating, bool b_floating)
-        : ThickLine(a, b, wa, wb), is_a_floating(a_floating), is_b_floating(b_floating) {}
+    FloatingThickline(const Point& a, const Point& b, double wa, double wb, bool floating)
+        : ThickLine(a, b, wa, wb), is_floating(floating) {}
 
-    bool is_a_floating;
-    bool is_b_floating;
+    bool is_floating;
 };
 using FloatingThicklines = std::vector<FloatingThickline>;
 
-// The marker is attached to vertices; an edge floats only when both ends are marked.
+// Each edge owns two endpoint widths and one slowdown flag.
 struct FloatingThickPolyline : public ThickPolyline
 {
-    std::vector<bool> is_floating;
+    std::vector<bool> floating_edges;
+
+    void set_smoothed_floating_edges(std::vector<bool> vertex_flags, bool closed);
 
     FloatingThickPolyline rebase_at(size_t idx) const;
     FloatingThicklines floating_thicklines() const;
@@ -45,7 +46,7 @@ protected:
     Fill* clone() const override { return new FillFloatingConcentric(*this); }
 
     static FloatingThickPolyline detect_floating_line(const ThickPolyline& line,
-        const ExPolygons& floating_areas, double default_width, bool force_no_detect);
+        const ExPolygons& floating_areas, double default_width, bool closed, bool force_no_detect);
 
     void _fill_surface_single(const FillParams& params, unsigned int thickness_layers,
         const std::pair<float, Point>& direction, ExPolygon expolygon, FloatingThickPolylines& thick_polylines_out);

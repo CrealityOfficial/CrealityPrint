@@ -854,7 +854,6 @@ private:
 private:
     UITour* m_UITour = nullptr;
     bool install_preset_packages(const nlohmann::json &request, const std::string &prepared_directory = {}, bool notify = false);
-    int             updating_bambu_networking();
     bool            on_init_inner(bool isdump_launcher = false);
     void            parse_args();
 #if AUTO_CONVERT_3MF

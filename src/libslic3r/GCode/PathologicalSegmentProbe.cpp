@@ -377,6 +377,9 @@ struct PathologicalLineProbe::Impl {
             if (pipeline_input_time_ms <= 0.0)
                 pipeline_input_time_ms = result.wall_time_ms;
             result.pipeline_input_time_ms = pipeline_input_time_ms;
+            // Invalid motion can terminate the worker while export continues.
+            // Release queued input on every terminal path.
+            pending.clear();
             result_ready = true;
             condition.notify_all();
         }

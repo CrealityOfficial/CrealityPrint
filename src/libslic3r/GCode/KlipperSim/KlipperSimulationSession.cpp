@@ -211,6 +211,7 @@ void KlipperSimulationSession::consume_move(const GMove& move)
         limits.square_corner_velocity, limits.max_accel);
 
     PlanMove planned;
+    planned.line_idx = move.line_idx;
     planned.init(limits, s.current.data(), end, move.v);
     // cartesian.py check_move(): any move containing Z is constrained by the
     // configured Z-axis velocity and acceleration before lookahead.
@@ -254,7 +255,6 @@ void KlipperSimulationSession::consume_move(const GMove& move)
                                                planned.delta_v2);
         }
     }
-    planned.line_idx = move.line_idx;
     planned.pressure_advance = move.pressure_advance;
     planned.pa_smooth_time = move.pa_smooth_time;
     s.host->update_limits(limits);

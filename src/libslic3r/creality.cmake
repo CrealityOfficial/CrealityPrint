@@ -6,6 +6,8 @@ list(APPEND lisbslic3r_sources
         FDM/Filament.cpp
         FDM/WipeTowerCreality.hpp
         FDM/WipeTowerCreality.cpp
+        FDM/WipeTowerTiming.cpp
+        FDM/WipeTowerTiming.hpp
         FDM/Serialization.hpp
         FDM/Serialization.cpp
         FDM/PolysUlities.hpp

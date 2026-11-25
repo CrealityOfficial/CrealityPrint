@@ -18,6 +18,7 @@ DEPRECATED_PROCESS_KEYS = {
 }
 
 FILAMENT_VARIANT_KEYS = {
+    "enable_pressure_advance", "pressure_advance",
     "filament_flow_ratio", "filament_max_volumetric_speed", "filament_ramming_volumetric_speed",
     "filament_pre_cooling_temperature", "filament_ramming_travel_time", "filament_ramming_volumetric_speed_nc",
     "filament_pre_cooling_temperature_nc", "filament_ramming_travel_time_nc", "filament_retraction_length",

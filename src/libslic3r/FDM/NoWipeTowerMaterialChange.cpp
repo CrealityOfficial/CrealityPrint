@@ -3,6 +3,7 @@
 #include "../Color.hpp"
 #include "../ExtrusionEntityCollection.hpp"
 #include "../Print.hpp"
+#include "../Utils.hpp"
 #include "../Layer.hpp"
 #include "../PrintConfig.hpp"
 #include "../ShortestPath.hpp"
@@ -69,14 +70,31 @@ static size_t no_wipe_tower_no_purge_extruder_count(const Print& print)
     return physical_extruders.size();
 }
 
+size_t Print::no_tower_purge_extruder_count() const
+{
+    const int cached = m_cached_no_tower_extruder_count.load(std::memory_order_relaxed);
+    return cached >= 0 ? size_t(cached) : no_wipe_tower_no_purge_extruder_count(*this);
+}
+
+ScopeGuard Print::cache_no_tower_purge_mode()
+{
+    // Eligibility depends only on the model and configuration. All parallel
+    // surface generators in this slice/export can share the same decision.
+    if (m_cached_no_tower_extruder_count.load(std::memory_order_relaxed) >= 0)
+        return {};
+    ScopeGuard restore([this] { m_cached_no_tower_extruder_count.store(-1, std::memory_order_relaxed); });
+    m_cached_no_tower_extruder_count.store(int(no_wipe_tower_no_purge_extruder_count(*this)), std::memory_order_relaxed);
+    return restore;
+}
+
 bool no_wipe_tower_no_purge_mode_enabled(const Print& print)
 {
-    return no_wipe_tower_no_purge_extruder_count(print) > 1;
+    return print.no_tower_purge_extruder_count() > 1;
 }
 
 bool no_wipe_tower_single_filament_skin_disabled(const Print& print)
 {
-    return no_wipe_tower_no_purge_extruder_count(print) == 1;
+    return print.no_tower_purge_extruder_count() == 1;
 }
 
 bool flush_into_skeleton_packing_mode_enabled(const Print& print)
@@ -273,18 +291,34 @@ NoWipeTowerMaterialChangeEntrance no_wipe_tower_material_change_entrance(
     if (chain.empty())
         return {};
 
-    std::unique_ptr<ExtrusionEntity> first_entity(candidates[chain.front().first]->clone());
-    if (chain.front().second)
-        first_entity->reverse();
+    Point print_start = start_near;
+    for (size_t chain_idx = 0; chain_idx < chain.size(); ++chain_idx) {
+        const auto& [candidate_idx, reverse] = chain[chain_idx];
+        std::unique_ptr<ExtrusionEntity> entity(candidates[candidate_idx]->clone());
+        if (reverse)
+            entity->reverse();
 
-    if (const auto* collection = dynamic_cast<const ExtrusionEntityCollection*>(first_entity.get())) {
-        ExtrusionEntityCollection chained = collection->chained_path_from(start_near);
-        if (chained.entities.empty())
-            return {};
-        return entrance_from_entity(chained, scaled_distance);
+        NoWipeTowerMaterialChangeEntrance entrance;
+        if (const auto* collection = dynamic_cast<const ExtrusionEntityCollection*>(entity.get())) {
+            ExtrusionEntityCollection chained = collection->chained_path_from(start_near);
+            if (chained.entities.empty())
+                continue;
+            if (chain_idx == 0)
+                print_start = chained.first_point();
+            entrance = entrance_from_entity(chained, scaled_distance);
+        } else {
+            if (chain_idx == 0)
+                print_start = entity->first_point();
+            entrance = entrance_from_entity(*entity, scaled_distance);
+        }
+        if (entrance.valid) {
+            // A short first path must not reject an otherwise usable receiver.
+            // Wipe locally on a later path, then travel to the normal print start.
+            entrance.start = print_start;
+            return entrance;
+        }
     }
-
-    return entrance_from_entity(*first_entity, scaled_distance);
+    return {};
 }
 
 } // namespace Slic3r

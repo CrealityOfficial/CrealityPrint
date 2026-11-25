@@ -2,7 +2,9 @@
 #define ARRANGEJOB_HPP
 
 
+#include <functional>
 #include <optional>
+#include <set>
 
 #include "Job.hpp"
 #include "libslic3r/Arrange.hpp"
@@ -59,6 +61,8 @@ class ArrangeJob : public Job
     //BBS:prepare the items from current selected partplate
     void prepare_partplate();
     void prepare_wipe_tower();
+    void queue_estimated_wipe_tower(int plate_index, int unlocked_index, const std::set<int>& extruder_ids);
+    std::vector<std::pair<size_t, std::function<ArrangePolygon()>>> m_pending_wipe_towers;
 
     ArrangePolygon prepare_arrange_polygon(void* instance);
 

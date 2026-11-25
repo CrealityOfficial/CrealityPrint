@@ -1,5 +1,16 @@
 msgid ""
-msgstr "Project-Id-Version: \nPOT-Creation-Date: \nPO-Revision-Date: \nLast-Translator: \nLanguage-Team: \nLanguage: th_TH\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\nX-Generator: Poedit 3.5"
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: th_TH\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 3.5\n"
 
 msgid "Submit"
 msgstr "ส่ง"
@@ -330,7 +341,7 @@ msgid "Online Models"
 msgstr "รุ่นของออนไลน์"
 
 msgid "Online Params"
-msgstr "พารัมออนไลน์"
+msgstr "พารามิเตอร์ออนไลน์"
 
 msgid "Modeling Tools"
 msgstr "เครื่องมือจําลอง"
@@ -1125,3 +1136,18 @@ msgstr "บทช่วยสอน: %s"
 
 msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
 msgstr "ติดตั้ง Microsoft WebView2 Runtime ใหม่สำเร็จแล้ว และแอปพลิเคชันจะรีสตาร์ททันที"
+
+msgid "System presets for printers you have added"
+msgstr "ค่าที่ระบบตั้งไว้สำหรับเครื่องพิมพ์ที่คุณเพิ่ม"
+
+msgid "Updates available"
+msgstr "มีอัปเดต"
+
+msgid "No updates available"
+msgstr "ไม่มีอัปเดตที่พร้อมใช้งาน"
+
+msgid "Could not load online parameters"
+msgstr "โหลดพารามิเตอร์ออนไลน์ไม่สำเร็จ"
+
+msgid "{label} ({count})"
+msgstr "{label} ({count})"

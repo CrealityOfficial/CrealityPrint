@@ -194,6 +194,8 @@
 #include <wx/glcanvas.h> // Needs to be last because reasons :-/
 #include <libslic3r/miniz_extension.hpp>
 #include "WipeTowerDialog.hpp"
+#include "libslic3r/WipeTowerPlacement.hpp"
+#include "WipeTowerPreviewCache.hpp"
 #include "ObjColorDialog.hpp"
 
 #include "libslic3r/CustomGCode.hpp"
@@ -5282,7 +5284,7 @@ static int infer_gradient_direction_from_curve(int persisted_direction, const Gr
     return 1; // monotonic increasing endpoints => B->A
 }
 
-static MixedFilamentResult build_result_from_mixed(const MixedFilament& mf)
+MixedFilamentResult build_result_from_mixed(const MixedFilament& mf)
 {
     MixedFilamentResult r;
     if (!mf.gradient_component_ids.empty()) {
@@ -6390,6 +6392,18 @@ struct Plater::priv
     PlaterWorker<BoostThreadWorker> m_worker;
     BoostThreadWorker               m_pathological_probe_worker;
     EventGuard                      m_pathological_probe_idle_evt;
+    BoostThreadWorker               m_tower_preview_worker{nullptr, "tower_preview"};
+    WipeTowerPreviewCache           m_tower_previews{m_tower_preview_worker};
+    wxTimer                         m_tower_preview_timer;
+    ObjectID                        m_preview_model_id;
+    bool                            m_refresh_tower_preview = false;
+    ObjectID                        m_tower_validation_plate;
+    bool                            m_tower_stopped_process = false;
+    std::function<void()>           m_after_tower_preview;
+    ObjectID                        m_tower_action_model;
+    ObjectID                        m_tower_action_plate;
+    bool                            m_tower_belt_prepared = false;
+    bool                            m_tower_placement_pending = false;
     uint64_t                        m_pathological_probe_generation{0};
     uint64_t                        m_pathological_repair_consumed_session{0};
     SLAImportDialog*                m_sla_import_dlg;
@@ -6690,10 +6704,31 @@ struct Plater::priv
         UPDATE_BACKGROUND_PROCESS_FORCE_EXPORT = 16,
         // Preflight did not validate the final grouping; never start a slicing task.
         UPDATE_BACKGROUND_PROCESS_MAPPING_PENDING = 32,
+        UPDATE_BACKGROUND_PROCESS_TOWER_PENDING = 64,
     };
     bool m_support_validation_before_mapping = false;
     // returns bit mask of UpdateBackgroundProcessReturnState
     unsigned int update_background_process(bool force_validation = false, bool postpone_error_messages = false, bool switch_print = true);
+    WipeTowerPreviewCache::Result request_tower_preview(const PartPlate& plate, WipeTowerPreviewCache::Use use, WipeTowerPreviewInput input);
+    void on_tower_preview_timer();
+    void defer_tower_action(std::function<void()> action);
+    std::optional<StringObjectException> try_validate_background(StringObjectException& warning, Polygons& polygons,
+        std::vector<std::pair<Polygon, float>>& height_polygons, bool before_mapping, bool& preview_failed);
+    bool cancel_tower_action();
+    bool await_tower_scene(std::function<void()> action);
+    void next_plate_slice_failed();
+    bool update_wipe_tower_placement(bool& current_plate_pending);
+    void set_wipe_tower_rotation(double angle);
+    struct TowerPlacementState {
+        ObjectID plate_id;
+        Vec3d origin = Vec3d::Zero();
+        WipeTowerPlacementObservation observation;
+        std::optional<WipeTowerPose> loaded_pose;
+        std::shared_ptr<LoadedTowerPlacement> search;
+    };
+    std::map<int, TowerPlacementState> m_tower_placement_states;
+    ObjectID m_tower_placement_model_id;
+    bool m_suppress_tower_reposition = false;
     // Restart background processing thread based on a bitmask of UpdateBackgroundProcessReturnState.
     bool restart_background_process(unsigned int state);
     // returns bit mask of UpdateBackgroundProcessReturnState
@@ -7050,6 +7085,9 @@ Plater::priv::priv(Plater* q, MainFrame* main_frame)
         "extruder_clearance_radius", "extruder_clearance_height_to_lid", "extruder_clearance_height_to_rod",
 		"nozzle_height","skirt_type", "skirt_loops", "skirt_speed","min_skirt_length", "skirt_distance",
         "brim_width", "brim_object_gap", "brim_type", "nozzle_diameter", "single_extruder_multi_material", "preferred_orientation", "enable_prime_tower", "wipe_tower_x", "wipe_tower_y",
+        // Keep tower geometry options in the scene config so edits schedule a preview rebuild.
+        "prime_tower_enhance_type", "prime_tower_corner_rib_length", "prime_tower_fillet_wall",
+        "wipe_tower_no_sparse_layers", "wipe_tower_extra_interlayer_wipe_layers",
         "prime_tower_width", "prime_tower_brim_width", "prime_volume", "flush_into_solid_skeleton", "prime_tower_rib_wall", "prime_tower_enable_framework","prime_tower_skip_points",
         "extruder_colour", "filament_colour", "material_colour", "printable_height", "printer_model", "printer_technology",
         // These values are necessary to construct SlicingParameters by the Canvas3D variable layer height editor.
@@ -7190,7 +7228,9 @@ Plater::priv::priv(Plater* q, MainFrame* main_frame)
     this->q->Bind(wxEVT_TIMER, [this](wxTimerEvent& evt) {
         if (!this->suppressed_backround_processing_update)
             this->update_restart_background_process(false, false);
-    });
+    }, this->background_process_timer.GetId());
+    m_tower_preview_timer.SetOwner(q);
+    q->Bind(wxEVT_TIMER, [this](wxTimerEvent&) { on_tower_preview_timer(); }, m_tower_preview_timer.GetId());
 
     update();
 
@@ -7558,15 +7598,11 @@ Plater::priv::priv(Plater* q, MainFrame* main_frame)
 
     // Load the 3DConnexion device database.
     mouse3d_controller.load_config(*wxGetApp().app_config);
-    // Start the background thread to detect and connect to a HID device (Windows and Linux).
-    // Connect to a 3DConnextion driver (OSX).
     mouse3d_controller.init();
 #ifdef _WIN32
-    // Register an USB HID (Human Interface Device) attach event. evt contains Win32 path to the USB device containing VID, PID and other info.
-    // This event wakes up the Mouse3DController's background thread to enumerate HID devices, if the VID of the callback event
-    // is one of the 3D Mouse vendors (3DConnexion or Logitech).
+    // Apply Windows HID arrival and removal notifications on the UI thread.
     this->q->Bind(EVT_HID_DEVICE_ATTACHED, [this](HIDDeviceAttachedEvent& evt) { mouse3d_controller.device_attached(evt.data); });
-    this->q->Bind(EVT_HID_DEVICE_DETACHED, [this](HIDDeviceAttachedEvent& evt) { mouse3d_controller.device_detached(evt.data); });
+    this->q->Bind(EVT_HID_DEVICE_DETACHED, [this](HIDDeviceDetachedEvent& evt) { mouse3d_controller.device_detached(evt.data); });
 #endif /* _WIN32 */
     // notification_manager = new NotificationManager(this->q);
 
@@ -7756,6 +7792,9 @@ Plater::priv::~priv()
     if (s_gui_open_timing.active)
         end_gui_open_without_frame(s_gui_open_timing.request_id, "incomplete", "plater_destroyed");
 
+    m_tower_preview_timer.Stop();
+    m_after_tower_preview = {};
+    m_tower_previews.clear();
     cancel_pathological_probe();
     if (config != nullptr)
         delete config;
@@ -8463,6 +8502,14 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
 
     bool load_model     = strategy & LoadStrategy::LoadModel;
     bool load_config    = strategy & LoadStrategy::LoadConfig;
+    const bool previous_tower_suppression = m_suppress_tower_reposition;
+    m_suppress_tower_reposition |= load_config;
+    if (load_config)
+        m_tower_placement_states.clear();
+    ScopeGuard restore_tower_placement([this, previous_tower_suppression] {
+        m_suppress_tower_reposition = previous_tower_suppression;
+    });
+    bool loaded_project_layout = false;
     bool imperial_units = strategy & LoadStrategy::ImperialUnits;
     bool silence        = strategy & LoadStrategy::Silence;
     bool imported_filament_mapping_pending = false;
@@ -9374,6 +9421,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             q->on_filaments_change(preset_bundle->filament_presets.size());
                             preset_bundle->update_filament_presets = true;
                             is_project_file = true;
+                            loaded_project_layout = load_model;
 
 
                             // BBS: rewrite wipe tower pos stored in 3mf file , the code above should be seriously reconsidered
@@ -9386,7 +9434,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                                     *wipe_tower_x = *file_wipe_tower_x;
                                 if (file_wipe_tower_y)
                                     *wipe_tower_y = *file_wipe_tower_y;
-                                if (wipe_tower_rotation_angle)
+                                if (wipe_tower_rotation_angle && file_wipe_tower_rotation_angle)
                                     *wipe_tower_rotation_angle = *file_wipe_tower_rotation_angle;
                             }
                         }
@@ -10102,6 +10150,26 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
         const std::string mapping_error = wxGetApp().preset_bundle->initialize_project_filament_mapping();
         if (!mapping_error.empty())
             BOOST_LOG_TRIVIAL(warning) << "Failed to initialize filament nozzle mapping: " << mapping_error;
+    }
+    if (loaded_project_layout && !obj_idxs.empty() && printer_technology == ptFFF && !q->only_gcode_mode()) {
+        // Remember this exact pose until the asynchronous footprint is ready. A
+        // later manual move, plate replacement or undo takes precedence.
+        const auto& project = wxGetApp().preset_bundle->project_config;
+        const auto* xs = project.option<ConfigOptionFloats>("wipe_tower_x");
+        const auto* ys = project.option<ConfigOptionFloats>("wipe_tower_y");
+        if (xs && ys && !xs->values.empty() && !ys->values.empty()) {
+            m_tower_placement_model_id = model.id();
+            const double angle = wxGetApp().preset_bundle->full_config().opt_float("wipe_tower_rotation_angle");
+            for (int id = 0; id < partplate_list.get_plate_count(); ++id) {
+                PartPlate* plate = partplate_list.get_plate(id);
+                auto& state = m_tower_placement_states[id];
+                state.plate_id = plate->id();
+                state.origin = plate->get_origin();
+                const auto* override_angle = plate->config()->option<ConfigOptionFloat>("wipe_tower_rotation_angle");
+                state.loaded_pose = WipeTowerPose{Point::new_scale(xs->get_at(id), ys->get_at(id)), override_angle ? override_angle->value : angle};
+            }
+            schedule_background_process();
+        }
     }
     return obj_idxs;
 }
@@ -11103,6 +11171,11 @@ void Plater::priv::delete_all_objects_from_model()
 
 void Plater::priv::reset(bool apply_presets_change)
 {
+    cancel_tower_action();
+    m_refresh_tower_preview = false;
+    m_tower_validation_plate = {};
+    m_tower_stopped_process = false;
+    m_tower_previews.clear();
     Plater::TakeSnapshot snapshot(q, "Reset Project", UndoRedo::SnapshotType::ProjectSeparator);
 
     clear_warnings();
@@ -11348,7 +11421,7 @@ void Plater::priv::split_object()
     wxBusyCursor    wait;
     ModelObjectPtrs new_objects;
     current_model_object->split(&new_objects);
-    if (new_objects.size() == 1)
+    if (new_objects.size() <= 1)
         // #ysFIXME use notification
         Slic3r::GUI::warning_catcher(q, _L("The selected object couldn't be split."));
     else {
@@ -11358,6 +11431,27 @@ void Plater::priv::split_object()
         //    notification_manager->push_notification(NotificationType::CustomNotification,
         //        NotificationManager::NotificationLevel::PrintInfoNotificationLevel,
         //        _u8L("All non-solid parts (modifiers) were deleted"));
+
+        const bool has_floating_part = std::any_of(new_objects.begin(), new_objects.end(), [](const ModelObject* object) {
+            for (size_t i = 0; i < object->instances.size(); ++i)
+                if (object->instances[i]->auto_drop && object->get_instance_min_z(i) >= SINKING_MIN_Z_THRESHOLD)
+                    return true;
+            return false;
+        });
+        if (has_floating_part) {
+            MessageDialog dlg(q, _L("Disable Auto-Drop to preserve Z positioning?"), _L("Object with floating parts was detected"),
+                              wxICON_QUESTION | wxYES_NO);
+            if (dlg.ShowModal() == wxID_YES) {
+                for (ModelObject* object : new_objects) {
+                    for (size_t i = 0; i < object->instances.size(); ++i) {
+                        object->instances[i]->auto_drop = false;
+                        const double min_z = object->get_instance_min_z(i);
+                        if (min_z < 0.0)
+                            object->translate_instance(i, Vec3d(0.0, 0.0, -min_z));
+                    }
+                }
+            }
+        }
 
         Plater::TakeSnapshot snapshot(q, "Split to Objects");
 
@@ -11527,6 +11621,260 @@ static bool support_validation_waits_for_filament_grouping()
     return enabled != nullptr && enabled->value && bundle->has_mixed_selected_nozzle_variants();
 }
 
+WipeTowerPreviewCache::Result Plater::priv::request_tower_preview(const PartPlate& plate, WipeTowerPreviewCache::Use use, WipeTowerPreviewInput input)
+{
+    if (m_preview_model_id != model.id()) {
+        cancel_tower_action();
+        m_tower_previews.clear();
+        m_preview_model_id = model.id();
+    }
+    auto result = m_tower_previews.request(plate.get_index(), plate.id(), use, std::move(input));
+    if (!result.ready && !m_tower_preview_timer.IsRunning())
+        m_tower_preview_timer.Start(33);
+    return result;
+}
+
+void Plater::priv::defer_tower_action(std::function<void()> action)
+{
+    cancel_tower_action();
+    m_tower_action_model = model.id();
+    m_tower_action_plate = partplate_list.get_curr_plate()->id();
+    m_after_tower_preview = std::move(action);
+    if (!m_tower_preview_timer.IsRunning())
+        m_tower_preview_timer.Start(33);
+}
+
+std::optional<StringObjectException> Plater::priv::try_validate_background(StringObjectException& warning, Polygons& polygons,
+    std::vector<std::pair<Polygon, float>>& height_polygons, bool before_mapping, bool& preview_failed)
+{
+    std::exception_ptr failure;
+    auto validation = background_process.try_validate(&warning, &polygons, &height_polygons, before_mapping,
+        [this, &failure](WipeTowerPreviewInput input) {
+            auto result = request_tower_preview(*background_process.get_current_plate(), WipeTowerPreviewCache::Use::Validation, std::move(input));
+            failure = result.error;
+            return result.ready && !failure ? result.preview : nullptr;
+        });
+    if (failure) {
+        preview_failed = true;
+        try { std::rethrow_exception(failure); }
+        catch (const std::exception& e) { return StringObjectException{e.what()}; }
+        catch (...) { return StringObjectException{L("Failed to generate the wipe tower.")}; }
+    }
+    return validation;
+}
+
+bool Plater::priv::await_tower_scene(std::function<void()> action)
+{
+    if (m_tower_preview_worker.is_idle() && !m_refresh_tower_preview)
+        return false;
+    defer_tower_action(std::move(action));
+    return true;
+}
+
+bool Plater::priv::cancel_tower_action()
+{
+    if (!m_after_tower_preview)
+        return false;
+    m_after_tower_preview = {};
+    if (std::exchange(m_tower_belt_prepared, false) && m_tower_action_model == model.id())
+        restore_belt_transformation();
+    m_waiting_for_first_slice_progress = false;
+    if (m_slice_all && m_is_slicing && !background_process.running()) {
+        m_is_slicing = false;
+        m_slice_all = false;
+        q->SetDropTarget(new PlaterDropTarget(*main_frame, *q));
+    }
+    return true;
+}
+
+void Plater::priv::on_tower_preview_timer()
+{
+    m_tower_preview_worker.process_events();
+    m_refresh_tower_preview |= m_tower_previews.take_changed() ||
+        ((m_tower_placement_pending || m_after_tower_preview) && m_tower_preview_worker.is_idle());
+    if (m_refresh_tower_preview && !g_model_import_in_progress && !suppressed_backround_processing_update &&
+        !view3D->get_canvas3d()->is_dragging() && !view3D->get_canvas3d()->is_mouse_dragging()) {
+        m_refresh_tower_preview = false;
+        if (m_after_tower_preview && (m_tower_action_model != model.id() || m_tower_action_plate != partplate_list.get_curr_plate()->id()))
+            cancel_tower_action();
+        auto resume = std::exchange(m_after_tower_preview, {});
+        if (!resume && (m_tower_validation_plate.valid() || m_tower_placement_pending)) {
+            update_restart_background_process(true, q->is_preview_shown());
+        } else {
+            view3D->reload_scene(false);
+            if (q->is_preview_shown())
+                preview->reload_print();
+            if (resume)
+                resume();
+        }
+    }
+    if (!m_refresh_tower_preview && !m_after_tower_preview && m_tower_preview_worker.is_idle())
+        m_tower_preview_timer.Stop();
+}
+
+void Plater::priv::set_wipe_tower_rotation(double angle)
+{
+    auto& bundle = *wxGetApp().preset_bundle;
+    bundle.prints.get_edited_preset().config.option<ConfigOptionFloat>("wipe_tower_rotation_angle", true)->value = angle;
+    if (auto* project_angle = bundle.project_config.option<ConfigOptionFloat>("wipe_tower_rotation_angle"))
+        project_angle->value = angle;
+    config->set_key_value("wipe_tower_rotation_angle", new ConfigOptionFloat(angle));
+    if (auto* tab = wxGetApp().get_tab(Preset::TYPE_PRINT)) {
+        tab->update_dirty();
+        tab->reload_config();
+    }
+}
+
+bool Plater::priv::update_wipe_tower_placement(bool& current_plate_pending)
+{
+    m_tower_placement_pending = false;
+    if (m_suppress_tower_reposition || g_model_import_in_progress || printer_technology != ptFFF || q->only_gcode_mode()) {
+        m_tower_placement_states.clear();
+        return false;
+    }
+    if (m_tower_placement_model_id != model.id()) {
+        m_tower_placement_states.clear();
+        m_tower_placement_model_id = model.id();
+    }
+    const DynamicPrintConfig full_config = wxGetApp().preset_bundle->full_config();
+    auto& project = wxGetApp().preset_bundle->project_config;
+    auto* xs = project.option<ConfigOptionFloats>("wipe_tower_x", true);
+    auto* ys = project.option<ConfigOptionFloats>("wipe_tower_y", true);
+    bool moved = false;
+    bool finished_search = false;
+    for (int id = 0; id < partplate_list.get_plate_count(); ++id) {
+        PartPlate* plate = partplate_list.get_plate(id);
+        const Vec3d origin = plate->get_origin();
+        auto& state = m_tower_placement_states[id];
+        if (state.plate_id != plate->id() || state.origin != origin) {
+            state = TowerPlacementState{};
+            state.plate_id = plate->id();
+            state.origin = origin;
+        }
+        DynamicPrintConfig merged = full_config;
+        merged.apply(*plate->config());
+        const double angle = merged.opt_float("wipe_tower_rotation_angle");
+        const Point anchor = Point::new_scale(xs->get_at(id), ys->get_at(id));
+        if (state.loaded_pose && (state.loaded_pose->anchor != anchor || state.loaded_pose->rotation_degrees != angle || plate->is_locked())) {
+            state.loaded_pose.reset();
+            state.search.reset();
+        }
+        auto mark_pending = [&] {
+            m_tower_placement_pending = true;
+            current_plate_pending |= plate == background_process.get_current_plate();
+        };
+        std::shared_ptr<const WipeTowerPreview> preview;
+        Polygon footprint;
+        if (merged.opt_bool("enable_prime_tower") && plate->printable_instance_size() > 0 &&
+            (plate->get_real_print_seq() != PrintSequence::ByObject || plate->printable_instance_size() == 1)) {
+            // A zero count asks the estimator to resolve only this plate's used
+            // physical filaments. Unused slots must not grow or move the tower.
+            const auto result = request_tower_preview(*plate, WipeTowerPreviewCache::Use::Placement, plate->wipe_tower_preview_input(merged));
+            if (!result.ready) {
+                mark_pending();
+                continue; // Preserve the last observation until the new shape is available.
+            }
+            if (result.error)
+                continue;
+            preview = result.preview;
+            footprint = preview->footprint(angle);
+        }
+        const bool shape_changed = state.observation.observe(footprint, anchor);
+        if (footprint.empty() || plate->is_locked()) {
+            state.loaded_pose.reset();
+            state.search.reset();
+            continue;
+        }
+        if (!state.loaded_pose && !shape_changed)
+            continue;
+        Polygon bed;
+        for (const Vec2d& point : plate->get_shape())
+            bed.points.push_back(Point::new_scale(point.x() - origin.x(), point.y() - origin.y()));
+        if (bed.empty())
+            continue;
+        if (state.loaded_pose) {
+            Polygon placed = footprint;
+            placed.translate(anchor);
+            // A nominally in-bounds tower may grow past the edge during timed purges.
+            const auto& times = merged.option<ConfigOptionFloats>("filament_pre_flush_tower_time")->values;
+            if (diff(placed, bed).empty() && std::none_of(times.begin(), times.end(), [](double t) { return t > 0.; })) {
+                state.loaded_pose.reset();
+                state.search.reset();
+                continue;
+            }
+        }
+        Polygons obstacles;
+        const Point plate_offset = Point::new_scale(origin.x(), origin.y());
+        const auto plate_bounds = plate->get_bounding_box_crd();
+        for (ModelObject* object : model.objects) {
+            for (ModelInstance* instance : object->instances) {
+                auto ap = get_instance_arrange_poly(instance, merged);
+                auto shape = ap.transformed_poly();
+                if (!plate_bounds.overlap(get_extents(shape)))
+                    continue;
+                shape.translate(-plate_offset.x(), -plate_offset.y());
+                auto inflated = offset(shape, scaled(std::max(0., ap.brim_width)));
+                append(obstacles, inflated);
+            }
+        }
+        for (const auto& excluded : plate->get_exclude_areas()) {
+            const Point low = Point::new_scale(excluded.min.x() - origin.x(), excluded.min.y() - origin.y());
+            const Point high = Point::new_scale(excluded.max.x() - origin.x(), excluded.max.y() - origin.y());
+            obstacles.emplace_back(Points{low, Point(high.x(), low.y()), high, Point(low.x(), high.y())});
+        }
+        std::optional<WipeTowerPose> pose;
+        if (state.loaded_pose) {
+            // Only a single plate may change the shared process rotation. Recheck
+            // the geometry and obstacles before publishing an asynchronous result.
+            const bool allow_rotation = partplate_list.get_plate_count() == 1;
+            auto& search = state.search;
+            if (!search || search->preview != preview || search->bed != bed || search->obstacles != obstacles || search->allow_rotation != allow_rotation) {
+                search = std::make_shared<LoadedTowerPlacement>();
+                search->preview = preview;
+                search->bed = std::move(bed);
+                search->obstacles = std::move(obstacles);
+                search->allow_rotation = allow_rotation;
+                LoadedTowerPlacement::schedule(m_tower_preview_worker, search, plate->wipe_tower_preview_input(merged), *state.loaded_pose);
+                if (!m_tower_preview_timer.IsRunning())
+                    m_tower_preview_timer.Start(33);
+            }
+            if (!search->ready) {
+                mark_pending();
+                continue;
+            }
+            pose = search->pose;
+            finished_search = true;
+            state.loaded_pose.reset();
+            search.reset();
+        } else if (auto position = nearest_wipe_tower_position(footprint, bed, obstacles, anchor))
+            pose = WipeTowerPose{*position, angle};
+
+        if (!pose || (pose->anchor == anchor && pose->rotation_degrees == angle))
+            continue;
+        if (!moved)
+            take_snapshot(_u8L("Move"));
+        ConfigOptionFloat x(unscale<double>(pose->anchor.x()));
+        ConfigOptionFloat y(unscale<double>(pose->anchor.y()));
+        xs->set_at(&x, id, 0);
+        ys->set_at(&y, id, 0);
+        if (pose->rotation_degrees != angle) {
+            if (auto* override_angle = plate->config()->option<ConfigOptionFloat>("wipe_tower_rotation_angle"))
+                override_angle->value = pose->rotation_degrees;
+            set_wipe_tower_rotation(pose->rotation_degrees);
+            footprint = preview->footprint(pose->rotation_degrees);
+        }
+        state.observation.observe(footprint, pose->anchor);
+        plate->update_slice_result_valid_state(false);
+        moved = true;
+    }
+    if (moved) {
+        config->set_key_value("wipe_tower_x", xs->clone());
+        config->set_key_value("wipe_tower_y", ys->clone());
+        update_project_dirty_from_presets();
+    }
+    return moved || finished_search;
+}
+
 unsigned int Plater::priv::update_background_process(bool force_validation, bool postpone_error_messages, bool switch_print)
 {
     // bitmap of enum UpdateBackgroundProcessReturnState
@@ -11583,6 +11931,9 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
     Print::ApplyStatus invalidated;
 
     const auto apply_started_at = std::chrono::steady_clock::now();
+    bool placement_pending = false;
+    if (update_wipe_tower_placement(placement_pending))
+        return_state |= UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE;
     invalidated = background_process.apply(this->model, wxGetApp().preset_bundle->full_config());
     if (m_waiting_for_first_slice_progress) {
         BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=BACKGROUND_APPLY elapsed_ms="
@@ -11635,7 +11986,12 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
         }
     }
 
-    if ((invalidated != Print::APPLY_STATUS_UNCHANGED || force_validation || validation_phase_changed) && !background_process.empty()) {
+    const ObjectID previous_plate = std::exchange(m_tower_validation_plate, {});
+    const PartPlate* validating_plate = background_process.get_current_plate();
+    const bool deferred_validation = previous_plate.valid() && validating_plate && previous_plate == validating_plate->id();
+    const bool previously_stopped = std::exchange(m_tower_stopped_process, false);
+    was_running |= deferred_validation && previously_stopped;
+    if ((invalidated != Print::APPLY_STATUS_UNCHANGED || force_validation || validation_phase_changed || deferred_validation || placement_pending) && !background_process.empty()) {
         // The delayed error message is no more valid.
         delayed_error_message.clear();
         // The state of the Print changed, and it is non-zero. Let's validate it and give the user feedback on errors.
@@ -11646,7 +12002,14 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
         Polygons                               polygons;
         std::vector<std::pair<Polygon, float>> height_polygons;
         const auto                             validate_started_at = std::chrono::steady_clock::now();
-        StringObjectException                  err = background_process.validate(&warning, &polygons, &height_polygons, before_filament_mapping);
+        bool preview_failed = false;
+        auto validation = try_validate_background(warning, polygons, height_polygons, before_filament_mapping, preview_failed);
+        if (placement_pending || !validation) {
+            m_tower_validation_plate = background_process.get_current_plate()->id();
+            m_tower_stopped_process = was_running && !background_process.running();
+            return return_state | UPDATE_BACKGROUND_PROCESS_TOWER_PENDING;
+        }
+        StringObjectException& err = *validation;
         if (m_waiting_for_first_slice_progress) {
             BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=BACKGROUND_VALIDATE elapsed_ms="
                                        << std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - validate_started_at).count();
@@ -11678,7 +12041,7 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
             this->partplate_list.get_curr_plate()->set_validate_error_message("");  // Clear error message
             notification_manager->set_all_slicing_errors_gray(true);
             notification_manager->close_notification_of_type(NotificationType::ValidateError);
-            if (invalidated != Print::APPLY_STATUS_UNCHANGED && background_processing_enabled())
+            if ((invalidated != Print::APPLY_STATUS_UNCHANGED || deferred_validation) && background_processing_enabled())
                 return_state |= UPDATE_BACKGROUND_PROCESS_RESTART;
 
             // Pass a warning from validation and either show a notification,
@@ -11698,15 +12061,14 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
             // StringObjectException tmp4{
             //    L("Different nozzle diameters and different filament diameters is not allowed when prime tower is enabled.")};
             // bool tmp5 = err.string == tmp4.string;
-            if (is_F031 && err.type != STRING_EXCEPT_PROCESS_PARAMETER_MUTEX /* &&
-                err.string ==
-                    L("Different nozzle diameters and different filament diameters is not allowed when prime tower is enabled.")*/)
+            if (is_F031 && !preview_failed && err.type != STRING_EXCEPT_PROCESS_PARAMETER_MUTEX &&
+                err.type != STRING_EXCEPT_PRIME_TOWER_OUTSIDE_PLATE)
             {
                 this->partplate_list.get_curr_plate()->update_apply_result_invalid(false);
                 this->partplate_list.get_curr_plate()->set_validate_error_message("");  // Clear error message
                 notification_manager->set_all_slicing_errors_gray(true);
                 notification_manager->close_notification_of_type(NotificationType::ValidateError);
-                if (invalidated != Print::APPLY_STATUS_UNCHANGED && background_processing_enabled())
+                if ((invalidated != Print::APPLY_STATUS_UNCHANGED || deferred_validation) && background_processing_enabled())
                     return_state |= UPDATE_BACKGROUND_PROCESS_RESTART;
 
                 notification_manager->push_validate_warning_notification(err);
@@ -11744,7 +12106,7 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
     }
 
     // actualizate warnings
-    if (invalidated != Print::APPLY_STATUS_UNCHANGED || background_process.empty()) {
+    if (invalidated != Print::APPLY_STATUS_UNCHANGED || deferred_validation || background_process.empty()) {
         if (background_process.empty())
             process_validation_warning({});
         actualize_slicing_warnings(*this->background_process.current_print());
@@ -11759,7 +12121,7 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
                                    __LINE__ % was_running % this->background_process.running() % invalidated % return_state %
                                    this->background_process.is_internal_cancelled();
     if (was_running && !this->background_process.running() && (return_state & UPDATE_BACKGROUND_PROCESS_RESTART) == 0) {
-        if (invalidated != Print::APPLY_STATUS_UNCHANGED || this->background_process.is_internal_cancelled()) {
+        if (invalidated != Print::APPLY_STATUS_UNCHANGED || previously_stopped || this->background_process.is_internal_cancelled()) {
             // The background processing was killed and it will not be restarted.
             // Post the "canceled" callback message, so that it will be processed after any possible pending status bar update messages.
             SlicingProcessCompletedEvent evt(EVT_PROCESS_COMPLETED, 0, SlicingProcessCompletedEvent::Cancelled, nullptr);
@@ -11833,7 +12195,7 @@ unsigned int Plater::priv::update_background_process(bool force_validation, bool
 bool Plater::priv::restart_background_process(unsigned int state)
 {
     // A successful preflight is not permission to generate paths before final mapping validation.
-    if (m_support_validation_before_mapping || (state & UPDATE_BACKGROUND_PROCESS_MAPPING_PENDING) != 0)
+    if (m_support_validation_before_mapping || (state & (UPDATE_BACKGROUND_PROCESS_MAPPING_PENDING | UPDATE_BACKGROUND_PROCESS_TOWER_PENDING)) != 0)
         return false;
     if (!m_worker.is_idle()) {
         // Avoid a race condition
@@ -11887,6 +12249,12 @@ void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_remova
 
     // bitmask of UpdateBackgroundProcessReturnState
     unsigned int state = update_background_process(true);
+    if (state & UPDATE_BACKGROUND_PROCESS_TOWER_PENDING) {
+        defer_tower_action([this, output_path, output_path_on_removable_media] {
+            export_gcode(output_path, output_path_on_removable_media);
+        });
+        return;
+    }
     if (state & priv::UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE)
         view3D->reload_scene(false);
 
@@ -11919,6 +12287,13 @@ void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_remova
 
     // bitmask of UpdateBackgroundProcessReturnState
     unsigned int state = update_background_process(true);
+    if (state & UPDATE_BACKGROUND_PROCESS_TOWER_PENDING) {
+        auto job = std::make_shared<PrintHostJob>(std::move(upload_job));
+        defer_tower_action([this, output_path, output_path_on_removable_media, job] {
+            export_gcode(output_path, output_path_on_removable_media, std::move(*job));
+        });
+        return;
+    }
     if (state & priv::UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE)
         view3D->reload_scene(false);
 
@@ -14244,14 +14619,8 @@ void Plater::priv::on_process_completed(SlicingProcessCompletedEvent& evt)
         q->Freeze();
         q->select_plate(m_cur_slice_plate);
         partplate_list.select_plate_view();
-        int ret = q->start_next_slice();
-        if (ret) {
-            BOOST_LOG_TRIVIAL(info) << __FUNCTION__
-                                    << boost::format(":slicing all, plate %1% can not be sliced, will stop") % m_cur_slice_plate;
-            m_is_slicing = false;
-            q->SetDropTarget(new PlaterDropTarget(*main_frame, *q));
-            Test::EVENT_SPREAD("slice_all_completed", "failed:start_next_plate");
-        }
+        if (q->start_next_slice())
+            next_plate_slice_failed();
         // not the last plate
         update_fff_scene_only_shells();
         q->Thaw();
@@ -14884,6 +15253,8 @@ void Plater::priv::on_action_upload_gcode(SimpleEvent&)
 // BBS: add plate select logic
 void Plater::priv::on_plate_selected(SimpleEvent&)
 {
+    if (m_after_tower_preview && m_tower_action_plate != partplate_list.get_curr_plate()->id())
+        cancel_tower_action();
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << ":received plate selected event\n";
     sidebar->obj_list()->on_plate_selected(partplate_list.get_curr_plate_index());
     show_pathological_probe_notification(partplate_list.get_curr_plate_index(), true);
@@ -15372,8 +15743,9 @@ void Plater::priv::init_notification_manager()
     notification_manager->init();
 
     auto cancel_callback = [this]() {
+        const bool canceled = cancel_tower_action();
         if (this->background_process.idle())
-            return false;
+            return canceled;
         this->background_process.stop();
         return true;
     };
@@ -16274,6 +16646,12 @@ void Plater::priv::undo_redo_to(std::vector<UndoRedo::Snapshot>::const_iterator 
 {
     // Make sure that no updating function calls take_snapshot until we are done.
     SuppressSnapshots snapshot_supressor(q);
+    const bool previous_tower_suppression = m_suppress_tower_reposition;
+    m_suppress_tower_reposition = true;
+    ScopeGuard restore_tower_placement([this, previous_tower_suppression] {
+        m_suppress_tower_reposition = previous_tower_suppression;
+        m_tower_placement_states.clear();
+    });
 
     bool              temp_snapshot_was_taken    = this->undo_redo_stack().temp_snapshot_active();
     PrinterTechnology new_printer_technology     = it_snapshot->snapshot_data.printer_technology;
@@ -16370,9 +16748,10 @@ void Plater::priv::undo_redo_to(std::vector<UndoRedo::Snapshot>::const_iterator 
             const DynamicPrintConfig& proj_cfg    = wxGetApp().preset_bundle->project_config;
             ConfigOptionFloats*       tower_x_opt = const_cast<ConfigOptionFloats*>(proj_cfg.option<ConfigOptionFloats>("wipe_tower_x"));
             ConfigOptionFloats*       tower_y_opt = const_cast<ConfigOptionFloats*>(proj_cfg.option<ConfigOptionFloats>("wipe_tower_y"));
-            // BBS: don't support wipe tower rotation
-            // double current_rotation = proj_cfg.opt_float("wipe_tower_rotation_angle");
-            bool need_update = false;
+            bool need_update = !model.wipe_tower.positions.empty() &&
+                               model.wipe_tower.rotation != config.opt_float("wipe_tower_rotation_angle");
+            if (need_update)
+                set_wipe_tower_rotation(model.wipe_tower.rotation);
             if (tower_x_opt->values.size() != model.wipe_tower.positions.size()) {
                 tower_x_opt->clear();
                 ConfigOptionFloat default_tower_x(40.f);
@@ -20783,6 +21162,8 @@ void Plater::set_number_of_copies(/*size_t num*/)
 
 void Plater::fill_bed_with_instances()
 {
+    if (p->await_tower_scene([this] { fill_bed_with_instances(); }))
+        return;
     auto& w = get_ui_job_worker();
     if (w.is_idle()) {
         p->take_snapshot(_u8L("Arrange"));
@@ -20874,6 +21255,10 @@ void Plater::export_gcode(bool prefer_removable)
             // Update the background processing, so that the placeholder parser will get the correct values for the ouput file template.
             // Also if there is something wrong with the current configuration, a pop-up dialog will be shown and the export will not be performed.
             unsigned int state = this->p->update_restart_background_process(false, false);
+            if (state & priv::UPDATE_BACKGROUND_PROCESS_TOWER_PENDING) {
+                p->defer_tower_action([this, prefer_removable] { export_gcode(prefer_removable); });
+                return;
+            }
             if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
                 return;
             default_output_file = this->p->background_process.output_filepath_for_project("");
@@ -21082,6 +21467,10 @@ void Plater::export_gcode_3mf(bool export_all)
         // Update the background processing, so that the placeholder parser will get the correct values for the ouput file template.
         // Also if there is something wrong with the current configuration, a pop-up dialog will be shown and the export will not be performed.
         unsigned int state = this->p->update_restart_background_process(false, false);
+        if (state & priv::UPDATE_BACKGROUND_PROCESS_TOWER_PENDING) {
+            p->defer_tower_action([this, export_all] { export_gcode_3mf(export_all); });
+            return;
+        }
         if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
             return;
         default_output_file = this->p->background_process.output_filepath_for_project("");
@@ -22780,20 +23169,12 @@ void Plater::check_filament_vendor_for_models()
 // BBS: add multiple plate reslice logic
 void Plater::reslice()
 {
+    // A second click replaces any earlier deferred action before belt transforms are applied.
+    p->cancel_tower_action();
     RetractConfigTrace trace("Plater.reslice", this);
     if (RetractConfigTrace::enabled())
         trace.note("CONTEXT", " pa_pattern=", model().calib_pa_pattern.get(), " objects=", model().objects.size());
     const auto reslice_started_at = std::chrono::steady_clock::now();
-    const auto abort_preflight_timing = [this, &reslice_started_at](const char* reason) {
-        if (!p->m_waiting_for_first_slice_progress)
-            return;
-        BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=CLICK_TO_FIRST_VISIBLE_PROGRESS ABORT elapsed_ms="
-                                   << std::chrono::duration<double, std::milli>(
-                                          std::chrono::steady_clock::now() - reslice_started_at)
-                                          .count()
-                                   << " reason=" << reason;
-        p->m_waiting_for_first_slice_progress = false;
-    };
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__
                             << boost::format(", Line %1%: enter, process_completed_with_error=%2%") % __LINE__ %
                                    p->process_completed_with_error;
@@ -22801,14 +23182,14 @@ void Plater::reslice()
     if (p->process_completed_with_error == p->partplate_list.get_curr_plate_index()) {
         BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << boost::format(": process_completed_with_error, return directly");
         reset_gcode_toolpaths();
-        abort_preflight_timing("invalid_data");
+        abort_preflight_timing(reslice_started_at, "invalid_data");
         return;
     }
 
     // In case SLA gizmo is in editing mode, refuse to continue
     // and notify user that he should leave it first.
     if (get_view3D_canvas3D()->get_gizmos_manager().is_in_editing_mode(true)) {
-        abort_preflight_timing("gizmo_editing");
+        abort_preflight_timing(reslice_started_at, "gizmo_editing");
         return;
     }
 
@@ -22818,7 +23199,7 @@ void Plater::reslice()
     const auto stop_ui_jobs_started_at = std::chrono::steady_clock::now();
     if (!stop_queue(this->get_ui_job_worker(), timeout_ms)) {
         BOOST_LOG_TRIVIAL(error) << "Could not stop UI job within " << timeout_ms << " milliseconds timeout!";
-        abort_preflight_timing("stop_ui_jobs_timeout");
+        abort_preflight_timing(reslice_started_at, "stop_ui_jobs_timeout");
         return;
     }
     BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=STOP_UI_JOBS elapsed_ms="
@@ -22858,8 +23239,33 @@ void Plater::reslice()
 
     // FIXME Don't reslice if export of G-code or sending to OctoPrint is running.
     //  bitmask of UpdateBackgroundProcessReturnState
-    const auto update_background_started_at = std::chrono::steady_clock::now();
-    unsigned int state = this->p->update_background_process(true);
+    continue_reslice(reslice_started_at, std::chrono::steady_clock::now());
+}
+
+void Plater::abort_preflight_timing(std::chrono::steady_clock::time_point reslice_started_at, const char* reason)
+{
+    if (!p->m_waiting_for_first_slice_progress)
+        return;
+    BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=CLICK_TO_FIRST_VISIBLE_PROGRESS ABORT elapsed_ms="
+                               << std::chrono::duration<double, std::milli>(
+                                      std::chrono::steady_clock::now() - reslice_started_at)
+                                      .count()
+                               << " reason=" << reason;
+    p->m_waiting_for_first_slice_progress = false;
+}
+
+void Plater::continue_reslice(std::chrono::steady_clock::time_point reslice_started_at,
+                              std::chrono::steady_clock::time_point update_background_started_at)
+{
+    const unsigned int state = p->update_background_process(true);
+    if (state & priv::UPDATE_BACKGROUND_PROCESS_TOWER_PENDING) {
+        p->defer_tower_action([this, reslice_started_at, update_background_started_at] {
+            continue_reslice(reslice_started_at, update_background_started_at);
+        });
+        p->m_tower_belt_prepared = wxGetApp().preset_bundle->machine_is_belt();
+        return;
+    }
+    p->m_tower_belt_prepared = false;
     BOOST_LOG_TRIVIAL(warning) << "[SLICE_PREFLIGHT_TIMING] stage=UPDATE_BACKGROUND_PROCESS elapsed_ms="
                                << std::chrono::duration<double, std::milli>(
                                       std::chrono::steady_clock::now() - update_background_started_at)
@@ -22907,7 +23313,7 @@ void Plater::reslice()
                                    << boost::format(": state %1% is UPDATE_BACKGROUND_PROCESS_INVALID, can not slice") % state;
         p->update_fff_scene_only_shells();
         p->restore_belt_transformation();
-        abort_preflight_timing("invalid_background_process");
+        abort_preflight_timing(reslice_started_at, "invalid_background_process");
         return;
     }
 
@@ -22948,7 +23354,7 @@ void Plater::reslice()
                                                                     {AnalyticsDataEventType::ANALYTICS_SLICE_PLATE});
     }else{
         p->restore_belt_transformation();
-        abort_preflight_timing("background_process_not_started");
+        abort_preflight_timing(reslice_started_at, "background_process_not_started");
     }
 
     bool clean_gcode_toolpaths = true;
@@ -23059,6 +23465,15 @@ void Plater::record_slice_preset(std::string action)
 }
 
 // BBS: add project slicing related logic
+void Plater::priv::next_plate_slice_failed()
+{
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__
+                            << boost::format(":slicing all, plate %1% can not be sliced, will stop") % m_cur_slice_plate;
+    m_is_slicing = false;
+    q->SetDropTarget(new PlaterDropTarget(*main_frame, *q));
+    Test::EVENT_SPREAD("slice_all_completed", "failed:start_next_plate");
+}
+
 int Plater::start_next_slice()
 {
     // Stop arrange and (or) optimize rotation tasks.
@@ -23067,6 +23482,13 @@ int Plater::start_next_slice()
     // FIXME Don't reslice if export of G-code or sending to OctoPrint is running.
     //  bitmask of UpdateBackgroundProcessReturnState
     unsigned int state = this->p->update_background_process(true, false, false);
+    if (state & priv::UPDATE_BACKGROUND_PROCESS_TOWER_PENDING) {
+        p->defer_tower_action([this] {
+            if (start_next_slice())
+                p->next_plate_slice_failed();
+        });
+        return 0;
+    }
     if (state & priv::UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE)
         this->p->view3D->reload_scene(false);
 
@@ -23145,6 +23567,10 @@ void Plater::send_gcode_legacy(int plate_idx, Export3mfProgressFn proFn, bool us
         // Update the background processing, so that the placeholder parser will get the correct values for the ouput file template.
         // Also if there is something wrong with the current configuration, a pop-up dialog will be shown and the export will not be performed.
         unsigned int state = this->p->update_restart_background_process(false, false);
+        if (state & priv::UPDATE_BACKGROUND_PROCESS_TOWER_PENDING) {
+            p->defer_tower_action([this, plate_idx, proFn, use_3mf] { send_gcode_legacy(plate_idx, proFn, use_3mf); });
+            return;
+        }
         if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
             return;
         default_output_file = this->p->background_process.output_filepath_for_project("");
@@ -23232,6 +23658,10 @@ void Plater::send_gcode_to_fluidd(int plate_idx, Export3mfProgressFn proFn, bool
     fs::path default_output_file;
     try {
         unsigned int state = this->p->update_restart_background_process(false, false);
+        if (state & priv::UPDATE_BACKGROUND_PROCESS_TOWER_PENDING) {
+            p->defer_tower_action([this, plate_idx, proFn, use_3mf] { send_gcode_to_fluidd(plate_idx, proFn, use_3mf); });
+            return;
+        }
         if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
             return;
         default_output_file = this->p->background_process.output_filepath_for_project("");
@@ -24624,6 +25054,11 @@ bool Plater::has_scene_filament_source_snapshot() const
 
 void Plater::arrange()
 {
+    if (p->await_tower_scene([this, state = get_prepare_state()] {
+            set_prepare_state(state);
+            arrange();
+        }))
+        return;
     auto& w = get_ui_job_worker();
     if (w.is_idle()) {
         p->take_snapshot(_u8L("Arrange"));
@@ -24976,6 +25411,30 @@ ThumbnailData Plater::get_gcode_thumbnail() { return p->m_gcode_thumbnail; }
 // BBS: partplate list related functions
 Slic3r::GUI::PartPlateList& Plater::get_partplate_list() { return p->partplate_list; }
 
+std::shared_ptr<const WipeTowerPreview> Plater::request_wipe_tower_preview(int plate_index, WipeTowerPreviewInput input, bool for_shell)
+{
+    const PartPlate* plate = p->partplate_list.get_plate(plate_index);
+    if (!plate)
+        return {};
+    // Dragging uses the displayed mesh to constrain its position.
+    reserve_idle_purge_volume(input);
+    const auto use = for_shell ? WipeTowerPreviewCache::Use::Shell : WipeTowerPreviewCache::Use::Scene;
+    const auto state = p->m_tower_placement_states.find(plate_index);
+    if (!for_shell && !plate->is_locked() && state != p->m_tower_placement_states.end() &&
+        state->second.plate_id == plate->id() && state->second.loaded_pose) {
+        const double angle = input.config.wipe_tower_rotation_angle.value;
+        const Vec2d anchor(input.config.wipe_tower_x.get_at(plate_index), input.config.wipe_tower_y.get_at(plate_index));
+        const auto bed = Polygon::new_scale(input.config.printable_area.values);
+        auto preview = p->request_tower_preview(*plate, use, std::move(input)).preview;
+        // Keep the saved off-bed pose out of the first rendered scene while
+        // placement is pending. An unsuccessful search releases it for editing.
+        if (preview && !diff(preview->footprint(angle, anchor), bed).empty())
+            return {};
+        return preview;
+    }
+    return p->request_tower_preview(*plate, use, std::move(input)).preview;
+}
+
 void Plater::apply_background_progress()
 {
     PartPlate* part_plate   = p->partplate_list.get_curr_plate();
@@ -25077,8 +25536,8 @@ int Plater::select_plate(int plate_index, bool need_slice)
             // check inside status
             // model_fits = p->view3D->get_canvas3d()->check_volumes_outside_state() != ModelInstancePVS_Partly_Outside;
             // bool validate_err = false;
-            validate_current_plate(model_fits, validate_err);
-            if (model_fits && !validate_err) {
+            const bool checked = try_validate_current_plate(model_fits, validate_err);
+            if (model_fits && (!checked || !validate_err)) {
                 p->process_completed_with_error = -1;
             } else {
                 p->process_completed_with_error = p->partplate_list.get_curr_plate_index();
@@ -25088,7 +25547,7 @@ int Plater::select_plate(int plate_index, bool need_slice)
                     // p->process_completed_with_error = -1;
                     p->m_slice_all = false;
                     reset_gcode_toolpaths();
-                    if (model_fits && !validate_err)
+                    if (model_fits && (!checked || !validate_err))
                         reslice();
                     else {
                         p->main_frame->update_slice_print_status(MainFrame::eEventPlateUpdate, false);
@@ -25160,6 +25619,17 @@ int Plater::select_sliced_plate(int plate_index)
 
 void Plater::validate_current_plate(bool& model_fits, bool& validate_error)
 {
+    try_validate_current_plate(model_fits, validate_error);
+}
+
+bool Plater::is_tower_validation_pending() const
+{
+    const PartPlate* plate = p->partplate_list.get_curr_plate();
+    return plate && p->m_tower_validation_plate.valid() && p->m_tower_validation_plate == plate->id();
+}
+
+bool Plater::try_validate_current_plate(bool& model_fits, bool& validate_error)
+{
     model_fits     = p->view3D->get_canvas3d()->check_volumes_outside_state() != ModelInstancePVS_Partly_Outside;
     validate_error = false;
     const bool belt_machine = wxGetApp().preset_bundle->machine_is_belt();
@@ -25172,8 +25642,15 @@ void Plater::validate_current_plate(bool& model_fits, bool& validate_error)
         StringObjectException warning;
         Polygons              polygons;
         std::vector<std::pair<Polygon, float>> height_polygons;
-        StringObjectException                  err = p->background_process.validate(
-            &warning, &polygons, &height_polygons, support_validation_waits_for_filament_grouping());
+        bool preview_failed = false;
+        auto validation = p->try_validate_background(warning, polygons, height_polygons, support_validation_waits_for_filament_grouping(), preview_failed);
+        if (!validation) {
+            p->m_tower_validation_plate = p->background_process.get_current_plate()->id();
+            validate_error = true; // Callers requiring a definitive answer must wait for validation.
+            p->partplate_list.get_curr_plate()->update_slice_ready_status(model_fits);
+            return false;
+        }
+        StringObjectException& err = *validation;
         // update string by type
         post_process_string_object_exception(err);
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__
@@ -25212,7 +25689,8 @@ void Plater::validate_current_plate(bool& model_fits, bool& validate_error)
             p->view3D->get_canvas3d()->request_extra_frame();
         } else {
             // Temporarily applied to F031 project
-            if (is_F031 && err.type != STRING_EXCEPT_PROCESS_PARAMETER_MUTEX) {
+            if (is_F031 && !preview_failed && err.type != STRING_EXCEPT_PROCESS_PARAMETER_MUTEX &&
+                err.type != STRING_EXCEPT_PRIME_TOWER_OUTSIDE_PLATE) {
                 p->partplate_list.get_curr_plate()->update_apply_result_invalid(false);
                 p->partplate_list.get_curr_plate()->set_validate_error_message("");  // Clear error message
                 p->notification_manager->set_all_slicing_errors_gray(true);
@@ -25251,7 +25729,7 @@ void Plater::validate_current_plate(bool& model_fits, bool& validate_error)
     PartPlate* part_plate = p->partplate_list.get_curr_plate();
     part_plate->update_slice_ready_status(model_fits);
 
-    return;
+    return true;
 }
 
 void Plater::open_platesettings_dialog(wxCommandEvent& evt)
@@ -25389,7 +25867,7 @@ int Plater::select_plate_by_hover_id(int hover_id, bool right_click, bool isModi
             // always apply the current plate's print
             invalidated = p->background_process.apply(this->model(), wxGetApp().preset_bundle->full_config());
             bool model_fits, validate_err;
-            validate_current_plate(model_fits, validate_err);
+            const bool checked = try_validate_current_plate(model_fits, validate_err);
 
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__
                                     << boost::format(" %1%: after apply, invalidated= %2%, previous result_valid %3% ") % __LINE__ %
@@ -25415,7 +25893,7 @@ int Plater::select_plate_by_hover_id(int hover_id, bool right_click, bool isModi
                 }
             } else {
                 // check inside status
-                if (model_fits && !validate_err) {
+                if (model_fits && (!checked || !validate_err)) {
                     p->process_completed_with_error = -1;
                 } else {
                     p->process_completed_with_error = p->partplate_list.get_curr_plate_index();
@@ -25549,8 +26027,9 @@ bool Plater::is_background_process_slicing() const { return p->m_is_slicing; }
 
 bool Plater::cancel_background_slicing()
 {
+    const bool canceled = p->cancel_tower_action();
     if (!p->background_process.running() && !p->m_is_slicing)
-        return false;
+        return canceled;
 
     BOOST_LOG_TRIVIAL(info) << "Canceling background slicing from AI bridge";
     p->background_process.stop();

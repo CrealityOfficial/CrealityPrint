@@ -41,6 +41,7 @@ public:
 
 	// Set the extruder properties.
     void set_extruder(size_t idx, const PrintConfig& config);
+    void plan_idle_purges(const std::vector<float>& timed_volumes, std::vector<float>* normal_volumes);
 
 	// Appends into internal structure m_plan containing info about the future wipe tower
 	// to be used before building begins. The entries must be added ordered in z.
@@ -68,6 +69,11 @@ public:
 
     // A camera tower follows model extrusion without changing or purging filament.
     void plan_timelapse_layer(float print_z, float layer_height, unsigned int tool);
+
+    // Plan dimensions without emitting G-code. Used with representative layers by
+    // the pre-slice preview, and by generate() with the actual tool-change plan.
+    void prepare_layout();
+    std::map<float, Polylines> preview_outer_wall();
 
     float get_depth() const { return m_wipe_tower_depth; }
 	std::vector<std::pair<float, float>> get_z_and_depth_pairs() const;
@@ -164,6 +170,8 @@ public:
         float               max_layer_height;
         float               filament_area;
         float               pre_flush_volume = 0.f;
+        float               idle_purge_minutes = 0.f;
+        float               idle_purge_volume = 0.f;
         int                 category;
         float               retract_length;
         float               retraction_minimum_travel = 0.f;
@@ -204,7 +212,7 @@ public:
                                       bool                   extrude_perimeter,
                                       bool                   skip_points);
     Polygon generate_cone_polygon(const WipeTower::box_coordinates& wt_box);
-    Polygon generate_rectange_polygon(const Vec2f& wt_box_min, const Vec2f& wt_box_max);
+    Polygon generate_rectange_polygon(const Vec2f& wt_box_min, const Vec2f& wt_box_max, bool for_fillet = false);
 
 	std::vector<int>                                    m_filament_categories;
     std::vector<WipeTower::WipeTowerBlock>              m_wipe_tower_blocks;
@@ -255,6 +263,9 @@ private:
     bool   m_wipe_tower_framework       = false;
     bool   m_wipe_tower_rib_wall        = false;
     bool   m_wipe_tower_gap_wall        = false;
+    bool   m_use_closed_c_wall         = false;
+    std::vector<Polyline> m_closed_c_walls;
+    void plan_closed_c_walls();
     float  m_internal_rotation  = 0.f;
 	float  m_y_shift			= 0.f;  // y shift passed to writer
 	float  m_z_pos 				= 0.f;  // Current Z position.
@@ -339,6 +350,9 @@ private:
             float first_wipe_line;
             float wipe_volume;
             float wipe_length;
+            size_t idle_purge_event = size_t(-1);
+            float idle_purge_volume = 0.f; // Increase over normal tower wiping.
+            float timed_purge_volume = 0.f;
             std::optional<wipe_tower_pre_flush::Layout> pre_flush_layout;
             float nozzle_change_depth{0};
             float purge_volume;

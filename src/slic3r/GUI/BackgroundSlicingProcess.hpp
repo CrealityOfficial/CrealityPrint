@@ -149,6 +149,8 @@ public:
 	// Validate the print. Returns an empty string if valid, returns an error message if invalid.
 	// Call validate before calling start().
     StringObjectException validate(StringObjectException *warning = nullptr, Polygons* collison_polygons = nullptr, std::vector<std::pair<Polygon, float>>* height_polygons = nullptr, bool before_filament_mapping = false);
+    std::optional<StringObjectException> try_validate(StringObjectException* warning, Polygons* collison_polygons,
+        std::vector<std::pair<Polygon, float>>* height_polygons, bool before_filament_mapping, const WipeTowerPreviewLookup& lookup);
 
 	// Set the export path of the G-code.
 	// Once the path is set, the G-code

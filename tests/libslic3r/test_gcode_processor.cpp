@@ -10,6 +10,61 @@
 
 using namespace Slic3r;
 
+TEST_CASE("Klipper flush statistics attribute only net feed to each filament", "[GCodeProcessor][FlushVolume]")
+{
+    const double area = PI * 0.875 * 0.875;
+    PrintConfig config;
+    config.gcode_flavor.value = gcfKlipper;
+    config.filament_diameter.values = {1.75, 1.75};
+    config.nozzle_volume.values = {6.0 * area};
+
+    GCodeProcessor processor;
+    processor.apply_config(config);
+    processor.initialize("flush.gcode");
+    processor.process_buffer("G90\nM83\nT1\nG1 X5 E1 F600\nT0\n; flush_volumes_matrix = 0,100,100,0\n");
+
+    double old_mm = 0.0;
+    double new_mm = 0.0;
+    SECTION("equal feed and retract do not trigger the matrix fallback") {
+        processor.process_buffer("; FLUSH_START\nG1 E14 F600\nG1 E-14\n; FLUSH_END\n");
+    }
+    SECTION("partial retract removes the new filament first") {
+        processor.process_buffer("; FLUSH_START\nG1 E14 F600\nG1 E-4\n; FLUSH_END\n");
+        old_mm = 6.0;
+        new_mm = 4.0;
+    }
+    SECTION("leading retract is recovered before charging either filament, including at EOF") {
+        processor.process_buffer("; FLUSH_START\nG1 E-4 F600\nG1 E8\n");
+        old_mm = 4.0;
+    }
+    SECTION("an excess retract does not consume another flush window's volume or nozzle contents") {
+        processor.process_buffer("; FLUSH_START\nG1 E4 F600\n; FLUSH_END\n"
+                                 "; FLUSH_START\nG1 E-8\n; FLUSH_END\n"
+                                 "; FLUSH_START\nG1 E6\n; FLUSH_END\n");
+        old_mm = 6.0;
+        new_mm = 4.0;
+    }
+    SECTION("a tool change inside the markers closes the old tool's accounting") {
+        processor.process_buffer("; FLUSH_START\nG1 E10 F600\nT1\nG1 E-10\n; FLUSH_END\n");
+        old_mm = 6.0;
+        new_mm = 4.0;
+    }
+    SECTION("without measured flush moves the matrix fallback is preserved") {
+        new_mm = 100.0 / area;
+    }
+
+    processor.finalize(false);
+    const auto& stats = processor.result().print_statistics;
+    const auto volume = [](const auto& volumes, size_t tool) {
+        const auto it = volumes.find(tool);
+        return it == volumes.end() ? 0.0 : it->second;
+    };
+    CHECK(volume(stats.flush_per_filament, 0) == Approx(new_mm * area).margin(1e-5));
+    CHECK(volume(stats.flush_per_filament, 1) == Approx(old_mm * area).margin(1e-5));
+    CHECK(volume(stats.total_volumes_per_extruder, 0) == Approx(new_mm * area).margin(1e-5));
+    CHECK(volume(stats.total_volumes_per_extruder, 1) == Approx((old_mm + 1.0) * area).margin(1e-5));
+}
+
 TEST_CASE("G-code written motion validation follows parsed command order", "[GCodeProcessor][PostProcess]")
 {
     GCodeProcessor processor;

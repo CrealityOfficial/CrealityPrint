@@ -96,6 +96,8 @@ public:
         bool wipe_retraction_pending = false;
 		// BBS
         float purge_volume = 0.f;
+        float idle_purge_volume = 0.f;
+        float purge_row_completion_volume = 0.f; // Structural extrusion beyond the timed wipe target.
 
         // Initial tool
         int initial_tool;

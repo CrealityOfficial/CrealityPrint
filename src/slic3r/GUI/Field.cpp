@@ -782,7 +782,8 @@ void TextCtrl::BUILD() {
     auto temp = m_opt.multiline
         ? (wxWindow*)builder1.build(m_parent, wxID_ANY, "", wxDefaultPosition, size, wxTE_MULTILINE)
         : builder2.build(m_parent, "", "", "", wxDefaultPosition, size, wxTE_PROCESS_ENTER);
-    temp->SetLabel(_L(m_opt.sidetext));
+    // The generic "min" translation means "minimum". Keep the minute symbol literal.
+    temp->SetLabel(m_opt.sidetext == "min" ? wxString("min") : _L(m_opt.sidetext));
 	auto text_ctrl = m_opt.multiline ? ((TextInputCtrl *)temp)->text_ctrl : ((TextInput *) temp)->GetTextCtrl();
             // Use SetValue to initialize the visible text of the input control.
             // SetLabel does not reliably set the content for text-entry widgets.

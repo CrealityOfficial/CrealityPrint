@@ -113,6 +113,7 @@ static constexpr const char* V3_ATTR = "v3";
 static constexpr const char* OBJECTID_ATTR = "objectid";
 static constexpr const char* TRANSFORM_ATTR = "transform";
 static constexpr const char* PRINTABLE_ATTR = "printable";
+static constexpr const char* AUTO_DROP_ATTR = "auto_drop";
 static constexpr const char* INSTANCESCOUNT_ATTR = "instances_count";
 static constexpr const char* CUSTOM_SUPPORTS_ATTR = "slic3rpe:custom_supports";
 static constexpr const char* CUSTOM_SEAM_ATTR = "slic3rpe:custom_seam";
@@ -635,7 +636,7 @@ ModelVolumeType type_from_string(const std::string &s)
         bool _handle_start_metadata(const char** attributes, unsigned int num_attributes);
         bool _handle_end_metadata();
 
-        bool _create_object_instance(int object_id, const Transform3d& transform, const bool printable, unsigned int recur_counter);
+        bool _create_object_instance(int object_id, const Transform3d& transform, const bool printable, const bool auto_drop, unsigned int recur_counter);
 
         void _apply_transform(ModelInstance& instance, const Transform3d& transform);
 
@@ -1819,9 +1820,10 @@ ModelVolumeType type_from_string(const std::string &s)
 
         int object_id = get_attribute_value_int(attributes, num_attributes, OBJECTID_ATTR);
         Transform3d transform = get_transform_from_3mf_specs_string(get_attribute_value_string(attributes, num_attributes, TRANSFORM_ATTR));
-        int printable = get_attribute_value_bool(attributes, num_attributes, PRINTABLE_ATTR);
+        const bool printable = get_attribute_value_bool(attributes, num_attributes, PRINTABLE_ATTR);
+        const bool auto_drop = get_attribute_value_bool(attributes, num_attributes, AUTO_DROP_ATTR);
 
-        return _create_object_instance(object_id, transform, printable, 1);
+        return _create_object_instance(object_id, transform, printable, auto_drop, 1);
     }
 
     bool _3MF_Importer::_handle_end_item()
@@ -1879,7 +1881,7 @@ ModelVolumeType type_from_string(const std::string &s)
         return true;
     }
 
-    bool _3MF_Importer::_create_object_instance(int object_id, const Transform3d& transform, const bool printable, unsigned int recur_counter)
+    bool _3MF_Importer::_create_object_instance(int object_id, const Transform3d& transform, const bool printable, const bool auto_drop, unsigned int recur_counter)
     {
         static const unsigned int MAX_RECURSIONS = 10;
 
@@ -1910,6 +1912,7 @@ ModelVolumeType type_from_string(const std::string &s)
                     return false;
                 }
                 instance->printable = printable;
+                instance->auto_drop = auto_drop;
 
                 m_instances.emplace_back(instance, transform);
             }
@@ -1917,7 +1920,7 @@ ModelVolumeType type_from_string(const std::string &s)
         else {
             // recursively process nested components
             for (const Component& component : it->second) {
-                if (!_create_object_instance(component.object_id, transform * component.transform, printable, recur_counter + 1))
+                if (!_create_object_instance(component.object_id, transform * component.transform, printable, auto_drop, recur_counter + 1))
                     return false;
             }
         }
@@ -2266,11 +2269,13 @@ ModelVolumeType type_from_string(const std::string &s)
             unsigned int id;
             Transform3d transform;
             bool printable;
+            bool auto_drop;
 
-            BuildItem(unsigned int id, const Transform3d& transform, const bool printable)
+            BuildItem(unsigned int id, const Transform3d& transform, const bool printable, const bool auto_drop)
                 : id(id)
                 , transform(transform)
                 , printable(printable)
+                , auto_drop(auto_drop)
             {
             }
         };
@@ -2657,7 +2662,7 @@ ModelVolumeType type_from_string(const std::string &s)
             Transform3d t = instance->get_matrix();
             // instance_id is just a 1 indexed index in build_items.
             assert(instance_id == build_items.size() + 1);
-            build_items.emplace_back(instance_id, t, instance->printable);
+            build_items.emplace_back(instance_id, t, instance->printable, instance->auto_drop);
 
             stream << "  </" << OBJECT_TAG << ">\n";
 
@@ -2883,7 +2888,10 @@ ModelVolumeType type_from_string(const std::string &s)
                         stream << " ";
                 }
             }
-            stream << "\" " << PRINTABLE_ATTR << "=\"" << item.printable << "\"/>\n";
+            stream << "\" " << PRINTABLE_ATTR << "=\"" << item.printable;
+            if (!item.auto_drop)
+                stream << "\" " << AUTO_DROP_ATTR << "=\"0";
+            stream << "\"/>\n";
         }
 
         stream << " </" << BUILD_TAG << ">\n";

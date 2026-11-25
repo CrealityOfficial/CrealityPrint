@@ -5579,6 +5579,12 @@ msgstr "紋理導入警告"
 msgid "Load these files as a single object with multiple parts?\n"
 msgstr "將這些檔案載入為一個多零件物件？\n"
 
+msgid "Disable Auto-Drop to preserve Z positioning?"
+msgstr "停用自動落板以保留 Z 軸位置？"
+
+msgid "Object with floating parts was detected"
+msgstr "偵測到含有懸空零件的物件"
+
 msgid "Object with multiple parts was detected"
 msgstr "偵測到多零件物件"
 
@@ -22678,3 +22684,6 @@ msgstr "檢查預設更新失敗，請檢查網路後重試。"
 #: src/slic3r/GUI/UpdateParams.cpp:217 src/slic3r/GUI/UpdateParams.cpp:285
 msgid "The printer list or account has changed. Please check again."
 msgstr "機型清單或帳號已變更，請重新檢查。"
+
+msgid "The prime tower extends outside the printable area. Move it inside the plate or reduce its size."
+msgstr "擦拭塔超出可列印區域。請將擦拭塔移回盤內或縮小尺寸。"

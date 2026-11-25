@@ -2259,12 +2259,17 @@ func main() {
 	darkMode := flag.Int("dark-mode", -1, "0=light, 1=dark, -1=auto")
 	language := flag.String("language", "en", "language: zh_CN or en")
 	dataDir := flag.String("data-dir", "", "CrealityPrint data directory for writing ota_result.json")
+	thumbnailAction := flag.String("thumbnail-action", "", "NSIS thumbnail maintenance: install or uninstall")
+	thumbnailDir := flag.String("thumbnail-dir", "", "thumbnail helper directory for NSIS maintenance")
 	// forceFull: hotfix update where the target shares the same major.minor.patch as the
 	// installed version (only the 4th build field differs). Since the nupkg name only
 	// carries the 3-part version, the updater would normally skip a same-3-part package;
 	// this flag forces it to install the full package for that version.
 	forceFull := flag.String("force-full", "", "force install full package for same-3-part version (1 to enable)")
 	flag.Parse()
+	if *thumbnailAction != "" {
+		os.Exit(runThumbnailMaintenance(*thumbnailAction, *thumbnailDir, *installDir))
+	}
 
 	if *installDir == "" || *currentVer == "" {
 		fmt.Println("missing --install-dir or --current-version")
@@ -2789,16 +2794,11 @@ const (
 	thumbnailShellExtKey   = "{e357fccd-a995-4576-b01f-234630154e96}"
 )
 
-// repairThumbnailRegistration restores the STL thumbnail provider after
+// repairThumbnailRegistration updates the STL thumbnail provider after
 // a Squirrel update. NSIS performs this registration during installation, but
 // a hot update only replaces the application files and never runs NSIS.
 // Leave 3MF thumbnail and preview registrations untouched.
 func repairThumbnailRegistration(log func(args ...interface{}), installDir, backupDir string) {
-	const (
-		dllName = "STLThumbWinShellExtension.dll"
-		exeName = "stl-thumb.exe"
-	)
-
 	appData := strings.TrimSpace(os.Getenv("APPDATA"))
 	if appData == "" {
 		if configDir, err := os.UserConfigDir(); err == nil {
@@ -2811,33 +2811,20 @@ func repairThumbnailRegistration(log func(args ...interface{}), installDir, back
 	}
 	thumbnailDir := filepath.Join(appData, "Creality_STLThumbnail")
 
-	for _, name := range []string{dllName, exeName} {
-		dst := filepath.Join(thumbnailDir, name)
-		if _, err := os.Stat(dst); err == nil {
-			continue
-		}
-
-		src := filepath.Join(installDir, name)
-		if _, err := os.Stat(src); err != nil {
-			src = filepath.Join(backupDir, name)
-		}
-		if _, err := os.Stat(src); err != nil {
-			log("thumbnail helper is missing from install and backup:", name)
-			continue
-		}
-		if err := copyFile(src, dst); err != nil {
-			log("WARN: failed to restore thumbnail helper:", name, err)
-		} else {
-			log("restored thumbnail helper:", src, "->", dst)
-		}
-	}
-
-	dllPath := filepath.Join(thumbnailDir, dllName)
-	if _, err := os.Stat(dllPath); err != nil {
-		log("WARN: thumbnail registration skipped; DLL is missing:", dllPath)
+	dllPath, err := stageThumbnailHelpers(thumbnailDir, installDir, backupDir)
+	if err != nil {
+		log("WARN: thumbnail update failed; keeping existing registration:", err)
 		return
 	}
+	log("thumbnail helpers verified and ready at", filepath.Dir(dllPath))
+	if err := registerThumbnailProvider(dllPath, false); err != nil {
+		log("WARN: thumbnail registry update failed:", err)
+		return
+	}
+	log("thumbnail registration repaired for", dllPath)
+}
 
+func registerThumbnailProvider(dllPath string, slicerFormats bool) error {
 	clsidKey := `HKCR\CLSID\` + thumbnailProviderCLSID
 	inprocKey := clsidKey + `\InprocServer32`
 	// Write the same values as NSIS in-process. Do not spawn reg.exe or
@@ -2862,17 +2849,25 @@ func repairThumbnailRegistration(log func(args ...interface{}), installDir, back
 			err = setRegistryString(registration.key, registration.name, registration.value)
 		}
 		if err != nil {
-			log("WARN: thumbnail registry update failed:", err)
+			return err
+		}
+	}
+	if slicerFormats {
+		// Match NSIS's previous DllRegisterServer behavior, including ProgIDs.
+		for _, key := range thumbnailAssociationKeys(false) {
+			if err := setRegistryString("HKCR\\"+key, "", thumbnailProviderCLSID); err != nil {
+				return err
+			}
 		}
 	}
 
 	// Tell Explorer to discard the old association and thumbnail-provider cache.
 	procSHChangeNotify.Call(uintptr(0x08000000), uintptr(0x2000), 0, 0)
-	log("thumbnail registration repaired for", dllPath)
+	return nil
 }
 
 const (
-	hkeyClassesRoot = uintptr(0x80000000)
+	hkeyClassesRoot = ^uintptr(0x7fffffff) // HKEY macros sign-extend LONG on Win64.
 	keyWrite        = uintptr(0x00020006)
 	regTypeString   = uint32(1)
 	regTypeDword    = uint32(4)

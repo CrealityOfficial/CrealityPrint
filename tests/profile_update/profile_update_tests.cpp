@@ -49,6 +49,36 @@ static std::set<std::string> automatic_pending(const json& remote,
 int main()
 {
     const auto k3 = printer("K3", "V3.10.0", {"0.4", "0.4", "0.4"});
+    // A restricted catalog can contain only K2 Plus even though all three
+    // machines appear in the printer selector. Installed versions are local.
+    const std::set<std::string> visible{
+        local_profile_name("Creality K2 Plus 0.4 nozzle", "Creality K2 Plus", "0.4", 1),
+        local_profile_name("Creality K3 0.4 nozzle", "Creality K3", "0.4", 4),
+        local_profile_name("Creality K3 0.8 nozzle", "Creality K3", "0.8", 4),
+        local_profile_name("SPARKX i8 0.4 nozzle", "SPARKX i8", "0.4", 1)};
+    require(local_profile_name("Creality Sermoon D3 Pro 0.4 nozzle", "Creality Sermoon D3 Pro", "0.4", 2) ==
+            "Creality Sermoon D3 Pro 0.4 nozzle", "The legacy D3 Pro retains its nozzle-specific package");
+    auto k2_package = printer("K2 Plus", "V3.28.0", {"0.4"});
+    k2_package["index"] = 0;
+    auto other_package = printer("K1", "V3.10.0", {"0.4"});
+    other_package["index"] = 1;
+    const Versions installed{{"Creality K2 Plus 0.4 nozzle", "V3.27.0"}, {"Creality K3", "V3.6.1"}};
+    const auto rows = added_preset_rows(json::array({k2_package, other_package}), visible, installed, visible);
+    require(rows.size() == 3 && rows[0]["profileName"] == "Creality K2 Plus 0.4 nozzle" &&
+            rows[0].at("index") == 0 && rows[0].at("hasUpdate") == true, "Only an added, published package can update");
+    require(rows[1]["profileName"] == "Creality K3" && rows[1]["currentVersion"] == "V3.6.1" &&
+            !rows[1].contains("index") && rows[1]["hasUpdate"] == false, "An unpublished printer retains its local version");
+    require(rows[2]["profileName"] == "SPARKX i8 0.4 nozzle" && rows[2]["currentVersion"] == "" &&
+            !rows[2].contains("index") && rows[2]["hasUpdate"] == false, "A missing receipt must not hide an added printer");
+    require(added_preset_rows(json::array(), visible, installed, {}).size() == 3 &&
+            added_preset_rows(json::array({k2_package}), {}, installed, visible).empty(), "All follows local additions alone");
+
+    auto published = k3;
+    published["index"] = 1;
+    const auto published_rows = added_preset_rows(json::array({k2_package, published}), visible, installed, visible);
+    require(published_rows.size() == 3 && published_rows[1].at("index") == 1 && published_rows[1].at("hasUpdate") == true,
+            "Publishing the shared K3 package must enable one update for its existing local row");
+
     const json allowed = json::array({k3});
     const json empty = json::array();
     const std::set<std::string> beta_files{"Creality K3"};

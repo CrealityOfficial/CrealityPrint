@@ -7,6 +7,7 @@
 #include "libslic3r.h"
 #include "I18N.hpp"
 #include "GCode.hpp"
+#include "FDM/WipeTowerTiming.hpp"
 #include "Exception.hpp"
 #include "ExtrusionEntity.hpp"
 #include "ZaaPathGeometry.hpp"
@@ -1977,6 +1978,7 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         // add for CFS
         bool hasToolChange = (tcr.initial_tool != tcr.new_tool) ? true : false;
 
+        gcodegen.m_pending_low_tower_z_restore = false;
         // Drain any previous tower wait before another tower/toolchange sequence.
         std::string gcode = gcodegen.take_pending_temperature_wait_after_tower();
 #if ORCA_CHECK_GCODE_PLACEHOLDERS
@@ -2323,7 +2325,9 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         std::string toolchange_gcode_str;
         std::string deretraction_str;
         const float wipe_tower_tail_flush_length = tcr.wipe_tower_inner_wall_box_valid ?
-                                                        wipe_tower_serpentine_filament_length(tcr.gcode) : 0.f;
+                                                        std::max(0.f, wipe_tower_serpentine_filament_length(tcr.gcode) -
+                                                            (tcr.idle_purge_volume + tcr.purge_row_completion_volume) / float(M_PI * 0.25 *
+                                                            std::pow(gcodegen.config().filament_diameter.get_at(new_extruder_id), 2))) : 0.f;
         float       purge_volume = tcr.purge_volume < EPSILON ? 0 :
                                        (wipe_tower_tail_flush_length > EPSILON ? tcr.purge_volume :
                                                                                 std::max(tcr.purge_volume, g_min_purge_volume));
@@ -2624,6 +2628,10 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
             position.z() = emitted_z;
             gcodegen.writer().set_position(position);
             gcodegen.writer().sync_lifted_to_nominal_z(gcodegen.m_nominal_z);
+            gcodegen.m_pending_low_tower_z_restore =
+                gcodegen.config().wipe_tower_no_sparse_layers && !tcr.priming &&
+                GCodeFormatter::quantize_xyzf(emitted_z) <
+                    GCodeFormatter::quantize_xyzf(gcodegen.m_nominal_z);
         }
 
         // current_z = gcodegen.writer().get_position().z();
@@ -2843,7 +2851,9 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         std::string toolchange_gcode_str;
         std::string deretraction_str;
         const float wipe_tower_tail_flush_length = tcr.wipe_tower_inner_wall_box_valid ?
-                                                        wipe_tower_serpentine_filament_length(tcr.gcode) : 0.f;
+                                                        std::max(0.f, wipe_tower_serpentine_filament_length(tcr.gcode) -
+                                                            (tcr.idle_purge_volume + tcr.purge_row_completion_volume) / float(M_PI * 0.25 *
+                                                            std::pow(gcodegen.config().filament_diameter.get_at(new_extruder_id), 2))) : 0.f;
         float       purge_volume = tcr.purge_volume < EPSILON ? 0 :
                                        (wipe_tower_tail_flush_length > EPSILON ? tcr.purge_volume :
                                                                                 std::max(tcr.purge_volume, g_min_purge_volume));
@@ -3925,6 +3935,8 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
                     if (cur_gcode_start == "G2 " || cur_gcode_start == "G3 ") {
                         last_arc_end_pos = target_pos;
                     }
+                } else if (cur_gcode_start == "G1 ") {
+                    line = line_out.str();
                 }
             }
 
@@ -4761,7 +4773,8 @@ double GCode::getLimitSpeed()
     return limitSpeed;
 }
 
-void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb, PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb)
+bool GCode::do_export(Print* print, const char* path, GCodeProcessorResult* result, ThumbnailsGeneratorCallback thumbnail_cb,
+                      PlateObjectBitmapGeneratorCallback plate_object_bitmap_cb, const std::function<bool(const std::vector<float>&)>& accept_tower_plan, WipeTowerTiming* timing)
 {
     RetractConfigTrace trace("GCode.do_export", this);
     trace.note("CONTEXT", " print=", print, " writer=", &m_writer, " config=", &m_writer.config);
@@ -4785,11 +4798,11 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
 
     // Does the file exist? If so, we hope that it is still valid.
     if (print->is_step_done(psGCodeExport) && boost::filesystem::exists(boost::filesystem::path(path)))
-        return;
+        return true;
 
     BOOST_LOG_TRIVIAL(error) << boost::format("Will export G-code to %1% soon")%path;
     GCodeProcessor::s_IsBBLPrinter = print->is_BBL_printer();
-    print->set_started(psGCodeExport);
+    if (!m_idle_purge_analysis) print->set_started(psGCodeExport);
 
     // check if any custom gcode contains keywords used by the gcode processor to
     // produce time estimation and gcode toolpaths
@@ -4808,10 +4821,6 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
     }
 
     BOOST_LOG_TRIVIAL(error) << "Exporting G-code..." << log_memory_info();
-
-    // Remove the old g-code if it exists.
-
-    boost::nowide::remove(path);
 
     fs::path file_path(path);
     fs::path folder = file_path.parent_path();
@@ -4832,8 +4841,10 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
         m_processor.result().pathological_probe_result_ready_callback =
             result->pathological_probe_result_ready_callback;
     }
-    GCodeOutputStream file(boost::nowide::fopen(path_tmp.c_str(), "wb"), m_processor);
-    if (! file.is_open()) {
+    const bool direct_output = !m_idle_purge_analysis && !accept_tower_plan;
+    GCodeOutputStream file(direct_output ? boost::nowide::fopen(path_tmp.c_str(), "wb") : nullptr, m_processor,
+                           bool(accept_tower_plan), timing);
+    if (direct_output && !file.is_open()) {
         BOOST_LOG_TRIVIAL(error) << std::string("G-code export to ") + path + " failed.\nCannot open the file for writing.\n" << std::endl;
         if (!fs::exists(folder)) {
             //fs::create_directory(folder);
@@ -4846,24 +4857,35 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
     m_processor.s_creality_flush_time = 0;// print->config().creality_flush_time;
     BOOST_LOG_TRIVIAL(error) << "[PERF_TIMING] GCODE_GENERATE START";
     auto _perf_generate_start = std::chrono::steady_clock::now();
+    m_track_no_tower_idle_changes = (m_idle_purge_analysis || accept_tower_plan) && !print->has_wipe_tower();
+    if (m_idle_purge_analysis || accept_tower_plan) {
+        m_idle_purge_events.clear();
+        m_no_tower_idle_purge_events.clear();
+        file.set_idle_purge_events(&m_idle_purge_events, m_track_no_tower_idle_changes ? &m_no_tower_idle_purge_events : nullptr);
+    }
     try {
         this->_do_export(*print, file, thumbnail_cb, plate_object_bitmap_cb);
-        file.flush();
-        if (file.is_error()) {
-            file.close();
-            boost::nowide::remove(path_tmp.c_str());
-            throw Slic3r::RuntimeError(std::string("G-code export to ") + path + " failed\nIs the disk full?\n");
+        if (!direct_output) {
+            check_placeholder_parser_failed();
+            print->throw_if_canceled();
+            if (m_idle_purge_analysis || !accept_tower_plan(m_idle_purge_events) || !file.save_candidate(path_tmp))
+                return false;
         }
-    } catch (std::exception & /* ex */) {
+        file.flush();
+        if (file.is_error())
+            throw Slic3r::RuntimeError(std::string("G-code export to ") + path + " failed\nIs the disk full?\n");
+        file.close();
+    } catch (...) {
         // Rethrow on any exception. std::runtime_exception and CanceledException are expected to be thrown.
         // Close and remove the file.
-        file.close();
-        boost::nowide::remove(path_tmp.c_str());
+        if (file.is_open()) {
+            file.close();
+            boost::nowide::remove(path_tmp.c_str());
+        }
         throw;
     }
-    file.close();
-    //file.write_md5(path_tmp);
-    check_placeholder_parser_failed();
+    if (!accept_tower_plan)
+        check_placeholder_parser_failed();
 
 #if ORCA_CHECK_GCODE_PLACEHOLDERS
     if (!m_placeholder_error_messages.empty()){
@@ -5160,6 +5182,7 @@ BOOST_LOG_TRIVIAL(error) << "Exporting G-code finished" << log_memory_info();
     PROFILE_UPDATE();
     PROFILE_OUTPUT(debug_out_path("gcode-export-profile.txt").c_str());
     BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << " end";
+    return true;
 }
 
 // free functions called by GCode::_do_export()
@@ -5408,6 +5431,7 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
     PROFILE_FUNC();
 
     m_pending_temperature_wait_after_tower.clear();
+    m_pending_low_tower_z_restore = false;
     m_infill_start_speed.reset(0., 0., 0.);
     m_zaa_task_context.reset();
     for (const PrintObject* object : print.objects()) {
@@ -5429,7 +5453,7 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
     // Cancellation or failure deliberately leaves it consumed; a stale repair
     // decision must never affect a later model or export.
     const bool pathological_protection_requested =
-        print.consume_pathological_protection_request();
+        !m_idle_purge_analysis && print.consume_pathological_protection_request();
 
     m_model_time_flush.reset();
     m_model_time_flush_id = -1;
@@ -5515,6 +5539,7 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
     m_solid_skeleton_mode_active = print.has_prime_volume_solid_skeleton();
     // Custom-GCode purge mode: do not schedule first/second/third-layer in-model material changes.
     m_no_wipe_tower_no_purge_mode_active = no_wipe_tower_no_purge_mode_enabled(print);
+    m_no_tower_thermal_purge_print = m_no_wipe_tower_no_purge_mode_active ? &print : nullptr;
     m_no_wipe_tower_external_flush_count = 0;
     m_no_wipe_tower_print_start_history = {};
     m_no_wipe_tower_print_start_z = std::numeric_limits<coord_t>::min();
@@ -5996,6 +6021,9 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
     // Useful for sequential prints.
     this->placeholder_parser().set("current_object_idx", 0);
     // For the start / end G-code to do the priming and final filament pull in case there is no wipe tower provided.
+    // Only the export copy uses the actual plate tower. Keep the printer's
+    // purge preference independent of where its toolchange script runs.
+    m_config.purge_in_prime_tower.value = has_wipe_tower && print.config().purge_in_prime_tower.value;
     this->placeholder_parser().set("has_wipe_tower", has_wipe_tower);
     this->placeholder_parser().set("has_single_extruder_multi_material_priming", !is_bbl_printers && has_wipe_tower && enable_all_extruder_priming);
     this->placeholder_parser().set("total_toolchanges", std::max(0, print.wipe_tower_data().number_of_toolchanges)); // Check for negative toolchanges (single extruder mode) and set to 0 (no tool change).
@@ -7094,7 +7122,8 @@ void GCode::process_layers(
 
     // The pipeline is variable: The vase mode filter is optional.
     const auto generator = tbb::make_filter<void, LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-        [this, &print, &print_object_instances_ordering, &layers_to_print, &layer_print_tasks, &layer_print_task_idx](tbb::flow_control& fc) -> LayerResult {
+        [this, &print, &print_object_instances_ordering, &layers_to_print, &layer_print_tasks, &layer_print_task_idx,
+         timing = output_stream.collecting_idle_purge_events()](tbb::flow_control& fc) -> LayerResult {
             if (layer_print_task_idx >= layer_print_tasks.size()) {
                 if (layer_print_task_idx == layer_print_tasks.size() + (m_pressure_equalizer ? 1 : 0)) {
                     fc.stop();
@@ -7110,7 +7139,8 @@ void GCode::process_layers(
                 const LayerPrintTask& task = layer_print_tasks[task_idx];
                 const std::pair<coordf_t, std::vector<LayerToPrint>>& layer = layers_to_print[task.source_layer_idx];
                 const LayerTools& layer_tools = task.layer_tools;
-                print.set_status(80, Slic3r::format(_(L("Generating G-code: layer %1%")), std::to_string(task_idx + 1)));
+                if (!timing)
+                    print.set_status(80, Slic3r::format(_(L("Generating G-code: layer %1%")), std::to_string(task_idx + 1)));
                 if (m_wipe_tower && layer_tools.has_wipe_tower && task.extruder_begin == 0)
                     m_wipe_tower->next_layer();
                 //BBS
@@ -7411,7 +7441,8 @@ void GCode::process_layers(
     // step 1: generator
     // The pipeline is variable: The vase mode filter is optional.
     const auto generator = tbb::make_filter<void, LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-        [this, &print, &tool_ordering, &layers_to_print, &layer_to_print_idx, single_object_idx, prime_extruder](tbb::flow_control& fc) -> LayerResult {
+        [this, &print, &tool_ordering, &layers_to_print, &layer_to_print_idx, single_object_idx, prime_extruder,
+         timing = output_stream.collecting_idle_purge_events()](tbb::flow_control& fc) -> LayerResult {
             if (layer_to_print_idx >= layers_to_print.size()) {
                 if (layer_to_print_idx == layers_to_print.size() + (m_pressure_equalizer ? 1 : 0)) {
                     fc.stop();
@@ -7424,7 +7455,8 @@ void GCode::process_layers(
                 }
             } else {
                 LayerToPrint &layer = layers_to_print[layer_to_print_idx ++];
-                print.set_status(80, Slic3r::format(_(L("Generating G-code: layer %1%")), std::to_string(layer_to_print_idx)));
+                if (!timing)
+                    print.set_status(80, Slic3r::format(_(L("Generating G-code: layer %1%")), std::to_string(layer_to_print_idx)));
                 //BBS
                 check_placeholder_parser_failed();
                 print.throw_if_canceled();
@@ -9205,8 +9237,9 @@ LayerResult GCode::process_layer(
         const unsigned int entry_old_extruder_id = m_writer.extruder() != nullptr ?
             m_writer.extruder()->id() : (unsigned int)-1;
         auto no_wipe_tower_required_wipe_volume = [&](unsigned int old_extruder, unsigned int new_extruder) {
-            return flush_volume_from_matrix(m_config,
-                                            old_extruder, new_extruder);
+            const float matrix_volume = flush_volume_from_matrix(m_config, old_extruder, new_extruder);
+            return m_no_wipe_tower_no_purge_mode_active ?
+                std::max(matrix_volume, print.no_tower_thermal_purge_volume(print_z, old_extruder, new_extruder)) : matrix_volume;
         };
         const float entry_required_wipe_volume = entry_old_extruder_id != (unsigned int)-1 ?
             no_wipe_tower_required_wipe_volume(entry_old_extruder_id, extruder_id) : 0.f;
@@ -9716,7 +9749,7 @@ LayerResult GCode::process_layer(
                     no_wipe_tower_material_change_first_target_idx = target_idx;
                     no_wipe_tower_print_start_target = &target;
                     no_wipe_tower_material_change_entry_role = target.skeleton ? erInternalInfill : erSolidInfill;
-                    gcode += begin_model_time_flush(target_extruder);
+                    gcode += begin_model_time_flush(target_extruder, print_z);
                     gcode += this->travel_to(entrance.toolchange, no_wipe_tower_material_change_entry_role,
                                              "Travel to no-wipe-tower material change point");
                     return true;
@@ -10642,7 +10675,6 @@ LayerResult GCode::process_layer(
                         gcode += this->extrude_support(
                             // support_extrusion_role is erSupportMaterial, erSupportTransition, erSupportMaterialInterface or erMixed for
                             // all extrusion paths.
-                            /*instance_to_print.object_by_extruder.support->chained_path_from(m_last_pos, support_extrusion_role) */
                             *instance_to_print.object_by_extruder.support, support_extrusion_role);
 
                         // Make sure ironing is the last
@@ -12275,7 +12307,16 @@ std::string GCode::extrude_support(const ExtrusionEntityCollection& support_fill
         if (extrusions.empty())
             return gcode;
 
-        //chain_and_reorder_extrusion_entities(extrusions, &m_last_pos);
+        // Rechain from the actual nozzle position after filtering by material.
+        // Keep deliberate orders (walls before infill, continuous ironing) intact.
+        // Chaining may reverse paths, so work on copies rather than changing the
+        // support geometry shared by object instances and subsequent exports.
+        ExtrusionEntityCollection ordered_support;
+        if (!support_fills.no_sort) {
+            ordered_support.append(extrusions);
+            chain_and_reorder_extrusion_entities(ordered_support.entities, &m_last_pos);
+            extrusions = ordered_support.entities;
+        }
 
         const double support_speed           = NOZZLE_CONFIG(support_speed);
         const double support_interface_speed = NOZZLE_CONFIG(support_interface_speed);
@@ -12365,20 +12406,82 @@ static void record_written_motion_lines(GCodeProcessor& processor, const char* g
     }
 }
 
+static constexpr size_t candidate_block_size = 256 * 1024;
+static constexpr size_t candidate_budget = 64 * 1024 * 1024;
+
+void GCode::GCodeOutputStream::write_bytes(const char* data, size_t size)
+{
+    if (f) {
+        if (std::fwrite(data, 1, size, f) != size)
+            throw Slic3r::RuntimeError("Failed to write G-code.");
+        return;
+    }
+    if (!m_buffer_candidate) return;
+    while (size > 0) {
+        if (m_buffer.empty() || m_buffer.back().size() == candidate_block_size) {
+            // Keep small plates verbatim. At the memory limit, compact completed
+            // blocks in place so that a verified large plate can still be published.
+            if (m_buffer_size + candidate_block_size > candidate_budget) {
+                std::string scratch(mz_compressBound(candidate_block_size), '\0');
+                for (std::string& block : m_buffer) {
+                    if (block.size() != candidate_block_size) continue;
+                    mz_ulong length = static_cast<mz_ulong>(scratch.size());
+                    if (mz_compress2(reinterpret_cast<unsigned char*>(scratch.data()), &length,
+                                  reinterpret_cast<const unsigned char*>(block.data()), candidate_block_size, MZ_BEST_SPEED) == MZ_OK &&
+                        length < candidate_block_size) {
+                        m_buffer_size -= candidate_block_size - length;
+                        std::string(scratch.data(), length).swap(block);
+                    }
+                }
+                if (m_buffer_size + candidate_block_size > candidate_budget) {
+                    m_buffer.clear();
+                    m_buffer_candidate = false;
+                    return;
+                }
+            }
+            m_buffer.emplace_back();
+            m_buffer.back().reserve(candidate_block_size);
+        }
+        const size_t n = std::min(size, candidate_block_size - m_buffer.back().size());
+        m_buffer.back().append(data, n);
+        m_buffer_size += n;
+        data += n;
+        size -= n;
+    }
+}
+
+bool GCode::GCodeOutputStream::save_candidate(const std::string& path)
+{
+    if (!m_buffer_candidate) return false;
+    f = boost::nowide::fopen(path.c_str(), "wb");
+    if (!f) throw Slic3r::RuntimeError("Cannot open G-code for writing: " + path);
+    std::string expanded;
+    for (const auto& block : m_buffer) {
+        // Only completed blocks are compressed. The last block is always raw.
+        if (&block == &m_buffer.back() || block.size() == candidate_block_size) {
+            write_bytes(block.data(), block.size());
+        } else {
+            expanded.resize(candidate_block_size);
+            mz_ulong size = candidate_block_size;
+            if (mz_uncompress(reinterpret_cast<unsigned char*>(expanded.data()), &size,
+                           reinterpret_cast<const unsigned char*>(block.data()), static_cast<mz_ulong>(block.size())) != MZ_OK ||
+                size != candidate_block_size)
+                throw Slic3r::RuntimeError("Cannot restore buffered G-code.");
+            write_bytes(expanded.data(), size);
+        }
+    }
+    m_buffer.clear();
+    return true;
+}
+
 void GCode::GCodeOutputStream::write_with_noprocess(const std::string& what)
 {
     if (!what.empty()) {
         const char* gcode = what.c_str();
-        // writes string to file
-        size_t byteSize = ::strlen(gcode);
-        size_t byteWrited = fwrite(gcode, 1, byteSize, this->f);
-        if (byteWrited != byteSize)
-        {
-            char buf[256];
-            sprintf(buf, "G-code export failed: code(%d)", errno);
-            throw std::runtime_error(buf);
-        }
-        record_written_motion_lines(m_processor, gcode, byteSize);
+        const size_t byteSize = ::strlen(gcode);
+        write_bytes(gcode, byteSize);
+        if (f || m_buffer_candidate)
+            record_written_motion_lines(m_processor, gcode, byteSize);
     }
 }
 
@@ -12441,23 +12544,42 @@ std::string GCode::time_flush_tower_entry(std::string travel, const Vec3d& depar
     return travel;
 }
 
-std::string GCode::begin_model_time_flush(unsigned int tool)
+std::string GCode::record_no_tower_idle_change(unsigned int tool, coordf_t print_z)
 {
+    if (!m_track_no_tower_idle_changes || !m_no_tower_thermal_purge_print || m_writer.extruder() == nullptr ||
+        !m_writer.need_toolchange(tool) || print_z <= 0. || tool >= m_config.filament_diameter.size())
+        return {};
+    const unsigned int previous = m_writer.extruder()->id();
+    if (previous >= m_config.filament_diameter.size() || previous == tool)
+        return {};
+    const auto key = FillTower::layer_filament_wipe_packing_transition_key(print_z, previous, tool);
+    if (m_no_tower_idle_change && *m_no_tower_idle_change == key)
+        return {};
+    m_no_tower_idle_change = key;
+    return ";NO_TOWER_IDLE_CHANGE: " + std::to_string(key.print_z) + " " +
+        std::to_string(previous) + " " + std::to_string(tool) + " " +
+        float_to_string_decimal_point(m_config.filament_pre_flush_tower_time.get_at(tool)) + " " +
+        float_to_string_decimal_point(m_config.filament_pre_flush_tower_volume.get_at(tool)) + "\n";
+}
+
+std::string GCode::begin_model_time_flush(unsigned int tool, coordf_t print_z)
+{
+    std::string idle_change = record_no_tower_idle_change(tool, print_z);
     if (!m_time_flush_toolchanges || !m_time_flush_layer_safe || m_time_flush_uses_tower ||
         m_config.enable_prime_tower || !m_writer.multiple_extruders || m_pending_skeleton_flush_toolchange ||
         m_writer.extruder() == nullptr || !m_writer.need_toolchange(tool) ||
         (m_config.manual_filament_change && m_toolchange_count == 0))
-        return {};
+        return idle_change;
     if (m_model_time_flush) {
         if (m_model_time_flush->next_tool != tool || m_model_time_flush_id >= 0)
             throw Slic3r::RuntimeError("Nested no-tower timed changes are not supported.\n");
-        return {};
+        return idle_change;
     }
     m_model_time_flush = std::make_shared<TimeFlushToolchange>();
     m_model_time_flush->model_entry = true;
     m_model_time_flush->next_tool = tool;
     m_model_time_flush->preparation_retract = m_writer.extruder()->retracted();
-    return ";TIME_FLUSH_MODEL_BEGIN\n";
+    return idle_change + ";TIME_FLUSH_MODEL_BEGIN\n";
 }
 
 std::string GCode::time_flush_infill_marker(ExtrusionRole role) const
@@ -12479,18 +12601,82 @@ void GCode::GCodeOutputStream::configure_time_flush(const DynamicPrintConfig& co
     m_time_flush_script = script;
     m_time_flush_baseline = -1.0;
     m_time_flush_feedrate = 0.0;
-    m_time_flush_model_fan.clear();
+    m_time_flush_model_fan.reset();
     m_time_flush_skip_tower_travel = false;
     m_time_flush_layer_context.clear();
 }
 
+static constexpr char tower_change_tag[] = ";IDLE_TOWER_CHANGE: ";
+
+void GCode::GCodeOutputStream::record_tower_change(const std::string& line)
+{
+    std::istringstream values(line.substr(sizeof(tower_change_tag) - 1));
+    values.imbue(std::locale::classic());
+    size_t id, old_tool, new_tool;
+    double minutes, volume;
+    if (!(values >> id >> old_tool >> new_tool >> minutes >> volume))
+        throw Slic3r::RuntimeError("Invalid idle tower change.\n");
+    const double now = m_processor.time_at_tower_change();
+    const auto* minimum = m_time_flush_config->option<ConfigOptionFloats>("filament_minimal_purge_on_wipe_tower");
+    m_pending_idle_purge_minimum = minimum && !minimum->values.empty() ? float(std::max(0., minimum->get_at(new_tool))) : 0.f;
+    if (m_idle_purge_events->size() <= id) m_idle_purge_events->resize(id + 1, 0.f);
+    (*m_idle_purge_events)[id] = m_idle_purge_clock.change(old_tool, new_tool, now, minutes, m_pending_idle_purge_minimum, volume);
+    m_pending_idle_purge = id;
+    if (m_timing)
+        m_timing->change(id, old_tool, new_tool, now, minutes, m_pending_idle_purge_minimum, volume, m_processor.result());
+}
+
 std::string GCode::GCodeOutputStream::process_and_build_time_flush(const std::string& gcode)
 {
+    // With periodic flushing off, the timing markers are the only observation points.
+    // Feed whole model spans to the original parser without parsing each motion twice.
+    if (m_idle_purge_events && !m_no_tower_idle_purge_events && m_time_flush_interval <= 0. &&
+        !m_time_flush_toolchanges && !m_time_flush_skip_tower_travel) {
+        size_t start = 0;
+        for (size_t pos = gcode.find(tower_change_tag); pos != std::string::npos; pos = gcode.find(tower_change_tag, pos)) {
+            if (pos != 0 && gcode[pos - 1] != '\n') {
+                pos += sizeof(tower_change_tag) - 1;
+                continue;
+            }
+            size_t end = gcode.find('\n', pos);
+            end = end == std::string::npos ? gcode.size() : end + 1;
+            m_processor.process_buffer(gcode.substr(start, end - start));
+            record_tower_change(gcode.substr(pos, end - pos));
+            start = pos = end;
+        }
+        if (start == 0) process_gcode(gcode);
+        else if (start < gcode.size()) process_gcode(gcode.substr(start));
+        return gcode;
+    }
+    const auto flavor = m_time_flush_config->opt_enum<GCodeFlavor>("gcode_flavor");
     std::string result;
     result.reserve(gcode.size());
     GCodeReader reader;
     size_t start = 0;
     while (start < gcode.size()) {
+        // Once the periodic clock is running, uninterrupted motion lines have no
+        // scheduling decisions. The normal motion parser still sees every line.
+        if (m_time_flush_baseline >= 0. && !m_time_flush_skip_tower_travel) {
+            size_t pos = start;
+            while (pos + 2 < gcode.size() && gcode[pos] == 'G' &&
+                   gcode[pos + 1] >= '0' && gcode[pos + 1] <= '3' && gcode[pos + 2] == ' ') {
+                const size_t newline = gcode.find('\n', pos);
+                const size_t end = newline == std::string::npos ? gcode.size() : newline + 1;
+                const std::string_view motion(gcode.data() + pos, end - pos);
+                if (motion.find_first_of("Ff") != std::string_view::npos)
+                    reader.parse_buffer(std::string(motion), [this](GCodeReader&, const GCodeReader::GCodeLine& parsed) {
+                        if (parsed.has_f()) m_time_flush_feedrate = parsed.f();
+                    });
+                pos = end;
+            }
+            if (pos > start) {
+                const std::string motion = gcode.substr(start, pos - start);
+                m_processor.process_buffer(motion);
+                result += motion;
+                start = pos;
+                continue;
+            }
+        }
         size_t end = gcode.find('\n', start);
         end = end == std::string::npos ? gcode.size() : end + 1;
         const std::string line = gcode.substr(start, end - start);
@@ -12515,11 +12701,8 @@ std::string GCode::GCodeOutputStream::process_and_build_time_flush(const std::st
         bool travel = false;
         bool skip_motion = false;
         std::string skipped_feedrate;
-        reader.parse_buffer(line, [this, &travel, &skip_motion, &skipped_feedrate](GCodeReader&, const GCodeReader::GCodeLine& parsed) {
-            float channel = 0.;
-            if ((parsed.cmd_is("M106") || parsed.cmd_is("M107")) &&
-                (!parsed.has_value('P', channel) || channel == 0. || channel == 1.))
-                m_time_flush_model_fan = parsed.raw() + "\n";
+        reader.parse_buffer(line, [this, flavor, &travel, &skip_motion, &skipped_feedrate](GCodeReader&, const GCodeReader::GCodeLine& parsed) {
+            m_time_flush_model_fan.track(parsed, flavor, true);
             if ((parsed.cmd_is("G0") || parsed.cmd_is("G1") || parsed.cmd_is("G2") || parsed.cmd_is("G3")) && parsed.has_f())
                 m_time_flush_feedrate = parsed.f();
             travel = (parsed.cmd_is("G0") || parsed.cmd_is("G1")) && !parsed.has_e() &&
@@ -12542,9 +12725,33 @@ std::string GCode::GCodeOutputStream::process_and_build_time_flush(const std::st
             start = end;
             continue;
         }
+        start = end;
+        // These internal markers only observe the motion stream. Keep them out of
+        // both the published text and the processor's source-line numbering.
+        if (m_no_tower_idle_purge_events && line.rfind(";NO_TOWER_IDLE_WIPE_BEGIN", 0) == 0) {
+            m_pending_no_tower_idle_purge = false;
+            continue;
+        }
+        constexpr const char no_tower_idle_tag[] = ";NO_TOWER_IDLE_CHANGE: ";
+        if (m_no_tower_idle_purge_events && line.rfind(no_tower_idle_tag, 0) == 0) {
+            std::istringstream values(line.substr(sizeof(no_tower_idle_tag) - 1));
+            values.imbue(std::locale::classic());
+            FillTower::LayerFilamentWipePackingTransition key;
+            double minutes, volume;
+            if (!(values >> key.print_z >> key.old_extruder >> key.new_extruder >> minutes >> volume))
+                throw Slic3r::RuntimeError("Invalid no-tower idle change.\n");
+            const double now = m_processor.time_at_tower_change();
+            const float thermal_volume = m_idle_purge_clock.change(key.old_extruder, key.new_extruder, now, minutes, 0.f, volume);
+            m_no_tower_idle_purge_events->emplace_back(key, thermal_volume);
+            m_pending_no_tower_idle_purge = true;
+            continue;
+        }
         m_processor.process_buffer(line);
         result += line;
-        start = end;
+        if (line.rfind(";IDLE_TOWER_PURGE_BEGIN", 0) == 0)
+            m_pending_idle_purge = size_t(-1);
+        if (m_idle_purge_events && line.rfind(tower_change_tag, 0) == 0)
+            record_tower_change(line);
 
         constexpr const char* tower_tag = ";TIME_FLUSH_TOWER: ";
         constexpr const char* entry_tag = ";TIME_FLUSH_TOWER_ENTRY: ";
@@ -12595,14 +12802,22 @@ std::string GCode::GCodeOutputStream::process_and_build_time_flush(const std::st
             m_processor.layer_time();
         const double now = m_processor.get_time(PrintEstimatedStatistics::ETimeMode::Normal);
         if (m_time_flush_baseline < 0.0) {
-            if (travel && before.model_motion)
+            if (travel && before.model_motion) {
                 m_time_flush_baseline = now;
+                if (m_timing) m_timing->start_periodic(now);
+            }
             continue;
         }
         // Count all printing time; only the explicitly safe nodes may trigger.
         if (!flush_node)
             continue;
         const double elapsed = now - m_time_flush_baseline;
+        if (m_timing && m_time_flush_interval > 0.) {
+            using Kind = WipeTowerTiming::SiteKind;
+            const auto kind = change_node ? Kind::ToolChange : tower_entry ? Kind::TowerEntry : tower_node ? Kind::Tower : Kind::Infill;
+            if (!m_timing->periodic_site(now, m_time_flush_interval, m_pending_idle_purge, kind, before.tool))
+                continue;
+        }
         if (m_time_flush_interval <= 0.0 || elapsed < m_time_flush_interval)
             continue;
 
@@ -12661,7 +12876,6 @@ std::string GCode::GCodeOutputStream::process_and_build_time_flush(const std::st
         PlaceholderParser::ContextData context = toolchange ? toolchange->context : PlaceholderParser::ContextData();
         const unsigned int target_tool = toolchange ? toolchange->next_tool : before.tool;
         std::string script, departure_controls, entry_controls;
-        std::string model_fan = m_time_flush_model_fan;
         if (toolchange) {
             outputs.set_key_value("position", new ConfigOptionFloats({before.coordinate[X], before.coordinate[Y], before.coordinate[Z]}));
             if (model_node) {
@@ -12683,7 +12897,7 @@ std::string GCode::GCodeOutputStream::process_and_build_time_flush(const std::st
                     throw Slic3r::RuntimeError("Incomplete no-tower material change block.\n");
                 // Only these generator-owned approach ranges are shortened.
                 // Keep object labels and controls; both custom templates stay whole.
-                const auto controls = [&model_fan](const std::string& generated) {
+                const auto controls = [](const std::string& generated) {
                     std::string kept;
                     GCodeReader reader;
                     reader.parse_buffer(generated, [&](GCodeReader&, const GCodeReader::GCodeLine& cmd) {
@@ -12692,10 +12906,6 @@ std::string GCode::GCodeOutputStream::process_and_build_time_flush(const std::st
                         } else if (!(cmd.cmd_is("G92") && cmd.has_e()) && !cmd.cmd_is("G10") && !cmd.cmd_is("G11") &&
                                    cmd.raw().compare(0, 17, ";TIME_FLUSH_MODEL") != 0) {
                             kept += cmd.raw() + "\n";
-                            float channel = 0.;
-                            if ((cmd.cmd_is("M106") || cmd.cmd_is("M107")) &&
-                                (!cmd.has_value('P', channel) || channel == 0. || channel == 1.))
-                                model_fan = cmd.raw() + "\n";
                         }
                     });
                     return kept;
@@ -12789,16 +12999,25 @@ std::string GCode::GCodeOutputStream::process_and_build_time_flush(const std::st
             resume += "G92 " + axis_value('E', expected_e) + "\n";
         if (m_time_flush_feedrate > 0.)
             resume += "G1 F" + float_to_string_decimal_point(m_time_flush_feedrate) + "\n";
-        if (model_node) {
-            resume += entry_controls + model_fan;
-            m_time_flush_model_fan = model_fan;
-        }
+        if (model_node)
+            resume += entry_controls;
+        const std::string_view replaced_gcode = toolchange ?
+            std::string_view(gcode).substr(start, change_end - start) : std::string_view();
+        resume += m_time_flush_model_fan.restore_after(replaced_gcode, flavor, true);
         result += resume;
         m_processor.process_buffer(resume);
         result += "; TIME_FLUSH_END\n; FLUSH_END\n";
         m_processor.process_buffer("; TIME_FLUSH_END\n; FLUSH_END\n");
         m_processor.layer_time();
         m_time_flush_baseline = m_processor.get_time(PrintEstimatedStatistics::ETimeMode::Normal);
+        if (m_timing) m_timing->flushed(m_time_flush_baseline, m_time_flush_interval);
+        // Tower volumes depend on time since tool use. The extra off-plate
+        // operation contributes elapsed time without replacing tower extrusion.
+        if (m_no_tower_idle_purge_events) {
+            m_idle_purge_clock.flush_all();
+            if (m_pending_no_tower_idle_purge)
+                m_no_tower_idle_purge_events->back().second = 0.f;
+        }
         // Only a fired flush replaces this bounded travel block. Unexpired
         // candidates keep the original slope lift and avoidance route intact.
         if (toolchange)
@@ -12829,19 +13048,17 @@ void GCode::GCodeOutputStream::write(const char *what)
 {
     if (what != nullptr) {
         const char* gcode = what;
-        // writes string to file
-        size_t byteSize = ::strlen(gcode);
-        size_t byteWrited = fwrite(gcode, 1, byteSize, this->f);
-        if (byteWrited != byteSize)
-        {
-            char buf[256];
-            sprintf(buf, "G-code export failed: code(%d)", errno);
-            throw std::runtime_error(buf);
-        }
+        const size_t byteSize = ::strlen(gcode);
+        write_bytes(gcode, byteSize);
 
+        // Start and between-object G-code bypass the layer filters.
+        if (m_time_flush_config != nullptr && time_flush_enabled())
+            m_time_flush_model_fan.track(std::string_view(gcode, byteSize),
+                m_time_flush_config->opt_enum<GCodeFlavor>("gcode_flavor"), true);
         //FIXME don't allocate a string, maybe process a batch of lines?
         m_processor.process_buffer(std::string(gcode));
-        record_written_motion_lines(m_processor, gcode, byteSize);
+        if (f || m_buffer_candidate)
+            record_written_motion_lines(m_processor, gcode, byteSize);
     }
 }
 
@@ -13485,7 +13702,8 @@ std::string GCode::_extrude(const ExtrusionPath &path_src, std::string descripti
     //BBS: path.first_point is 2D point. But in lazy raise case, lift z is done in travel_to function.
     //Add m_need_change_layer_lift_z when change_layer in case of no lift if m_last_pos is equal to path.first_point() by chance
     if (!zaa_active &&
-        (!m_last_pos_defined || m_last_pos != path.first_point() || m_need_change_layer_lift_z ||
+        (m_pending_low_tower_z_restore || !m_last_pos_defined ||
+         m_last_pos != path.first_point() || m_need_change_layer_lift_z ||
          (sloped != nullptr && !sloped->is_flat()))) {
         gcode += this->travel_to(
             path.first_point(),
@@ -13868,7 +14086,8 @@ std::string GCode::_extrude(const ExtrusionPath &path_src, std::string descripti
         // extrusion so postprocessors cannot strip the exact start coordinate.
         gcode += "; ZAA_BEGIN layer=" + std::to_string(m_layer_index) + " role=" + zaa_role + "\n";
         const std::string start_comment = "move to first " + description + " point";
-        if (m_last_pos_defined && m_last_pos == path.first_point())
+        if (!m_pending_low_tower_z_restore &&
+            m_last_pos_defined && m_last_pos == path.first_point())
             gcode += m_writer.travel_to_z(zaa_machine_xyz.front().z(), start_comment, limitSpeed);
         else
             gcode += this->travel_to(path.first_point(), path.role(), start_comment, zaa_machine_xyz.front().z(), true);
@@ -14560,6 +14779,16 @@ std::string GCode::travel_to(const Point& point, ExtrusionRole role, std::string
     // Also consume the wait when this departure does not need retraction.
     gcode += take_pending_temperature_wait_after_tower();
 
+    if (m_pending_low_tower_z_restore) {
+        m_pending_low_tower_z_restore = false;
+        if (m_config.wipe_tower_no_sparse_layers &&
+            GCodeFormatter::quantize_xyzf(m_writer.get_position().z()) <
+                GCodeFormatter::quantize_xyzf(m_nominal_z)) {
+            gcode += m_writer.travel_to_z(
+                m_nominal_z, "Restore model layer Z after low wipe tower.", limitSpeed);
+        }
+    }
+
     // if needed, write the gcode_label_objects_end then gcode_label_objects_start
     m_writer.add_object_change_labels(gcode);
 
@@ -14942,6 +15171,10 @@ std::string GCode::unretract(const double limitSpeed, bool model_entry)
             float_to_string_decimal_point(position.z()) + " " + float_to_string_decimal_point(GCodeFormatter::quantize_e(m_writer.extruder()->position())) + "\n";
         m_model_time_flush.reset();
         m_model_time_flush_id = -1;
+    }
+    if (model_entry && m_no_tower_idle_change) {
+        gcode += ";NO_TOWER_IDLE_WIPE_BEGIN\n";
+        m_no_tower_idle_change.reset();
     }
     gcode += m_writer.unretract();
     return gcode;
@@ -16238,6 +16471,8 @@ std::string GCode::start_skeleton_flush_toolchange(unsigned int new_extruder_id,
 
     float wipe_volume = flush_matrix[old_extruder_id * number_of_extruders + new_extruder_id];
     wipe_volume *= m_config.flush_multiplier;
+    if (m_no_tower_thermal_purge_print)
+        wipe_volume = std::max(wipe_volume, m_no_tower_thermal_purge_print->no_tower_thermal_purge_volume(print_z, old_extruder_id, new_extruder_id));
     if (wipe_volume <= EPSILON)
         return "";
 
@@ -16377,7 +16612,8 @@ std::string GCode::start_skeleton_flush_toolchange(unsigned int new_extruder_id,
         }
     }
     m_wipe.reset_path();
-    std::string gcode = this->retract(true, false);
+    std::string gcode = record_no_tower_idle_change(new_extruder_id, print_z);
+    gcode += this->retract(true, false);
 
     const std::string& filament_end_gcode = m_config.filament_end_gcode.get_at(old_extruder_id);
     if (!filament_end_gcode.empty()) {
@@ -16550,7 +16786,7 @@ std::string GCode::set_extruder(unsigned int extruder_id, double print_z, bool b
     }
 
     const bool has_previous_extruder = m_writer.extruder() != nullptr;
-    const std::string time_flush_begin = change_tool ? begin_model_time_flush(extruder_id) : std::string();
+    const std::string time_flush_begin = change_tool ? begin_model_time_flush(extruder_id, print_z) : std::string();
 
     // BBS. Should be placed before retract.
     m_toolchange_count++;
@@ -16651,7 +16887,9 @@ std::string GCode::set_extruder(unsigned int extruder_id, double print_z, bool b
         wipe_volume = 0.f;
         old_filament_e_feedrate = 200;
     }
-    // In custom-GCode purge mode, keep matrix-derived wipe_volume so flush_length placeholders are populated.
+    if (m_no_tower_thermal_purge_print && previous_extruder_id >= 0)
+        wipe_volume = std::max(wipe_volume, m_no_tower_thermal_purge_print->no_tower_thermal_purge_volume(print_z, previous_extruder_id, extruder_id));
+    // In custom-GCode purge mode, keep the requested wipe_volume for the flush_length placeholders.
 #ifdef SLIC3R_ENABLE_TIME_ANALYTICS_EXPORT
     const unsigned int cut_retraction_extruder_id = previous_extruder_id >= 0 ? (unsigned int)previous_extruder_id : extruder_id;
     const float effective_cut_retraction_distance = this->effective_retraction_distance_when_cut(cut_retraction_extruder_id);

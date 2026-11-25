@@ -1,4 +1,5 @@
 #include "libslic3r/libslic3r.h"
+#include "libslic3r/ArrangeGrid.hpp"
 #include "Selection.hpp"
 
 #include "3DScene.hpp"
@@ -18,6 +19,7 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/ModelArrange.hpp"
 #include "libslic3r/Arrange.hpp"
+#include "libslic3r/WipeTowerPlacement.hpp"
 #include "libslic3r/LocalesUtils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelVolume.hpp"
@@ -1299,6 +1301,23 @@ void Selection::translate(const Vec3d& displacement, TransformationType transfor
 
                 transform_volume_relative(v, volume_data, transformation_type, Geometry::translation_transform(relative_disp), m_cache.dragging_center);
             }
+            if (v.is_wipe_tower) {
+                PartPlate* plate = wxGetApp().plater()->get_partplate_list().get_plate(v.object_idx() - 1000);
+                Polygon footprint = v.convex_hull()->convex_hull(); // Includes the brim.
+                footprint.rotate(v.get_volume_rotation().z());
+                const Vec3d requested = v.get_volume_offset();
+                const Vec3d origin = plate->get_origin();
+                Polygon bed;
+                for (const Vec2d& point : plate->get_shape())
+                    bed.points.emplace_back(Point::new_scale(point.x() - origin.x(), point.y() - origin.y()));
+                const Point target = Point::new_scale(requested.x() - origin.x(), requested.y() - origin.y());
+                const auto& tower = static_cast<const GLWipeTowerVolume&>(v);
+                const auto anchor = dragged_wipe_tower_position(footprint, std::move(bed), target, tower.is_sliced);
+                if (anchor)
+                    v.set_volume_offset(Vec3d(origin.x() + unscaled<double>(anchor->x()), origin.y() + unscaled<double>(anchor->y()), requested.z()));
+                else
+                    v.set_volume_offset(volume_data.get_volume_position());
+            }
         }
     }
 
@@ -2457,24 +2476,15 @@ void Selection::calculate_checkerboard_preview_offsets(float distance)
     PrintSequence current_plate_seq = plate->get_print_seq();
     Model& model = plater->model();
     BoundingBox plate_bb = plate->get_bounding_box_crd();
-    int plate_cols = plate_list.get_plate_cols();
-    int cur_plate_index = plate->get_index();
 
     ModelObject* model_object = plater->model().objects[sel_object_idx];
     if (model_object->instances.empty()) return;
 
-    BoundingBoxf3 bbox = model_object->instance_convex_hull_bounding_box(size_t(0));
+    BoundingBoxf3 bbox = model_object->instance_convex_hull_bounding_box(size_t(sel_id));
     auto  start_point = bbox.center();
-    auto obj_bbox_size = bbox.size();
 
-    auto start_offset = model_object->instances.front()->get_offset();
+    auto start_offset = model_object->instances[sel_id]->get_offset();
     auto point_offset = start_offset - start_point;
-
-    GLCanvas3D::WipeTowerInfo wti = plater->canvas3D()->get_wipe_tower_info(cur_plate_index);
-    Vec2d wti_bb_size = wti.bb_size();
-    Vec2d wti_pos = wti.pos();
-    // 根据 wti_pos 和 wti_bb_size 构建 BoundingBoxf
-    BoundingBoxf wti_bbox(wti_pos, wti_pos + wti_bb_size);
 
     const Slic3r::DynamicPrintConfig& global_config = wxGetApp().preset_bundle->full_config();
     auto global_print_sequence_type = global_config.option<ConfigOptionEnum<PrintSequence>>("print_sequence")->value;
@@ -2486,7 +2496,7 @@ void Selection::calculate_checkerboard_preview_offsets(float distance)
         ModelObject* mo = model.objects[oidx];
         for (size_t inst_idx = 0; inst_idx < mo->instances.size(); ++inst_idx)
         {
-            bool selected = (oidx == sel_object_idx);
+            bool selected = (oidx == sel_object_idx && inst_idx == size_t(sel_id));
 
             Slic3r::arrangement::ArrangePolygon ap = get_instance_arrange_poly(mo->instances[inst_idx], global_config);
 
@@ -2502,7 +2512,8 @@ void Selection::calculate_checkerboard_preview_offsets(float distance)
             }
 
             BoundingBox ap_bb = ap.transformed_poly().contour.bounding_box();
-            ap.height = 1;
+            if (plate->get_real_print_seq() != PrintSequence::ByObject)
+                ap.height = 1;
             ap.name = mo->name;
 
             if (selected)
@@ -2513,6 +2524,11 @@ void Selection::calculate_checkerboard_preview_offsets(float distance)
                     ap.itemid = ap_selected.size();
                     ap_selected.emplace_back(ap);
                 }
+            }
+            else if (plate_bb.overlap(ap_bb)) {
+                ap.bed_idx = 0;
+                ap.translation -= scaled<coord_t>(Vec2d(plate->get_origin().head<2>()));
+                ap_unselected.emplace_back(std::move(ap));
             }
         }
     }
@@ -2545,9 +2561,9 @@ void Selection::calculate_checkerboard_preview_offsets(float distance)
     double poly_area = poly.area() / sc;
     double unsel_area = std::accumulate(ap_unselected.begin(),
         ap_unselected.end(), 0.,
-        [cur_plate_index](double s, const auto& ap) {
+        [](double s, const auto& ap) {
             //BBS: m_unselected instance is in the same partplate
-            return s + (ap.bed_idx == cur_plate_index) * ap.poly.area();
+            return s + (ap.bed_idx == 0) * ap.poly.area();
             //return s + (ap.bed_idx == 0) * ap.poly.area();
         }) / sc;
 
@@ -2567,7 +2583,7 @@ void Selection::calculate_checkerboard_preview_offsets(float distance)
         ArrangePolygon ap = template_ap;
         ap.poly = ap_selected.front().poly;
         ap.bed_idx = PartPlateList::MAX_PLATES_COUNT;
-        ap.height = 1;
+        ap.height = ap_selected.front().height;
         ap.itemid = -1;
         //ap.setter = [this, mi](const ArrangePolygon& p) {
         //    ModelObject* mo = plater->model().objects[sel_object_idx];
@@ -2607,40 +2623,17 @@ void Selection::calculate_checkerboard_preview_offsets(float distance)
         }
         // ======== calculate volume offset in world space ========
 
-        //Vec2f       base_step = unscaled<float>(get_extents(ap_selected.front().poly).size());
-        Vec2f base_step = Vec2f(bbox.size()(0), bbox.size()(1));
-
-        float       brim      = ap_selected.front().brim_width;
-        const float epsilon   = 1e-6f;
-        float       distance  = settings.distance > epsilon ? settings.distance : brim;
-
-        // For by-object printing, brim_width 需要加上 extruder_clearance_radius
-        const Slic3r::DynamicPrintConfig& global_config = wxGetApp().preset_bundle->full_config();
-        auto global_print_seq                        = global_config.option<ConfigOptionEnum<PrintSequence>>("print_sequence")->value;
-        if(current_plate_seq == PrintSequence::ByObject && global_print_seq != PrintSequence::ByObject) {
-             // extruder_clearance_radius 只在 ByObject 时考虑
-            // 如果 distance 小于 brim_width，则用 brim_width，否则用 distance
-            distance = (settings.distance < brim) ? brim : settings.distance;
-        }
-        Vec2f step = base_step + Vec2f(distance, distance);
-
-        std::vector<Vec2f> empty_cells = Plater::get_empty_cells(step);
-        size_t n = std::min(ap_selected.size(), empty_cells.size());
-        Vec2f first_cell = empty_cells[0];
-        for (size_t i = 0; i < n; i++) {
-
-            if(wti_bbox.area() > 0.0f) {
-                // filter cells overlap with  wipe tower
-                Vec2d pmin = empty_cells[i].cast<double>() - to_2d(obj_bbox_size) / 2.0f;
-                Vec2d pmax = empty_cells[i].cast<double>() + to_2d(obj_bbox_size) / 2.0f;
-                BoundingBoxf virtual_2d_bbox(pmin, pmax);
-                if(wti_bbox.overlap(virtual_2d_bbox)) {
-                    continue;
-                }
-            }
-
-            Vec3f a_displacement = { empty_cells[i].x(), empty_cells[i].y(), static_cast<float>(start_offset(2)) };
-
+        update_arrange_params(params, plater->config(), ap_selected);
+        tmp_bedpts = get_shrink_bedpts(plater->config(), params);
+        update_selected_items_inflation(ap_selected, plater->config(), params);
+        update_unselected_items_inflation(ap_unselected, plater->config(), params);
+        arrangement::arrange_grid(ap_selected, ap_unselected, tmp_bedpts, params);
+        for (const auto& ap : ap_selected) {
+            if (ap.bed_idx != 0)
+                continue;
+            const Vec2d position = unscaled<double>(ap.translation) + plate->get_origin().head<2>();
+            const Vec3f a_displacement(position.x(), position.y(), start_offset.z());
+            const Vec3f center = a_displacement - point_offset.cast<float>();
             m_clone_offsets[0].emplace_back(a_displacement);
 
             if(1) {
@@ -2650,8 +2643,8 @@ void Selection::calculate_checkerboard_preview_offsets(float distance)
 
                     const Transform3d world_matrix = volume.world_matrix();
 
-                    Vec3f volume_displacement = {empty_cells[i].x() + static_cast<float>(volume_point_offset[volume_idx].x()),
-                                                    empty_cells[i].y() + static_cast<float>(volume_point_offset[volume_idx].y()),
+                    Vec3f volume_displacement = {center.x() + static_cast<float>(volume_point_offset[volume_idx].x()),
+                                                    center.y() + static_cast<float>(volume_point_offset[volume_idx].y()),
                                                     static_cast<float>(volume_start_offset[volume_idx](2))};
 
                     Vec3f one_volume_preview_offset = volume_displacement - Vec3f(volume_start_offset[volume_idx].x(), volume_start_offset[volume_idx].y(), volume_start_offset[volume_idx].z());
@@ -2718,6 +2711,7 @@ void Selection::paste_objects_from_checkerboard_layout()
 
     ModelObject* selected_object = wxGetApp().plater()->model().objects[sel_object_idx];
     if (selected_object->instances.empty()) return;
+    ModelInstance* source_instance = selected_object->instances[std::max(get_instance_idx(), 0)];
 
     wxGetApp().plater()->take_snapshot((_u8L("CheckerboardArrange")));
 
@@ -2728,6 +2722,8 @@ void Selection::paste_objects_from_checkerboard_layout()
         //assume only one object is selected, and this object has only one volumn
         //const ModelObject* src_object = src_objects[i];
         ModelObject* dst_object = m_model->add_object(*selected_object);
+        dst_object->clear_instances();
+        dst_object->add_instance(*source_instance);
 
         for (ModelInstance* inst : dst_object->instances) {
             inst->set_offset(m_clone_offsets[0][k].cast<double>());
@@ -2745,7 +2741,8 @@ void Selection::paste_objects_from_checkerboard_layout()
 
     }
 
-    for (ModelInstance* inst : selected_object->instances) {
+    {
+        ModelInstance* inst = source_instance;
         inst->set_offset(m_clone_offsets[0][0].cast<double>());
 
         //BBS init asssmble transformation
@@ -3974,7 +3971,9 @@ void Selection::synchronize_unselected_instances(SyncRotationType sync_rotation_
             }
             else if (sync_rotation_type != SyncRotationType::NONE || mirrored)
                 new_inst_trafo_j.linear() = (old_inst_trafo_j.linear() * old_inst_trafo_i.linear().inverse()) * curr_inst_trafo_i.linear();
-            if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptSLA)
+            const auto& instances = m_model->objects[object_idx]->instances;
+            if (instances[instance_idx]->auto_drop && instances[volume_j->instance_idx()]->auto_drop &&
+                wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptSLA)
                 new_inst_trafo_j.translation().z() = curr_inst_trafo_i.translation().z();
             assert(is_rotation_xy_synchronized(curr_inst_trafo_i, new_inst_trafo_j));
             volume_j->set_instance_transformation(new_inst_trafo_j);
@@ -4021,6 +4020,9 @@ void Selection::ensure_on_bed()
         GLVolume* volume = (*m_volumes)[i];
         if (!volume->is_wipe_tower && !volume->is_modifier &&
             std::find(m_cache.sinking_volumes.begin(), m_cache.sinking_volumes.end(), i) == m_cache.sinking_volumes.end()) {
+            const ModelInstance* model_instance = get_model_instance(*volume, *m_model);
+            if (!model_instance || !model_instance->auto_drop)
+                continue;
             const double min_z = volume->transformed_convex_hull_bounding_box().min.z();
             std::pair<int, int> instance = std::make_pair(volume->object_idx(), volume->instance_idx());
             InstancesToZMap::iterator it = instances_min_z.find(instance);

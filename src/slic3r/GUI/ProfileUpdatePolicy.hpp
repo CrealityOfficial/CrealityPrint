@@ -34,6 +34,17 @@ inline std::string profile_name(const nlohmann::json& printer)
     return model + " " + printer["nozzleDiameter"][0].get<std::string>() + " nozzle";
 }
 
+// A shared multi-extruder package may install individually selectable nozzle
+// presets named after the model and variant. All of them use the model receipt.
+inline std::string local_profile_name(const std::string& name, const std::string& model,
+                                      const std::string& variant, size_t nozzle_count)
+{
+    if (nozzle_count > 1 && model != "Creality Sermoon D3 Pro" && !model.empty() && !variant.empty() &&
+        name == model + " " + variant + " nozzle")
+        return model;
+    return name;
+}
+
 // Select before comparing versions: an alias for a shared multi-extruder
 // profile must not override the standard (0.4 mm) package's installed version.
 inline Packages select_packages(const nlohmann::json& printers)
@@ -98,6 +109,27 @@ inline bool needs_update(bool file_exists, const std::string& installed, const s
     const auto local = parse_version(installed);
     // A beta profile without an installed package version needs reconciliation.
     return !local || *remote > *local;
+}
+
+// The online page lists local additions even when the current cloud catalog
+// omits their packages. Only a matched package can offer an update.
+inline nlohmann::json added_preset_rows(const nlohmann::json& catalog, const std::set<std::string>& added,
+                                        const Versions& installed, const std::set<std::string>& files)
+{
+    const auto packages = select_packages(catalog);
+    nlohmann::json rows = nlohmann::json::array();
+    for (const auto& name : added) {
+        const auto receipt = installed.find(name);
+        const std::string current = receipt == installed.end() ? "" : receipt->second;
+        nlohmann::json row = {{"profileName", name}, {"currentVersion", current}, {"hasUpdate", false}};
+        const auto package = packages.find(name);
+        if (package != packages.end()) {
+            row["index"] = package->second.at("index");
+            row["hasUpdate"] = needs_update(files.count(name) != 0, current, package->second.value("showVersion", std::string()));
+        }
+        rows.push_back(std::move(row));
+    }
+    return rows;
 }
 
 // Clicking the update tip authorizes only the printers already added by the

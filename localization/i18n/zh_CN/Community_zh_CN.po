@@ -1483,3 +1483,18 @@ msgstr "教程：%s"
 
 msgid "The Microsoft WebView2 Runtime has been reinstalled successfully. The application will restart now."
 msgstr "Microsoft WebView2 Runtime 已成功重新安装，应用将立即重启。"
+
+msgid "System presets for printers you have added"
+msgstr "显示你已添加设备的系统预设参数"
+
+msgid "Updates available"
+msgstr "有更新"
+
+msgid "No updates available"
+msgstr "暂无可用更新"
+
+msgid "Could not load online parameters"
+msgstr "在线参数加载失败"
+
+msgid "{label} ({count})"
+msgstr "{label}（{count}）"

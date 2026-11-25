@@ -42,6 +42,7 @@ extern Slic3r::ColorRGBA              adjust_color_for_rendering(const Slic3r::C
 
 namespace Slic3r {
 class SLAPrintObject;
+struct WipeTowerPreview;
 enum  SLAPrintObjectStep : unsigned int;
 class BuildVolume;
 class DynamicPrintConfig;
@@ -428,6 +429,7 @@ public:
     void render_with_outline(const Transform3d &view_model_matrix) override { render(); }
 
     std::vector<GUI::GLModel> model_per_colors;
+    bool is_sliced = false;
     bool                              IsTransparent();
 
 private:
@@ -554,7 +556,7 @@ public:
         size_t                          timestamp);
 
     int load_wipe_tower_preview(
-        int obj_idx, float pos_x, float pos_y, float width, float depth, float height, float rotation_angle, bool size_unknown, float brim_width);
+        int obj_idx, float pos_x, float pos_y, const WipeTowerPreview& preview, float rotation_angle);
 
     int load_real_wipe_tower_preview(int obj_idx,float pos_x,float pos_y,const TriangleMesh& wt_mesh, const TriangleMesh& brim_mesh,bool render_brim,
         float rotation_angle,bool size_unknown, bool opengl_initialized);

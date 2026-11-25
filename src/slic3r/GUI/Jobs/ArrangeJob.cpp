@@ -93,6 +93,7 @@ void ArrangeJob::clear_input()
     params.nonprefered_regions.clear();
     m_selected.clear();
     m_unselected.clear();
+    m_pending_wipe_towers.clear();
     m_unprintable.clear();
     m_unprintable_instances.clear();
     m_locked.clear();
@@ -330,7 +331,7 @@ void ArrangeJob::prepare_all() {
     plate_list.preprocess_exclude_areas(m_unselected, MAX_NUM_PLATES);
 }
 
-arrangement::ArrangePolygon estimate_wipe_tower_info(int plate_index, std::set<int>& extruder_ids)
+void ArrangeJob::queue_estimated_wipe_tower(int plate_index, int unlocked_index, const std::set<int>& extruder_ids)
 {
     PartPlateList& ppl = wxGetApp().plater()->get_partplate_list();
     const auto full_config = wxGetApp().preset_bundle->full_config();
@@ -338,11 +339,13 @@ arrangement::ArrangePolygon estimate_wipe_tower_info(int plate_index, std::set<i
     int plate_index_valid = std::min(plate_index, plate_count - 1);
 
     // we have to estimate the depth using the extruder number of all plates
-    int extruder_size = extruder_ids.size();
+    const std::vector<unsigned int> logical_ids(extruder_ids.begin(), extruder_ids.end());
+    const int extruder_size = int(wxGetApp().preset_bundle->mixed_filaments.expand_filament_usage(
+        logical_ids, wxGetApp().preset_bundle->filament_presets.size()).physical_filament_ids.size());
 
-    auto arrange_poly = ppl.get_plate(plate_index_valid)->estimate_wipe_tower_polygon(full_config, plate_index, extruder_size);
-    arrange_poly.bed_idx = plate_index;
-    return arrange_poly;
+    auto estimate = ppl.get_plate(plate_index_valid)->prepare_wipe_tower_polygon(full_config, plate_index, extruder_size);
+    m_pending_wipe_towers.emplace_back(m_unselected.size(), std::move(estimate));
+    m_unselected.emplace_back().bed_idx = unlocked_index;
 }
 
 // Prepare wipe tower state for arrange. The logic covers:
@@ -403,12 +406,6 @@ void ArrangeJob::prepare_wipe_tower()
     BOOST_LOG_TRIVIAL(info) << "arrange: need_wipe_tower=" << need_wipe_tower;
 
 
-    ArrangePolygon    wipe_tower_ap;
-    wipe_tower_ap.name = "WipeTower";
-    wipe_tower_ap.is_virt_object = true;
-    wipe_tower_ap.is_wipe_tower = true;
-    const GLCanvas3D* canvas3D = static_cast<const GLCanvas3D*>(m_plater->canvas3D());
-
     std::set<int> extruder_ids;
     PartPlateList& ppl = wxGetApp().plater()->get_partplate_list();
     int plate_count = ppl.get_plate_count();
@@ -424,10 +421,10 @@ void ArrangeJob::prepare_wipe_tower()
             continue;
         if (auto wti = get_wipe_tower(*m_plater, bedid)) {
             // wipe tower is already there
-            wipe_tower_ap = get_wipetower_arrange_poly(&wti);
+            auto wipe_tower_ap = get_wipetower_arrange_poly(&wti);
             //wipe_tower_ap.bed_idx = bedid_unlocked;
             wipe_tower_ap.bed_idx = 0;
-            m_unselected.emplace_back(wipe_tower_ap);
+            m_unselected.emplace_back(std::move(wipe_tower_ap));
         }
         else if (need_wipe_tower) {
             if (only_on_partplate) {
@@ -435,9 +432,7 @@ void ArrangeJob::prepare_wipe_tower()
                 extruder_ids.clear();
                 extruder_ids.insert(plate_extruders.begin(), plate_extruders.end());
             }
-            wipe_tower_ap = estimate_wipe_tower_info(bedid, extruder_ids);
-            wipe_tower_ap.bed_idx = bedid_unlocked;
-            m_unselected.emplace_back(wipe_tower_ap);
+            queue_estimated_wipe_tower(bedid, bedid_unlocked, extruder_ids);
         }
         bedid_unlocked++;
     }
@@ -504,12 +499,6 @@ void ArrangeJob::prepare_wipe_tower_ex(int plate_index)
     }
     BOOST_LOG_TRIVIAL(info) << "arrange: need_wipe_tower=" << need_wipe_tower;
 
-    ArrangePolygon wipe_tower_ap;
-    wipe_tower_ap.name           = "WipeTower";
-    wipe_tower_ap.is_virt_object = true;
-    wipe_tower_ap.is_wipe_tower  = true;
-    const GLCanvas3D* canvas3D   = static_cast<const GLCanvas3D*>(m_plater->canvas3D());
-
     std::set<int>  extruder_ids;
     PartPlateList& ppl         = wxGetApp().plater()->get_partplate_list();
     int            plate_count = ppl.get_plate_count();
@@ -528,19 +517,17 @@ void ArrangeJob::prepare_wipe_tower_ex(int plate_index)
             continue;
         if (auto wti = get_wipe_tower(*m_plater, bedid)) {
             // wipe tower is already there
-            wipe_tower_ap = get_wipetower_arrange_poly(&wti);
+            auto wipe_tower_ap = get_wipetower_arrange_poly(&wti);
             // wipe_tower_ap.bed_idx = bedid_unlocked;
             wipe_tower_ap.bed_idx = 0;
-            m_unselected.emplace_back(wipe_tower_ap);
+            m_unselected.emplace_back(std::move(wipe_tower_ap));
         } else if (need_wipe_tower) {
             if (only_on_partplate) {
                 auto plate_extruders = pl->get_extruders(true);
                 extruder_ids.clear();
                 extruder_ids.insert(plate_extruders.begin(), plate_extruders.end());
             }
-            wipe_tower_ap         = estimate_wipe_tower_info(bedid, extruder_ids);
-            wipe_tower_ap.bed_idx = bedid_unlocked;
-            m_unselected.emplace_back(wipe_tower_ap);
+            queue_estimated_wipe_tower(bedid, bedid_unlocked, extruder_ids);
         }
         bedid_unlocked++;
     }
@@ -728,7 +715,14 @@ void ArrangeJob::process(Ctl &ctl)
 {
     static const auto arrangestr = _u8L("Arranging");
    // ctl.update_status(0, arrangestr);
-    ctl.call_on_main_thread([this]{ prepare(); }).wait();;
+    ctl.call_on_main_thread([this]{ prepare(); }).wait();
+    for (const auto& [index, estimate] : m_pending_wipe_towers) {
+        if (ctl.was_canceled())
+            return;
+        auto obstacle = estimate();
+        obstacle.bed_idx = m_unselected[index].bed_idx;
+        m_unselected[index] = std::move(obstacle);
+    }
 
     auto & partplate_list = m_plater->get_partplate_list();
 

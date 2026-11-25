@@ -58,6 +58,21 @@ TEST_CASE("Tower Z synchronization preserves real hops and clears stale pending 
         writer.unlift();
         REQUIRE(writer.get_position().z() == Approx(1.6));
     }
+    SECTION("Rounded layer coordinates allow the next travel hop") {
+        const auto lift_type = GENERATE(LiftType::NormalLift, LiftType::LazyLift, LiftType::SpiralLift);
+        const double nominal_z = GENERATE(8.25389, 8.46235, 8.66683, 8.86774, 9.06506);
+        const double emitted_z = GCodeFormatter::quantize_xyzf(nominal_z);
+        CAPTURE(nominal_z, emitted_z, static_cast<int>(lift_type));
+        writer.set_position(Vec3d(20.5, 228.2, emitted_z));
+        writer.sync_lifted_to_nominal_z(nominal_z);
+        REQUIRE(writer.get_zhop() == 0.);
+        writer.lift(lift_type);
+        const std::string travel = writer.travel_to_xyz(Vec3d(111.344, 144.645, nominal_z));
+        REQUIRE(travel.find('Z') != std::string::npos);
+        REQUIRE(writer.get_position().z() == Approx(emitted_z + 0.4));
+        writer.unlift();
+        REQUIRE(writer.get_position().z() == Approx(nominal_z));
+    }
     SECTION("A tower below the model does not retain a pending hop") {
         writer.sync_lifted_to_nominal_z(1.8);
         REQUIRE(writer.get_zhop() == 0.);

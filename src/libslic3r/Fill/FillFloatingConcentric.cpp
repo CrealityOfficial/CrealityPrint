@@ -31,7 +31,7 @@ FloatingThickPolyline FloatingThickPolyline::rebase_at(size_t idx) const
 {
     if (points.size() < 2 || !is_closed())
         return {};
-    assert(width.size() == 2 * (points.size() - 1) && is_floating.size() == points.size());
+    assert(width.size() == 2 * (points.size() - 1) && floating_edges.size() == points.size() - 1);
 
     FloatingThickPolyline ret = *this;
     const size_t edge_count = points.size() - 1;
@@ -39,12 +39,11 @@ FloatingThickPolyline FloatingThickPolyline::rebase_at(size_t idx) const
     for (size_t j = 0; j < edge_count; ++j) {
         const size_t source = (idx + j) % edge_count;
         ret.points[j] = points[source];
-        ret.is_floating[j] = is_floating[source];
+        ret.floating_edges[j] = floating_edges[source];
         ret.width[2 * j] = width[2 * source];
         ret.width[2 * j + 1] = width[2 * source + 1];
     }
     ret.points.back() = ret.points.front();
-    ret.is_floating.back() = ret.is_floating.front();
     return ret;
 }
 
@@ -56,18 +55,20 @@ void FloatingThickPolyline::clip_end(double distance)
     // Preserve Bambu's surviving edge widths while keeping the parallel arrays
     // in sync when the loop gap removes one or more vertices.
     width.resize(points.empty() ? 0 : 2 * (points.size() - 1));
-    is_floating.resize(points.size());
+    floating_edges.resize(width.size() / 2);
 }
 
 FloatingThicklines FloatingThickPolyline::floating_thicklines() const
 {
     FloatingThicklines lines;
-    assert(is_floating.size() == points.size());
+    assert(floating_edges.size() == width.size() / 2);
     assert(width.size() == (points.empty() ? 0 : 2 * (points.size() - 1)));
     if (this->points.size() >= 2) {
         lines.reserve(this->points.size() - 1);
-        for (size_t i = 0; i + 1 < this->points.size(); ++i)
-            lines.emplace_back(this->points[i], this->points[i + 1], this->width[2 * i], this->width[2 * i + 1], this->is_floating[i], this->is_floating[i + 1]);
+        for (size_t i = 0; i < floating_edges.size(); ++i) {
+            if (points[i] != points[i + 1])
+                lines.emplace_back(points[i], points[i + 1], width[2 * i], width[2 * i + 1], floating_edges[i]);
+        }
     }
     return lines;
 }
@@ -115,7 +116,7 @@ static ExtrusionPaths floating_thick_polyline_to_extrusion_paths(const FloatingT
                 double length = 0, sum = 0;
                 bool is_floating = false;
                 for (int idx = start_index; idx < i; idx++) {
-                    bool curr_floating = lines[idx].is_a_floating && lines[idx].is_b_floating;
+                    bool curr_floating = lines[idx].is_floating;
                     if (curr_floating != is_floating && length != 0) {
                         path.polyline.append(lines[idx].a);
                         if (is_floating)
@@ -170,7 +171,7 @@ static ExtrusionPaths floating_thick_polyline_to_extrusion_paths(const FloatingT
                 // delete this line and insert new ones
                 lines.erase(lines.begin() + i);
                 for (size_t j = 0; j < segments; ++j) {
-                    FloatingThickline new_line(pp[j], pp[j + 1],width[2 * j],width[2 * j+1], line.is_a_floating,line.is_b_floating);
+                    FloatingThickline new_line(pp[j], pp[j + 1],width[2 * j],width[2 * j+1], line.is_floating);
                     lines.insert(lines.begin() + i + j, new_line);
                 }
                 --i;
@@ -190,7 +191,7 @@ static ExtrusionPaths floating_thick_polyline_to_extrusion_paths(const FloatingT
         double length = 0, sum = 0;
         bool is_floating = false;
         for (int idx = start_index; idx < final_size; idx++) {
-            bool curr_floating = lines[idx].is_a_floating && lines[idx].is_b_floating;
+            bool curr_floating = lines[idx].is_floating;
             if (curr_floating!= is_floating && length != 0) {
                 path.polyline.append(lines[idx].a);
                 if(is_floating)
@@ -207,7 +208,7 @@ static ExtrusionPaths floating_thick_polyline_to_extrusion_paths(const FloatingT
         }
         path.polyline.append(lines[final_size - 1].b);
         if (length > SCALED_EPSILON) {
-            if (lines[final_size - 1].is_a_floating && lines[final_size - 1].is_b_floating)
+            if (lines[final_size - 1].is_floating)
                 path.set_customize_flag(CustomizeFlag::cfFloatingVerticalShell);
             set_flow_for_path(path, sum / length);
             paths.emplace_back(std::move(path));
@@ -225,7 +226,7 @@ struct NarrowInfillSpan {
     Point a, b;                 // Scaled integer coordinates.
     double a_spacing, b_spacing; // Endpoint spacing in mm, linear along the span.
     double length;              // Length in mm before coordinate rounding.
-    bool floating;              // True only if both source vertices float.
+    bool floating;              // Inherited from the source edge.
 };
 
 struct NarrowInfillLimits {
@@ -262,13 +263,21 @@ static bool preserve_narrow_infill_polyline(const FloatingThickPolyline& line, c
 {
     const double height = budget.height;
     // Preserve nearly constant-width polylines for downstream arc fitting.
-    const bool uniform_state = std::all_of(line.is_floating.begin(), line.is_floating.end(),
-        [&](bool floating) { return floating == line.is_floating.front(); });
     const auto limits = std::minmax_element(line.width.begin(), line.width.end());
     if (*limits.first == *limits.second)
         return true; // Legacy conversion still splits mixed floating states.
-    if (uniform_state && unscale<double>(*limits.second - *limits.first) <=
-        std::min(0.05, budget.width_error(line.is_floating.front())) - EPSILON) {
+
+    // Zero-length joins between clipped fragments have no printing state.
+    size_t first = 0;
+    while (first < line.floating_edges.size() && line.points[first] == line.points[first + 1])
+        ++first;
+    if (first == line.floating_edges.size())
+        return true;
+    const bool floating = line.floating_edges[first];
+    for (size_t i = first + 1; i < line.floating_edges.size(); ++i)
+        if (line.floating_edges[i] != floating && line.points[i] != line.points[i + 1])
+            return false;
+    if (unscale<double>(*limits.second - *limits.first) <= std::min(0.05, budget.width_error(floating)) - EPSILON) {
         double total_length = 0., total_volume = 0.;
         for (size_t i = 0; i + 1 < line.points.size(); ++i) {
             const double length = unscale<double>((line.points[i + 1] - line.points[i]).cast<double>().norm());
@@ -292,7 +301,7 @@ static bool preserve_narrow_infill_polyline(const FloatingThickPolyline& line, c
             residual += length * (height * (wa + wb) * 0.5 - q);
             largest_residual = std::max(largest_residual, std::abs(residual));
         }
-        if (q > 0. && largest_residual <= budget.material_error(line.is_floating.front()))
+        if (q > 0. && largest_residual <= budget.material_error(floating))
             return true;
     }
     return false;
@@ -315,7 +324,7 @@ static bool build_narrow_infill_spans(const FloatingThickPolyline& line, const N
         const double wb = unscale<double>(line.width[2 * edge + 1]);
         if (!std::isfinite(wa) || !std::isfinite(wb) || wa <= 0 || wb <= 0)
             return false;
-        const bool floating = line.is_floating[edge] && line.is_floating[edge + 1];
+        const bool floating = line.floating_edges[edge];
         // For N equal pieces: width error = delta/(2*N), cumulative volume error = h*delta*L/(8*N*N).
         // The denominators include a 1% margin; rounded geometry is checked again below.
         const double delta = std::abs(wb - wa);
@@ -522,11 +531,10 @@ static ExtrusionPaths narrow_floating_infill_paths(const FloatingThickPolyline& 
 }
 } // namespace
 
-// Two widths per edge and one floating marker per vertex.
 ExtrusionPaths FloatingThickPolyline::to_extrusion_paths(ExtrusionRole role, const Flow& flow, double resolution) const
 {
     assert(width.size() == (points.empty() ? 0 : 2 * (points.size() - 1)));
-    assert(is_floating.size() == points.size());
+    assert(floating_edges.size() == width.size() / 2);
     return narrow_floating_infill_paths(*this, role, flow, resolution);
 }
 
@@ -589,7 +597,7 @@ static double interpolate_width(const ZPath& path,
     return (1 - t) * width_prev + t * width_next;
 }
 
-static FloatingThickPolyline merge_lines(ZPaths lines, const std::vector<bool>& mark_flags, const ThickPolyline& line, const int subject_idx_range ,const int default_width)
+static FloatingThickPolyline merge_lines(ZPaths lines, const std::vector<bool>& mark_flags, const ThickPolyline& line, const int subject_idx_range, const int default_width, bool closed)
 {
     using PathFlag = std::vector<bool>;
     using PathFlags = std::vector<PathFlag>;
@@ -711,19 +719,17 @@ static FloatingThickPolyline merge_lines(ZPaths lines, const std::vector<bool>& 
     if (merged_paths.size() != 1 || merged_paths.front().size() < 2) {
         FloatingThickPolyline original;
         static_cast<ThickPolyline&>(original) = line;
-        original.is_floating.assign(line.points.size(), false);
+        original.floating_edges.assign(line.width.size() / 2, false);
         return original;
     }
 
     FloatingThickPolyline res;
 
     auto& valid_path = merged_paths.front();
-    auto& valid_mark = merged_marks.front();
 
     for (size_t idx = 0; idx < valid_path.size(); ++idx) {
         int zvalue = valid_path[idx].z();
         res.points.emplace_back(valid_path[idx].x(), valid_path[idx].y());
-        res.is_floating.emplace_back(valid_mark[idx]);
         if (0 <= zvalue && zvalue < subject_idx_range) {
             // Match BambuStudio 56a57d00's width reconstruction for compatibility.
             // Preserve this reconstruction as the input to narrow-infill DP.
@@ -738,11 +744,12 @@ static FloatingThickPolyline merge_lines(ZPaths lines, const std::vector<bool>& 
     }
     res.width = std::vector<coordf_t>(res.width.begin() + 1, res.width.end()-1);
     assert(res.width.size() == 2 * res.points.size() - 2);
+    res.set_smoothed_floating_edges(std::move(merged_marks.front()), closed);
 
     return res;
 }
 
-FloatingThickPolyline FillFloatingConcentric::detect_floating_line(const ThickPolyline& line, const ExPolygons& floating_areas, const double default_width ,bool force_no_detect)
+FloatingThickPolyline FillFloatingConcentric::detect_floating_line(const ThickPolyline& line, const ExPolygons& floating_areas, const double default_width, bool closed, bool force_no_detect)
 {
     {
         Polyline polyline = line;
@@ -752,7 +759,7 @@ FloatingThickPolyline FillFloatingConcentric::detect_floating_line(const ThickPo
             FloatingThickPolyline res;
             res.width = line.width;
             res.points = line.points;
-            res.is_floating.resize(res.points.size(), false);
+            res.floating_edges.assign(res.width.size() / 2, false);
             return res;
         }
     }
@@ -845,7 +852,7 @@ FloatingThickPolyline FillFloatingConcentric::detect_floating_line(const ThickPo
         }
     }
 
-    return merge_lines(to_merge,floating_flags,line,subject_idx_range,default_width);
+    return merge_lines(std::move(to_merge), floating_flags, line, subject_idx_range, default_width, closed);
 }
 
 static int start_none_floating_idx(int idx, const std::vector<int>& none_floating_count)
@@ -957,80 +964,82 @@ std::vector<int> get_loop_start_candidates(const PointContainer& container, cons
 }
 
 
-static void smooth_floating_line(FloatingThickPolyline& line,coord_t max_gap_threshold, coord_t min_floating_threshold)
+// Open paths retain the original vertex-run rules, including both transition
+// edges in a support gap. Their two ends have no neighbours across a seam.
+static void smooth_open_floating_vertices(const Points& points, std::vector<bool>& flags, coord_t threshold)
 {
-    if (line.empty())
+    std::vector<double> prefix(points.size(), 0.);
+    for (size_t i = 1; i < points.size(); ++i)
+        prefix[i] = prefix[i - 1] + (points[i] - points[i - 1]).cast<double>().norm();
+
+    for (bool floating : {false, true}) {
+        for (size_t first = 0; first < flags.size();) {
+            size_t end = first + 1;
+            while (end < flags.size() && flags[end] == flags[first])
+                ++end;
+            if (flags[first] == floating && (floating || (first > 0 && end < flags.size()))) {
+                const double length = floating ? prefix[end - 1] - prefix[first] : prefix[end] - prefix[first - 1];
+                if (length < threshold)
+                    std::fill(flags.begin() + first, flags.begin() + end, !floating);
+            }
+            first = end;
+        }
+    }
+}
+
+// Start on an edge of the opposite state so the run at the stored seam is
+// visited in one piece. Coincident clipping endpoints carry no extrusion.
+static void smooth_closed_floating_runs(const Points& points, std::vector<bool>& edges, bool floating, coord_t threshold)
+{
+    const size_t count = edges.size();
+    size_t start = 0;
+    while (start < count && (points[start] == points[start + 1] || edges[start] == floating))
+        ++start;
+    if (start == count) {
+        if (!floating)
+            return; // A wholly supported ring has no floating neighbours.
+        start = 0; // Apply the floating threshold to the full circumference.
+    }
+
+    size_t first = 0;
+    double length = 0.;
+    for (size_t offset = 0; offset <= count; ++offset) {
+        if (offset < count) {
+            const size_t edge = (start + offset) % count;
+            if (points[edge] == points[edge + 1])
+                continue;
+            if (edges[edge] == floating) {
+                if (length < threshold)
+                    length += (points[edge + 1] - points[edge]).cast<double>().norm();
+                continue;
+            }
+        }
+        if (length > 0. && length < threshold)
+            for (size_t i = first; i < offset; ++i)
+                edges[(start + i) % count] = !floating;
+        first = offset + 1;
+        length = 0.;
+    }
+}
+
+void FloatingThickPolyline::set_smoothed_floating_edges(std::vector<bool> vertex_flags, bool closed)
+{
+    assert(vertex_flags.size() == points.size());
+    floating_edges.resize(points.empty() ? 0 : points.size() - 1);
+    if (floating_edges.empty())
         return;
-    struct LineParts {
-        int start;
-        int end;
-        bool is_floating;
-    };
 
-    auto build_line_parts = [&](const FloatingThickPolyline& line)->std::vector<LineParts> {
-        std::vector<LineParts> line_parts;
-        bool current_val = line.is_floating.front();
-        int start = 0;
-        for (size_t idx = 1; idx < line.is_floating.size(); ++idx) {
-            if (line.is_floating[idx] != current_val) {
-                line_parts.push_back({ start,(int)(idx - 1),current_val });
-                current_val = line.is_floating[idx];
-                start = idx;
-            }
-        }
-        line_parts.push_back({ start,(int)(line.is_floating.size() - 1),current_val });
-        return line_parts;
-    };
-
-    std::vector<double> distance_prefix(line.points.size(),0);
-    for (size_t idx = 0; idx < line.points.size();++idx) {
-        if (idx == 0)
-            distance_prefix[idx] = 0;
-        else {
-            distance_prefix[idx] = distance_prefix[idx - 1] + (line.points[idx] - line.points[idx - 1]).cast<double>().norm();
-        }
-    }
-    {
-        // remove too small gaps
-        std::vector<LineParts> line_parts = build_line_parts(line);
-        std::vector<std::pair<int, int>> gaps_to_merge;
-
-        for (size_t i = 1; i + 1 < line_parts.size(); ++i) {
-            const auto& curr = line_parts[i];
-            if (!curr.is_floating) {
-                const auto& prev = line_parts[i - 1];
-                const auto& next = line_parts[i + 1];
-                if (prev.is_floating && next.is_floating) {
-                    double total_length = distance_prefix[next.start] - distance_prefix[prev.end];
-                    if (total_length < max_gap_threshold) {
-                        gaps_to_merge.emplace_back(curr.start, curr.end);
-                    }
-                }
-            }
-        }
-
-        for (const auto& gap : gaps_to_merge) {
-            for (int i = gap.first; i <= gap.second; ++i) {
-                line.is_floating[i] = true;
-            }
-        }
-    }
-
-    {
-        std::vector<LineParts> line_parts = build_line_parts(line);
-        std::vector<std::pair<int, int>> segments_to_remove;
-
-        for (auto& part : line_parts) {
-            if (part.is_floating && distance_prefix[part.end] - distance_prefix[part.start] < min_floating_threshold) {
-                segments_to_remove.emplace_back(part.start, part.end);
-            }
-        }
-
-        for (const auto& seg : segments_to_remove) {
-            for (int i = seg.first; i <= seg.second; ++i) {
-                line.is_floating[i] = false;
-            }
-        }
+    closed = closed && is_closed();
+    if (!closed)
+        smooth_open_floating_vertices(points, vertex_flags, coord_t(scale_(2.)));
+    for (size_t i = 0; i < floating_edges.size(); ++i)
+        floating_edges[i] = vertex_flags[i] && vertex_flags[i + 1];
+    if (closed) {
+        // Round the physical cutoff to the coordinate grid (2 mm is exactly representable).
+        const coord_t threshold = coord_t(std::lround(scale_(2.)));
+        // Fill short support gaps before measuring the resulting floating runs.
+        smooth_closed_floating_runs(points, floating_edges, false, threshold);
+        smooth_closed_floating_runs(points, floating_edges, true, threshold);
     }
 }
 
@@ -1057,8 +1066,8 @@ FloatingThickPolylines FillFloatingConcentric::resplit_order_loops(Point curr_po
             if (grid.has_intersecting_edges())
                 is_self_intersect = true;
         }
-        FloatingThickPolyline thick_line_with_floating = detect_floating_line(thick_polyline, floating_areas, default_width, !print_object_config->detect_floating_vertical_shell.value || is_self_intersect);
-        smooth_floating_line(thick_line_with_floating, scale_(2), scale_(2));
+        FloatingThickPolyline thick_line_with_floating = detect_floating_line(thick_polyline, floating_areas, default_width,
+            all_extrusions[idx]->is_closed, !print_object_config->detect_floating_vertical_shell.value || is_self_intersect);
         int split_idx = 0;
         if (!floating_areas.empty() && all_extrusions[idx]->is_closed && thick_line_with_floating.points.front() == thick_line_with_floating.points.back()) {
             if (idx == 0)

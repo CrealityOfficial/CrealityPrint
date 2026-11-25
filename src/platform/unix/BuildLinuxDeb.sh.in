@@ -105,6 +105,19 @@ exec "/$BIN_DIR/@SLIC3R_APP_CMD@" "\$@"
 EOF
 chmod 755 "$DEB_ROOT/$USR_BIN/@SLIC3R_APP_CMD@"
 
+# Ship the Mesa profile outside drirc.d so installation can select it for Maleoon.
+mkdir -p "$DEB_ROOT/usr/share/crealityprint"
+cat << 'EOF' > "$DEB_ROOT/usr/share/crealityprint/90-crealityprint-maleoon-zink.conf" || exit 1
+<driconf>
+  <device>
+    <application name="@SLIC3R_APP_NAME@" executable="@SLIC3R_APP_CMD@">
+      <option name="dri_driver" value="zink"/>
+    </application>
+  </device>
+</driconf>
+EOF
+chmod 644 "$DEB_ROOT/usr/share/crealityprint/90-crealityprint-maleoon-zink.conf" || exit 1
+
 # Desktop file
 if [ -f "../src/platform/unix/CrealityPrint.desktop" ]; then
   cp "../src/platform/unix/CrealityPrint.desktop" "$DEB_ROOT/$USR_SHARE_APPS/@SLIC3R_APP_NAME@.desktop"
@@ -138,10 +151,25 @@ Description: @SLIC3R_APP_NAME@ 3D slicing application
  @SLIC3R_APP_NAME@ packaged for Debian-based systems.
 EOF
 
-# Post-install to update caches (optional)
+# Activate the Mesa profile on matching installations and refresh desktop caches.
 cat << 'EOF' > "$DEB_ROOT/DEBIAN/postinst"
 #!/bin/sh
 set -e
+if [ "$1" = configure ]; then
+  profile=/usr/share/crealityprint/90-crealityprint-maleoon-zink.conf
+  link=/usr/share/drirc.d/${profile##*/}
+  driver_status=$(dpkg-query -W -f='${db:Status-Status}' hw-maleoon-920 2>/dev/null || true)
+  if [ "$driver_status" = installed ] &&
+     [ -r /etc/vulkan/icd.d/maleoon_vulkan.json ] &&
+     [ -r /usr/lib/aarch64-linux-gnu/dri/zink_dri.so ]; then
+    if [ ! -e "$link" ] && [ ! -L "$link" ]; then
+      install -d /usr/share/drirc.d
+      ln -s "$profile" "$link"
+    fi
+  elif [ "$(readlink "$link")" = "$profile" ]; then
+    rm -f "$link"
+  fi
+fi
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database -q || true
 fi
@@ -155,6 +183,21 @@ fi
 exit 0
 EOF
 chmod 755 "$DEB_ROOT/DEBIAN/postinst"
+
+cat << 'EOF' > "$DEB_ROOT/DEBIAN/postrm"
+#!/bin/sh
+set -e
+case "$1" in
+  remove|purge)
+    profile=/usr/share/crealityprint/90-crealityprint-maleoon-zink.conf
+    link=/usr/share/drirc.d/${profile##*/}
+    if [ "$(readlink "$link")" = "$profile" ]; then
+      rm -f "$link"
+    fi
+    ;;
+esac
+EOF
+chmod 755 "$DEB_ROOT/DEBIAN/postrm" || exit 1
 
 # Debug symbol package. GDB searches /usr/lib/debug followed by the original
 # executable path, which matches DEBUG_BIN_DIR above.

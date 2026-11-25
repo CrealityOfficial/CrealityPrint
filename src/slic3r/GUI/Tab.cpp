@@ -3858,6 +3858,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("prime_tower_start_ironing");
         optgroup->append_single_option_line("prime_tower_start_offset");
         optgroup->append_single_option_line("prime_tower_corner_rib_length");
+        optgroup->append_single_option_line("prime_tower_fillet_wall");
         optgroup->append_single_option_line("wipe_tower_extra_flow");
         optgroup->append_single_option_line("wipe_tower_no_sparse_layers");
         optgroup->append_single_option_line("wipe_tower_extra_interlayer_wipe_layers");
@@ -4309,10 +4310,6 @@ bool TabPrint::on_prime_tower_user_change(const std::string& opt_key, const boos
     } else {
         m_no_wipe_printer_backup.clear();
     }
-
-    const DynamicPrintConfig& system_printer = prime_tower_system_config(m_preset_bundle->printers);
-    apply_prime_tower_printer_user_change(new_printer, enabled, link_no_tower_options, smooth_timelapse,
-                                         system_printer);
 
     // Commit both configurations before any callback can refresh the UI.
     const bool printer_changed = !printer.diff(new_printer).empty();
@@ -5958,6 +5955,8 @@ void TabFilament::build()
         optgroup->append_line(line);
         optgroup->append_single_option_line("filament_pre_flush_volume");
         optgroup->append_single_option_line("filament_pre_flush_speed_ratio");
+        optgroup->append_single_option_line("filament_pre_flush_tower_time");
+        optgroup->append_single_option_line("filament_pre_flush_tower_volume");
 
         optgroup->m_on_change = [this, optgroup](t_config_option_key opt_key, boost::any value) {
             DynamicPrintConfig &filament_config = wxGetApp().preset_bundle->filaments.get_edited_preset().config;
@@ -6297,6 +6296,11 @@ void TabFilament::toggle_options()
 
         toggle_line("filament_shrink", !is_belt_machine);
         toggle_line("filament_shrinkage_compensation_z", !is_belt_machine);
+
+        const bool in_tower_filament_change = cfg.has("prime_tower_toolchange_at_start") &&
+                                              cfg.opt_bool("prime_tower_toolchange_at_start");
+        toggle_line("filament_pre_flush_tower_time", in_tower_filament_change);
+        toggle_line("filament_pre_flush_tower_volume", in_tower_filament_change);
         
         bool _bmaterial_flow_dependent_temperature = m_config->opt_bool("material_flow_dependent_temperature",0);
         toggle_option("material_flow_temp_graph", _bmaterial_flow_dependent_temperature);
@@ -8005,7 +8009,6 @@ void TabPrinter::toggle_options()
         }
         toggle_option("extruders_count", !bSEMM);
         toggle_option("manual_filament_change", bSEMM);
-        toggle_option("purge_in_prime_tower", bSEMM);
     }
     wxString extruder_number;
     long val = 1;

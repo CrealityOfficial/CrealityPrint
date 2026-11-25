@@ -4935,6 +4935,12 @@ msgstr ""
 msgid "Load these files as a single object with multiple parts?\n"
 msgstr ""
 
+msgid "Disable Auto-Drop to preserve Z positioning?"
+msgstr ""
+
+msgid "Object with floating parts was detected"
+msgstr ""
+
 msgid "Object with multiple parts was detected"
 msgstr ""
 
@@ -14980,7 +14986,7 @@ msgstr ""
 msgid "Filament pre-flush volume"
 msgstr ""
 
-msgid "After a filament change, the pre-flush volume of the new filament. Set to 0 to disable pre-flushing."
+msgid "After a filament change, the pre-flush volume of the new filament. With a prime tower, used for coarse pre-flushing on the tower. If Flush into objects' infill is enabled, the initial model infill is also printed at a reduced speed for this volume. Without a tower, controls the volume of internal infill initially printed at a reduced speed. Model infill slowdown works in conjunction with Pre-flush length slowdown. Set to 0 to disable these features."
 msgstr ""
 
 msgid ""
@@ -19156,7 +19162,7 @@ msgstr ""
 msgid "Pre-flush length slowdown"
 msgstr ""
 
-msgid "After a filament change, use the numeric value of Filament pre-flush volume as the model infill path distance in millimeters for this speed limit. For example, a value of 10 limits only the first 10 mm of printed infill path, then restores normal speed. The volumetric flow limit is this percentage of the filament's maximum volumetric speed. With a prime tower, applies when Flush into objects' infill is enabled. Without a tower, applies to skeleton infill. Travel and retraction do not count. The tower's original pre-flush behavior is unchanged. Lower printing speeds are preserved. Set to 0 to disable this additional speed limit."
+msgid "After a filament change, apply this speed limit to the model infill extrusion volume specified by Filament pre-flush volume. For example, a value of 10 limits only the first 10 mm³ of infill extrusion, then restores normal speed. The volumetric flow limit is this percentage of the filament's maximum volumetric speed. With a prime tower, model infill speed limiting requires Flush into objects' infill to be enabled. Without a tower, applies to internal infill. Travel and retraction do not count toward the volume. This percentage also applies to coarse pre-flushing on the prime tower; tower purging does not reduce the model infill volume budget. Lower model printing speeds are preserved. Set to 0 to disable this additional speed limit."
 msgstr ""
 
 
@@ -19246,4 +19252,10 @@ msgstr ""
 
 #: src/slic3r/GUI/UpdateParams.cpp:217 src/slic3r/GUI/UpdateParams.cpp:285
 msgid "The printer list or account has changed. Please check again."
+msgstr ""
+
+msgid "The prime tower extends outside the printable area. Move it inside the plate or reduce its size."
+msgstr ""
+
+msgid "Estimating idle purge timing (%1%/%2%)"
 msgstr ""

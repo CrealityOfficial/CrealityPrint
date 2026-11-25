@@ -8,6 +8,10 @@
 
 #include "hidapi.h"
 
+#ifdef _WIN32
+#include <future>
+#endif
+
 #include <queue>
 #include <atomic>
 #include <mutex>
@@ -161,6 +165,9 @@ class Mouse3DController
     // Using m_stop_condition_mutex to synchronize m_stop.
     bool				m_stop { false };
 #ifdef _WIN32
+    std::future<void*> m_initial_device;
+    void *m_last_input_device = nullptr;
+    void set_device_name(const std::string &name);
     std::atomic<bool>	m_wakeup { false };
 #endif /* _WIN32 */
     // Mutex and condition variable for sleeping during the detection of 3DConnexion devices by polling while allowing
@@ -179,7 +186,7 @@ public:
 	void load_config(const AppConfig &appconfig);
 	// Store the device parameter database back to appconfig. To be called on application closeup.
 	void save_config(AppConfig &appconfig) const;
-	// Start the background thread to detect and connect to a HID device (Windows and Linux).
+	// Discover the initial Raw Input device on Windows or start the HID worker on Linux.
 	// Connect to a 3DConnextion driver (OSX).
 	// Call load_config() before init().
     void init();
@@ -200,7 +207,7 @@ public:
 #endif // __APPLE__
 
 #ifdef _WIN32
-	bool handle_raw_input_win32(const unsigned char *data, const int packet_lenght);
+	bool handle_raw_input_win32(void *device, const unsigned char *data, int packet_length);
 
     // Called by Win32 HID enumeration callback.
     void device_attached(const std::string &device);

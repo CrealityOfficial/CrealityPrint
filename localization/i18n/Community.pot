@@ -1143,3 +1143,18 @@ msgstr "Please select at least one printer."
 
 msgid "The filament you want is not found"
 msgstr "The filament you want is not found"
+
+msgid "System presets for printers you have added"
+msgstr ""
+
+msgid "Updates available"
+msgstr ""
+
+msgid "No updates available"
+msgstr ""
+
+msgid "Could not load online parameters"
+msgstr ""
+
+msgid "{label} ({count})"
+msgstr ""

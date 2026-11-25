@@ -1874,145 +1874,138 @@ std::vector<int> PartPlate::get_used_extruders()
 	return std::vector(used_extruders_set.begin(), used_extruders_set.end());
 }
 
-Vec3d PartPlate::estimate_wipe_tower_size(const DynamicPrintConfig & config, const double w, const double d, const double wipe_volume, int plate_extruder_size, bool use_global_objects) const
+WipeTowerPreview PartPlate::estimate_wipe_tower_preview(const DynamicPrintConfig& config, int plate_extruder_size, bool use_global_objects) const
 {
-	Vec3d wipe_tower_size;
+    return wipe_tower_preview_input(config, plate_extruder_size, use_global_objects).estimate();
+}
 
-	double layer_height = 0.08f; // hard code layer height
-	double max_height = 0.f;
-	wipe_tower_size.setZero();
-	wipe_tower_size(0) = w;
-
-	const ConfigOption* layer_height_opt = config.option("layer_height");
-	if (layer_height_opt)
-		layer_height = layer_height_opt->getFloat();
-
-	// empty plate
-	if (plate_extruder_size == 0)
-    {
-        DynamicPrintConfig cli_config;
-        if (m_plater == nullptr)
-            cli_config.apply(config);
-        std::vector<int> plate_extruders = m_plater != nullptr ? get_extruders(true) : get_extruders_under_cli(true, cli_config);
-        plate_extruder_size = plate_extruders.size();
-    }
-	if (plate_extruder_size == 0)
-		return wipe_tower_size;
-
-	for (int obj_idx = 0; obj_idx < m_model->objects.size(); obj_idx++) {
-		if (!use_global_objects && !contain_instance_totally(obj_idx, 0))
-			continue;
-
-		BoundingBoxf3 bbox = m_model->objects[obj_idx]->bounding_box_exact();
-		max_height = std::max(bbox.size().z(), max_height);
-	}
-
-    if (max_height < 1e-3)
-    {
-        return wipe_tower_size;
-    }
-
-	wipe_tower_size(2) = max_height;
-
-	//const DynamicPrintConfig &dconfig = wxGetApp().preset_bundle->prints.get_edited_preset().config;
-    auto timelapse_type    = config.option<ConfigOptionEnum<TimelapseType>>("timelapse_type");
-    bool timelapse_enabled = timelapse_type ? (timelapse_type->value == TimelapseType::tlSmooth) : false;
-    const ConfigOptionBool* use_rib_wall_opt  = config.option<ConfigOptionBool>("prime_tower_rib_wall");
-    const bool use_corner_rib = config.has("prime_tower_enhance_type") &&
-                              config.opt_enum<PrimeTowerEnhanceType>("prime_tower_enhance_type") == PrimeTowerEnhanceType::pteCornerRib;
-    bool use_rib_wall = (use_rib_wall_opt == nullptr || use_rib_wall_opt->value) ||
-                        use_corner_rib;
-
-    double depth = plate_extruder_size == 1 ? 0 : d;
-    int    nozzle_nums = (wxTheApp && wxGetApp().preset_bundle) ? wxGetApp().preset_bundle->get_printer_extruder_count() : 1;
-    double volume      = wipe_volume * (nozzle_nums == 2 ? plate_extruder_size : (plate_extruder_size - 1));
-    if (use_rib_wall) {
-        depth = std::sqrt(volume / layer_height);
-        if (timelapse_enabled || plate_extruder_size > 1) {
-            float min_wipe_tower_depth = WipeTower::get_limit_depth_by_height(max_height);
-            depth                      = std::max((double) min_wipe_tower_depth, depth);
-            wipe_tower_size(0) = wipe_tower_size(1) = depth;
+WipeTowerPreviewInput PartPlate::wipe_tower_preview_input(const DynamicPrintConfig& config, int plate_extruder_size, bool use_global_objects) const
+{
+    DynamicPrintConfig merged = config;
+    merged.apply(m_config);
+    PrintConfig print_config;
+    print_config.apply(merged, true);
+    double layer_height = merged.opt_float("layer_height");
+    double max_height = 0.;
+    double max_layer_height = layer_height;
+    MixedFilamentManager mixed;
+    mixed.load_custom_entries(print_config.mixed_filament_definitions.value, print_config.filament_colour.values);
+    std::map<unsigned int, double> physical_max_z;
+    auto include_layer_height = [&layer_height, &max_layer_height](double height) {
+        if (std::isfinite(height) && height > EPSILON) {
+            layer_height = std::min(layer_height, height);
+            max_layer_height = std::max(max_layer_height, height);
         }
-        return wipe_tower_size;
+    };
+    include_layer_height(print_config.initial_layer_print_height.value);
+    for (size_t obj_idx = 0; obj_idx < m_model->objects.size(); ++obj_idx) {
+        const ModelObject* object = m_model->objects[obj_idx];
+        bool on_plate = false;
+        double object_height = 0.;
+        for (size_t inst_idx = 0; inst_idx < object->instances.size(); ++inst_idx) {
+            if (!object->instances[inst_idx]->is_printable() ||
+                (!use_global_objects && !contain_instance_totally(int(obj_idx), int(inst_idx))))
+                continue;
+            const double max_z = object->instances.size() == 1 ? object->bounding_box_exact().max.z() :
+                                                                 object->instance_bounding_box(inst_idx).max.z();
+            object_height = std::max(object_height, max_z - m_origin.z());
+            on_plate = true;
+        }
+        if (!on_plate)
+            continue;
+        max_height = std::max(max_height, object_height);
+        // Bound each physical filament by the objects that actually use it.
+        // Painting, modifiers and supports conservatively use the full object
+        // height; a taller object in another color must not extend this one.
+        std::vector<int> object_ids;
+        append_role_extruders(object_ids, {&merged, &object->config.get()});
+        for (const ModelVolume* volume : object->volumes) {
+            append(object_ids, volume->get_extruders());
+            if (volume->is_model_part() || volume->is_modifier())
+                append_role_extruders(object_ids, {&merged, &object->config.get(), &volume->config.get()});
+        }
+        for (const auto& range : object->layer_config_ranges) {
+            if (const auto* option = range.second.option("extruder"))
+                if (option->getInt() > 0)
+                    object_ids.push_back(option->getInt());
+            append_role_extruders(object_ids, {&merged, &object->config.get(), &range.second.get()});
+        }
+        const std::initializer_list<const ConfigBase*> configs = {&merged, &object->config.get()};
+        const auto* support = find_config_option(configs, "enable_support");
+        if ((support && support->getBool()) || config_int(configs, "raft_layers") > 0) {
+            for (const char* key : {"support_filament", "support_interface_filament"})
+                if (const int id = config_int(configs, key); id > 0)
+                    object_ids.push_back(id);
+        }
+        std::vector<unsigned int> logical_object_ids;
+        for (int id : object_ids)
+            if (id > 0)
+                logical_object_ids.push_back(unsigned(id));
+        for (unsigned int id : mixed.expand_filament_usage(logical_object_ids, print_config.filament_diameter.size()).physical_filament_ids)
+            physical_max_z[id] = std::max(physical_max_z[id], object_height);
+        if (const auto* option = object->config.option("layer_height"))
+            include_layer_height(option->getFloat());
+        for (const auto& range : object->layer_config_ranges)
+            if (const auto* option = range.second.option("layer_height"))
+                include_layer_height(option->getFloat());
+        const auto& profile = object->layer_height_profile.get();
+        for (size_t i = 1; i < profile.size(); i += 2)
+            include_layer_height(profile[i]);
     }
-
-    if (timelapse_enabled || depth > EPSILON) {
-		float min_wipe_tower_depth = 0.f;
-		auto iter = WipeTower::min_depth_per_height.begin();
-		while (iter != WipeTower::min_depth_per_height.end()) {
-			auto curr_height_to_depth = *iter;
-
-			// This is the case that wipe tower height is lower than the first min_depth_to_height member.
-			if (curr_height_to_depth.first >= max_height) {
-				min_wipe_tower_depth = curr_height_to_depth.second;
-				break;
-			}
-
-			iter++;
-
-			// If curr_height_to_depth is the last member, use its min_depth.
-			if (iter == WipeTower::min_depth_per_height.end()) {
-				min_wipe_tower_depth = curr_height_to_depth.second;
-				break;
-			}
-
-			// If wipe tower height is between the current and next member, set the min_depth as linear interpolation between them
-			auto next_height_to_depth = *iter;
-			if (next_height_to_depth.first > max_height) {
-				float height_base = curr_height_to_depth.first;
-				float height_diff = next_height_to_depth.first - curr_height_to_depth.first;
-				float min_depth_base = curr_height_to_depth.second;
-				float depth_diff = next_height_to_depth.second - curr_height_to_depth.second;
-
-				min_wipe_tower_depth = min_depth_base + (max_height - curr_height_to_depth.first) / height_diff * depth_diff;
-				break;
-			}
-		}
-		depth = std::max((double)min_wipe_tower_depth, depth);
-	}
-	wipe_tower_size(1) = depth;
-	return wipe_tower_size;
+    auto ids = m_plater != nullptr ? get_extruders(true) : get_extruders_under_cli(true, merged);
+    std::vector<unsigned int> logical_ids;
+    for (int id : ids)
+        if (id > 0)
+            logical_ids.push_back(unsigned(id));
+    auto physical_ids = mixed.expand_filament_usage(logical_ids, print_config.filament_diameter.size()).physical_filament_ids;
+    if (plate_extruder_size == 0)
+        plate_extruder_size = int(physical_ids.size());
+    else if (size_t(plate_extruder_size) != physical_ids.size())
+        physical_ids.clear(); // A new plate may need to reserve tools from other plates.
+    bool custom_toolchanges = false;
+    for (const auto& [plate_id, custom] : m_model->plates_custom_gcodes)
+        if (use_global_objects || plate_id == m_plate_index)
+            for (const auto& item : custom.gcodes)
+                custom_toolchanges |= item.type == CustomGCode::Type::ToolChange;
+    // Above the second-highest filament only one color remains. Keep the
+    // configured extra wipe layers at that transition, as ToolOrdering does.
+    // Smooth timelapse and manual tool changes can still need a full-height tower.
+    if (print_config.timelapse_type.value != TimelapseType::tlSmooth && !custom_toolchanges &&
+        physical_ids.size() >= 2 && physical_max_z.size() == physical_ids.size() &&
+        std::all_of(physical_ids.begin(), physical_ids.end(), [&](unsigned int id) { return physical_max_z.count(id) != 0; })) {
+        std::vector<double> heights;
+        for (unsigned int id : physical_ids)
+            heights.push_back(physical_max_z.at(id));
+        std::sort(heights.begin(), heights.end(), std::greater<double>());
+        const int extra_layers = print_config.wipe_tower_no_sparse_layers.value ? 1 :
+            std::max(1, print_config.wipe_tower_extra_interlayer_wipe_layers.value);
+        max_height = std::min(max_height, heights[1] + extra_layers * max_layer_height);
+    }
+    return {std::move(print_config), size_t(std::max(0, plate_extruder_size)), layer_height, max_height, std::move(physical_ids)};
 }
 
 arrangement::ArrangePolygon PartPlate::estimate_wipe_tower_polygon(const DynamicPrintConfig& config, int plate_index, int plate_extruder_size, bool use_global_objects) const
 {
-	float x = dynamic_cast<const ConfigOptionFloats*>(config.option("wipe_tower_x"))->get_at(plate_index);
-	float y = dynamic_cast<const ConfigOptionFloats*>(config.option("wipe_tower_y"))->get_at(plate_index);
-	float w = dynamic_cast<const ConfigOptionFloat*>(config.option("prime_tower_width"))->value;
-	//float a = dynamic_cast<const ConfigOptionFloat*>(config.option("wipe_tower_rotation_angle"))->value;
-	float v = dynamic_cast<const ConfigOptionFloat*>(config.option("prime_volume"))->value;
-    float tower_brim_width = dynamic_cast<const ConfigOptionFloat*>(config.option("prime_tower_brim_width"))->value;
-    Vec3d wipe_tower_size = estimate_wipe_tower_size(config, w, m_depth, v, plate_extruder_size, use_global_objects);
-	int plate_width=m_width, plate_depth=m_depth;
-	float depth = wipe_tower_size(1);
-	float margin = WIPE_TOWER_MARGIN + tower_brim_width, wp_brim_width = 0.f;
-	const ConfigOption* wipe_tower_brim_width_opt = config.option("prime_tower_brim_width");
-	if (wipe_tower_brim_width_opt) {
-		wp_brim_width = wipe_tower_brim_width_opt->getFloat();
-		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format("arrange wipe_tower: wp_brim_width %1%") % wp_brim_width;
-	}
+    return prepare_wipe_tower_polygon(config, plate_index, plate_extruder_size, use_global_objects)();
+}
 
-	x = std::clamp(x, margin, (float)plate_width - w - margin - wp_brim_width);
-	y = std::clamp(y, margin, (float)plate_depth - depth - margin - wp_brim_width);
-
-	arrangement::ArrangePolygon wipe_tower_ap;
-	Polygon ap({
-		{scaled(x - wp_brim_width), scaled(y - wp_brim_width)},
-		{scaled(x + w + wp_brim_width), scaled(y - wp_brim_width)},
-		{scaled(x + w + wp_brim_width), scaled(y + depth + wp_brim_width)},
-		{scaled(x - wp_brim_width), scaled(y + depth + wp_brim_width)}
-		});
-	wipe_tower_ap.bed_idx = plate_index;
-	wipe_tower_ap.setter = NULL; // do not move wipe tower
-
-	wipe_tower_ap.poly.contour = std::move(ap);
-	wipe_tower_ap.translation = { scaled(0.f), scaled(0.f) };
-	//wipe_tower_ap.rotation = a;
-	wipe_tower_ap.name = "WipeTower";
-	wipe_tower_ap.is_virt_object = true;
-	wipe_tower_ap.is_wipe_tower = true;
-
-	return wipe_tower_ap;
+std::function<arrangement::ArrangePolygon()> PartPlate::prepare_wipe_tower_polygon(
+    const DynamicPrintConfig& config, int plate_index, int plate_extruder_size, bool use_global_objects) const
+{
+    auto input = wipe_tower_preview_input(config, plate_extruder_size, use_global_objects);
+    const Vec2d position(config.option<ConfigOptionFloats>("wipe_tower_x")->get_at(plate_index),
+                         config.option<ConfigOptionFloats>("wipe_tower_y")->get_at(plate_index));
+    return [input = std::move(input), position, plate_index] {
+        arrangement::ArrangePolygon polygon;
+        polygon.poly.contour = input.estimate().footprint(input.config.wipe_tower_rotation_angle.value, position);
+        polygon.bed_idx = plate_index;
+        polygon.setter = nullptr;
+        polygon.translation = {0, 0};
+        polygon.name = "WipeTower";
+        polygon.is_virt_object = true;
+        polygon.is_wipe_tower = true;
+        return polygon;
+    };
 }
 
 bool PartPlate::operator<(PartPlate& plate) const

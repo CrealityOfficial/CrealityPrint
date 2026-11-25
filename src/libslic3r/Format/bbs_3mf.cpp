@@ -287,6 +287,7 @@ static constexpr const char* TRANSFORM_ATTR = "transform";
 // BBS
 static constexpr const char* OFFSET_ATTR = "offset";
 static constexpr const char* PRINTABLE_ATTR = "printable";
+static constexpr const char* AUTO_DROP_ATTR = "auto_drop";
 static constexpr const char* INSTANCESCOUNT_ATTR = "instances_count";
 static constexpr const char* CUSTOM_SUPPORTS_ATTR = "paint_supports";
 static constexpr const char* CUSTOM_FUZZY_SKIN_ATTR  = "paint_fuzzy_skin";
@@ -1844,7 +1845,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         bool _handle_start_text_configuration(const char** attributes, unsigned int num_attributes);
         bool _handle_start_shape_configuration(const char **attributes, unsigned int num_attributes);
 
-        bool _create_object_instance(std::string const & path, int object_id, const Transform3d& transform, const bool printable, unsigned int recur_counter);
+        bool _create_object_instance(std::string const & path, int object_id, const Transform3d& transform, const bool printable, const bool auto_drop, unsigned int recur_counter);
 
         void _apply_transform(ModelInstance& instance, const Transform3d& transform);
 
@@ -4762,9 +4763,10 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         int object_id = bbs_get_attribute_value_int(attributes, num_attributes, OBJECTID_ATTR);
         std::string path = bbs_get_attribute_value_string(attributes, num_attributes, PPATH_ATTR);
         Transform3d transform = bbs_get_transform_from_3mf_specs_string(bbs_get_attribute_value_string(attributes, num_attributes, TRANSFORM_ATTR));
-        int printable = bbs_get_attribute_value_bool(attributes, num_attributes, PRINTABLE_ATTR);
+        const bool printable = bbs_get_attribute_value_bool(attributes, num_attributes, PRINTABLE_ATTR);
+        const bool auto_drop = bbs_get_attribute_value_bool(attributes, num_attributes, AUTO_DROP_ATTR);
 
-        return !m_load_model || _create_object_instance(path, object_id, transform, printable, 1);
+        return !m_load_model || _create_object_instance(path, object_id, transform, printable, auto_drop, 1);
     }
 
     bool _BBS_3MF_Importer::_handle_end_item()
@@ -5008,7 +5010,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         return true;
     }
 
-    bool _BBS_3MF_Importer::_create_object_instance(std::string const & path, int object_id, const Transform3d& transform, const bool printable, unsigned int recur_counter)
+    bool _BBS_3MF_Importer::_create_object_instance(std::string const & path, int object_id, const Transform3d& transform, const bool printable, const bool auto_drop, unsigned int recur_counter)
     {
         static const unsigned int MAX_RECURSIONS = 10;
 
@@ -5051,6 +5053,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 return false;
             }
             instance->printable = printable;
+            instance->auto_drop = auto_drop;
 
             m_instances.emplace_back(instance, transform);
 
@@ -5083,6 +5086,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 return false;
             }
             instance->printable = printable;
+            instance->auto_drop = auto_drop;
 
             m_instances.emplace_back(instance, transform);
         }
@@ -6653,12 +6657,14 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             unsigned int id;
             Transform3d transform;
             bool printable;
+            bool auto_drop;
 
-            BuildItem(std::string const & path, unsigned int id, const Transform3d& transform, const bool printable)
+            BuildItem(std::string const & path, unsigned int id, const Transform3d& transform, const bool printable, const bool auto_drop)
                 : path(path)
                 , id(id)
                 , transform(transform)
                 , printable(printable)
+                , auto_drop(auto_drop)
             {
             }
         };
@@ -8179,7 +8185,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     Transform3d t = instance->get_matrix();
                     // instance_id is just a 1 indexed index in build_items.
                     //assert(m_skip_static || curr_id == build_items.size() + 1);
-                    build_items.emplace_back("", object_it->second.object_id, t, instance->printable);
+                    build_items.emplace_back("", object_it->second.object_id, t, instance->printable, instance->auto_drop);
                     count++;
                 }
 
@@ -8610,7 +8616,10 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 stream << "\" " << PPATH_ATTR << "=\"" << xml_escape(item.path);
             stream << "\" " << TRANSFORM_ATTR << "=\"";
             add_transformation(stream, item.transform);
-            stream << "\" " << PRINTABLE_ATTR << "=\"" << item.printable << "\"/>\n";
+            stream << "\" " << PRINTABLE_ATTR << "=\"" << item.printable;
+            if (!item.auto_drop)
+                stream << "\" " << AUTO_DROP_ATTR << "=\"0";
+            stream << "\"/>\n";
         }
 
         stream << " </" << BUILD_TAG << ">\n";

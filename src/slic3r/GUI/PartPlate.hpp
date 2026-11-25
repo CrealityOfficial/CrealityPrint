@@ -1,6 +1,7 @@
 ﻿#ifndef __part_plate_hpp_
 #define __part_plate_hpp_
 
+#include <functional>
 #include <vector>
 #include <set>
 #include <array>
@@ -303,7 +304,7 @@ public:
     void set_index(int index);
 
     //get the plate's index
-    int get_index() { return m_plate_index; }
+    int get_index() const { return m_plate_index; }
 
     // SoftFever
     //get the plate's name
@@ -343,7 +344,11 @@ public:
     BoundingBoxf3 get_gcode_path_bounding_box();
 
     Vec3d get_origin() { return m_origin; }
-    Vec3d estimate_wipe_tower_size(const DynamicPrintConfig & config, const double w, const double d, const double wipe_volume, int plate_extruder_size = 0, bool use_global_objects = false) const;
+    WipeTowerPreviewInput wipe_tower_preview_input(const DynamicPrintConfig& config, int plate_extruder_size = 0, bool use_global_objects = false) const;
+    WipeTowerPreview estimate_wipe_tower_preview(const DynamicPrintConfig& config, int plate_extruder_size = 0, bool use_global_objects = false) const;
+    // Capture model/config on the caller's thread for execution by ArrangeJob.
+    std::function<arrangement::ArrangePolygon()> prepare_wipe_tower_polygon(const DynamicPrintConfig& config, int plate_index,
+                                                                           int plate_extruder_size, bool use_global_objects = false) const;
     arrangement::ArrangePolygon estimate_wipe_tower_polygon(const DynamicPrintConfig & config, int plate_index, int plate_extruder_size = 0, bool use_global_objects = false) const;
     std::vector<int> get_extruders(bool conside_custom_gcode = false) const;
     std::vector<int> get_model_volume_extruders() const;

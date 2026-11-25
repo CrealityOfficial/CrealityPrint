@@ -21,6 +21,17 @@ namespace Slic3r {
 bool GCodeWriter::full_gcode_comment = true;
 const double GCodeWriter::slope_threshold = 3 * PI / 180;
 
+void GCodeWriter::sync_lifted_to_nominal_z(double nominal_z)
+{
+    m_to_lift = 0.;
+    m_lifted = std::max(0., m_pos(2) - nominal_z);
+    // Parsed G-code endpoints are rounded. Matching emitted Z coordinates belong
+    // to the same layer and must not suppress the next hop as an existing lift.
+    if (m_lifted < EPSILON ||
+        GCodeFormatter::quantize_xyzf(m_pos(2)) == GCodeFormatter::quantize_xyzf(nominal_z))
+        m_lifted = 0.;
+}
+
 bool GCodeWriter::supports_separate_travel_acceleration(GCodeFlavor flavor)
 {
     return (flavor == gcfRepetier || flavor == gcfMarlinFirmware ||  flavor == gcfRepRapFirmware);

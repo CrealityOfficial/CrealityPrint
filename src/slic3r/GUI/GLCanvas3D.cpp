@@ -2424,12 +2424,6 @@ void GLCanvas3D::render(bool only_init)
     _render_selection_center();
 #endif // ENABLE_RENDER_SELECTION_CENTER
 
-    // we need to set the mouse's scene position here because the depth buffer
-    // could be invalidated by the following gizmo render methods
-    // this position is used later into on_mouse() to drag the objects
-    if (m_picking_enabled)
-        m_mouse.scene_position = _mouse_to_3d(m_mouse.position.cast<coord_t>());
-
     // sidebar hints need to be rendered before the gizmos because the depth buffer
     // could be invalidated by the following gizmo render methods
     _render_selection_sidebar_hints();
@@ -2730,6 +2724,9 @@ void GLCanvas3D::ensure_on_bed(unsigned int object_idx, bool allow_negative_z)
 
     for (GLVolume* volume : m_volumes.volumes) {
         if (volume->object_idx() == (int) object_idx && !volume->is_modifier) {
+            const ModelInstance* model_instance = get_model_instance(*volume, *m_model);
+            if (!model_instance || !model_instance->auto_drop)
+                continue;
             double                    min_z    = volume->transformed_convex_hull_bounding_box().min.z();
             std::pair<int, int>       instance = std::make_pair(volume->object_idx(), volume->instance_idx());
             InstancesToZMap::iterator it       = instances_min_z.find(instance);
@@ -2812,6 +2809,8 @@ static bool wipe_tower_preview_config_matches(const DynamicPrintConfig& current,
         "filament_diameter", "filament_flow_ratio", "filament_shrink", "filament_shrinkage_compensation_z",
         "filament_minimal_purge_on_wipe_tower", "filament_adhesiveness_category", "filament_type",
         "filament_pre_flush_volume",
+        "filament_pre_flush_tower_time",
+        "filament_pre_flush_tower_volume",
         "filament_ramming_parameters", "enable_filament_ramming", "wiping_volumes_extruders",
         "print_sequence", "first_layer_print_sequence", "other_layers_print_sequence", "other_layers_print_sequence_nums",
         "bottom_fill_flush_layers", "top_fill_flush_layers", "enable_mixed_color_sublayer", "mixed_filament_definitions"
@@ -3383,10 +3382,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                 DynamicPrintConfig& proj_cfg = wxGetApp().preset_bundle->project_config;
                 float               x        = dynamic_cast<const ConfigOptionFloats*>(proj_cfg.option("wipe_tower_x"))->get_at(plate_id);
                 float               y        = dynamic_cast<const ConfigOptionFloats*>(proj_cfg.option("wipe_tower_y"))->get_at(plate_id);
-                float               w        = preview_print_config.prime_tower_width.value;
-                int                 a        = preview_print_config.wipe_tower_rotation_angle.value;
-                a                            = std::abs(a % 360);
-                float tower_brim_width       = preview_print_config.prime_tower_brim_width.value;
+                const float         a        = float(preview_print_config.wipe_tower_rotation_angle.value);
                 Vec3d plate_origin = part_plate->get_origin();
 
                 const Print* current_print = part_plate->fff_print();
@@ -3397,71 +3393,22 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                     wipe_tower_preview_config_matches(plate_config, current_print->full_print_config()) &&
                     current_print->wipe_tower_data().wipe_tower_mesh_data.has_value();
 
-                BoundingBoxf3 plate_bbox = wxGetApp().plater()->get_partplate_list().get_plate(plate_id)->get_bounding_box();
-                coordf_t      plate_bbox_x_max_local_coord = plate_bbox.max(0) - plate_origin(0);
-                coordf_t      plate_bbox_y_max_local_coord = plate_bbox.max(1) - plate_origin(1);
-
                 if (!use_real_wipe_tower) {
-                    const double depth = Print::estimate_wipe_tower_depth(preview_print_config, current_plate_filaments_count);
-                    const Vec3d wipe_tower_size = part_plate->estimate_wipe_tower_size(
-                        plate_config, w, depth, preview_print_config.prime_volume.value, current_plate_filaments_count);
-                    const float margin            = 15.f;
-                    float       width             = std::max(tower_brim_width, 0.f);
-                    BoundingBox plate_bbox2d      = BoundingBox(scaled(Vec2f(0.f, 0.f)),
-                                                                scaled(Vec2f(plate_bbox_x_max_local_coord, plate_bbox_y_max_local_coord)));
-                    BoundingBox wipe_tower_bbox2d = BoundingBox(scaled(Vec2f(-width, -width)),
-                                                                scaled(Vec2f(wipe_tower_size(0) + width, wipe_tower_size(1) + width)));
-                    wipe_tower_bbox2d.rotate((M_PI / 180.) * a);
-                    wipe_tower_bbox2d.translate(scaled(x), scaled(y));
-                    Vec2f offset = WipeTower::move_box_inside_box(wipe_tower_bbox2d, plate_bbox2d, scaled(margin));
-
-                    if (!is_approx(offset[0], 0.f)) {
-                        x += offset[0];
-                        ConfigOptionFloat wt_x_opt(x);
-                        dynamic_cast<ConfigOptionFloats*>(proj_cfg.option("wipe_tower_x"))->set_at(&wt_x_opt, plate_id, 0);
-                    }
-                    if (!is_approx(offset[1], 0.f)) {
-                        y += offset[1];
-                        ConfigOptionFloat wt_y_opt(y);
-                        dynamic_cast<ConfigOptionFloats*>(proj_cfg.option("wipe_tower_y"))->set_at(&wt_y_opt, plate_id, 0);
-                    }
-
-                    int volume_idx_wipe_tower_new = m_volumes.load_wipe_tower_preview(1000 + plate_id, x + plate_origin(0),
-                                                                                      y + plate_origin(1), (float) wipe_tower_size(0),
-                                                                                      (float) wipe_tower_size(1),
-                                                                                      (float) wipe_tower_size(2), a,
-                                                                                      true, tower_brim_width);
+                    const auto tower_preview = wxGetApp().plater()->request_wipe_tower_preview(
+                        plate_id, part_plate->wipe_tower_preview_input(plate_config, current_plate_filaments_count));
+                    if (!tower_preview || tower_preview->tower_mesh.empty())
+                        continue;
+                    // Placement belongs to dragging/arranging, not rendering. Both
+                    // estimates and sliced meshes use the saved tower-local anchor.
+                    int volume_idx_wipe_tower_new = m_volumes.load_wipe_tower_preview(
+                        1000 + plate_id, x + plate_origin.x(), y + plate_origin.y(), *tower_preview, a);
                     int volume_idx_wipe_tower_old = volume_idxs_wipe_tower_old[plate_id];
                     if (volume_idx_wipe_tower_old != -1)
                         map_glvolume_old_to_new[volume_idx_wipe_tower_old] = volume_idx_wipe_tower_new;
                 } else {
-                    Vec2f offset(0.f, 0.f);
-                    if (!current_print->is_step_done(psSlicingFinished)) {
-                        const float margin = 2.f;
-                        Transform3d trafo  = Transform3d::Identity();
-                        trafo.rotate(Eigen::AngleAxisd((M_PI / 180.) * a, Vec3d::UnitZ()));
-                        const auto& tower_mesh_data   = current_print->wipe_tower_data().wipe_tower_mesh_data;
-                        auto        tower_bottom_bbox = get_extents(tower_mesh_data->real_brim_mesh.convex_hull().transform(trafo));
-
-                        tower_bottom_bbox.translate(scaled(x), scaled(y));
-                        tower_bottom_bbox.translate(scaled(plate_origin[0]), scaled(plate_origin[1]));
-
-                        BoundingBoxf3 plate_bbox   = wxGetApp().plater()->get_partplate_list().get_plate(plate_id)->get_build_volume();
-                        BoundingBox   plate_bbox2d = BoundingBox(scaled(Vec2f(plate_bbox.min[0], plate_bbox.min[1])),
-                                                                 scaled(Vec2f(plate_bbox.max[0], plate_bbox.max[1])));
-                        offset                     = WipeTower::move_box_inside_box(tower_bottom_bbox, plate_bbox2d, scaled(margin));
-                        if (!is_approx(offset[0], 0.f)) {
-                            ConfigOptionFloat wt_x_opt(x + offset[0]);
-                            dynamic_cast<ConfigOptionFloats*>(proj_cfg.option("wipe_tower_x"))->set_at(&wt_x_opt, plate_id, 0);
-                        }
-                        if (!is_approx(offset[1], 0.f)) {
-                            ConfigOptionFloat wt_y_opt(y + offset[1]);
-                            dynamic_cast<ConfigOptionFloats*>(proj_cfg.option("wipe_tower_y"))->set_at(&wt_y_opt, plate_id, 0);
-                        }
-                    }
                     int volume_idx_wipe_tower_new =
-                        m_volumes.load_real_wipe_tower_preview(1000 + plate_id, x + plate_origin(0) + offset[0],
-                                                               y + plate_origin(1) + offset[1],
+                        m_volumes.load_real_wipe_tower_preview(1000 + plate_id, x + plate_origin(0),
+                                                               y + plate_origin(1),
                                                                current_print->wipe_tower_data().wipe_tower_mesh_data->real_wipe_tower_mesh,
                                                                current_print->wipe_tower_data().wipe_tower_mesh_data->real_brim_mesh, true,
                                                                a, /*!print->is_step_done(psWipeTower)*/ true, m_initialized);
@@ -5008,6 +4955,13 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
         m_dirty = true;
     };
 
+    // A scene refresh clears hover, and a press may arrive before the next
+    // rendered frame. Resolve the press at its own coordinates, including gizmos.
+    if (evt.LeftDown() && m_picking_enabled && !m_mouse.dragging && !m_gizmos.is_dragging() && !m_rectangle_selection.is_dragging()) {
+        m_mouse.position = pos.cast<double>();
+        _picking_pass();
+    }
+
     if (m_gizmos.on_mouse(evt)) {
         if (m_gizmos.is_running()) {
             _deactivate_arrange_menu();
@@ -5133,7 +5087,7 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
         else
             post_event(SimpleEvent(EVT_GLCANVAS_SWITCH_TO_GLOBAL));
     } else if (m_gizmos.get_current_type() != GLGizmosManager::MeshBoolean && isRectangleSelectable(evt) &&
-               !m_rectangle_selection.is_dragging() && m_hover_volume_idxs.empty() && m_picking_enabled &&
+               !m_rectangle_selection.is_dragging() && m_mouse.drag.move_volume_idx == -1 && m_hover_volume_idxs.empty() && m_picking_enabled &&
                m_layers_editing.state != LayersEditing::Editing) // start rectangle selection.
     {
         auto t1 = evt.Dragging();
@@ -5254,7 +5208,7 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
                 Vec3d cur_pos    = m_mouse.drag.start_position_3D;
                 // we do not want to translate objects if the user just clicked on an object while pressing shift to remove it from the
                 // selection and then drag
-                if (m_selection.contains_volume(get_first_hover_volume_idx())) {
+                if (m_selection.contains_volume(m_mouse.drag.move_volume_idx)) {
                     const Camera& camera = wxGetApp().plater()->get_camera();
                     if (std::abs(camera.get_dir_forward()(2)) < EPSILON) {
                         // side view -> move selected volumes orthogonally to camera view direction
@@ -5438,14 +5392,14 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
                 _update_selection_from_hover();
                 m_rectangle_selection.stop_dragging();
             }
-        } else if (evt.LeftUp() && !m_mouse.ignore_left_up && !m_mouse.dragging && m_hover_volume_idxs.empty() &&
+        } else if (evt.LeftUp() && !m_mouse.ignore_left_up && !m_mouse.dragging && m_mouse.drag.move_volume_idx == -1 && m_hover_volume_idxs.empty() &&
                    m_hover_plate_idxs.empty() && !is_layers_editing_enabled()) {
             // deselect and propagate event through callback
             if ((!any_gizmo_active || !evt.CmdDown()) && m_picking_enabled)
                 deselect_all();
         }
         // BBS Select plate in this 3D canvas.
-        else if (evt.LeftUp() && !m_mouse.dragging && m_picking_enabled && !m_hover_plate_idxs.empty() && (m_canvas_type == CanvasView3D) &&
+        else if (evt.LeftUp() && !m_mouse.dragging && m_mouse.drag.move_volume_idx == -1 && m_picking_enabled && !m_hover_plate_idxs.empty() && (m_canvas_type == CanvasView3D) &&
                  !is_layers_editing_enabled()) {
             int hover_idx = m_hover_plate_idxs.front();
             wxGetApp().plater()->select_plate_by_hover_id(hover_idx);
@@ -5689,6 +5643,26 @@ void GLCanvas3D::do_move(const std::string& snapshot_type)
     if (!snapshot_type.empty())
         wxGetApp().plater()->take_snapshot(snapshot_type);
 
+    if (m_selection.is_wipe_tower()) {
+        const GLVolume* tower = m_selection.get_first_volume();
+        WipeTowerInfo position;
+        position.m_plate_idx = tower->object_idx() - 1000;
+        position.m_pos = tower->get_volume_offset().head<2>();
+        // The tower stays on screen while the background update is pending.
+        for (const auto& item : *m_scene_raycaster.get_raycasters(SceneRaycaster::EType::Volume)) {
+            if (item->get_raycaster() == tower->mesh_raycaster.get()) {
+                item->set_transform(tower->world_matrix());
+                break;
+            }
+        }
+        position.apply_wipe_tower();
+        m_selection.notify_instance_update(-1, 0); // Invalidate this plate's slice and thumbnails.
+        reset_sequential_print_clearance();
+        m_dirty = true;
+        post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
+        return;
+    }
+
     std::set<std::pair<int, int>> done; // keeps track of modified instances
     bool                          object_moved = false;
 
@@ -5741,7 +5715,8 @@ void GLCanvas3D::do_move(const std::string& snapshot_type)
         ModelObject* m       = m_model->objects[i.first];
         const double shift_z = m->get_instance_min_z(i.second);
         // BBS: don't call translate if the z is zero
-        if ((current_printer_technology() == ptSLA || shift_z > SINKING_Z_THRESHOLD) && (shift_z != 0.0f)) {
+        if (m->instances[i.second]->auto_drop && shift_z != 0.0 &&
+            (current_printer_technology() == ptSLA || shift_z > SINKING_Z_THRESHOLD)) {
             const Vec3d shift(0.0, 0.0, -shift_z);
             m_selection.translate(i.first, i.second, shift);
             m->translate_instance(i.second, shift);
@@ -5762,16 +5737,10 @@ void GLCanvas3D::do_move(const std::string& snapshot_type)
         if (wipe_tower_origin == Vec3d::Zero())
             continue;
 
-        PartPlateList&    ppl          = wxGetApp().plater()->get_partplate_list();
-        DynamicConfig&    proj_cfg     = wxGetApp().preset_bundle->project_config;
-        Vec3d             plate_origin = ppl.get_plate(plate_id)->get_origin();
-        ConfigOptionFloat wipe_tower_x(wipe_tower_origin(0) - plate_origin(0));
-        ConfigOptionFloat wipe_tower_y(wipe_tower_origin(1) - plate_origin(1));
-
-        ConfigOptionFloats* wipe_tower_x_opt = proj_cfg.option<ConfigOptionFloats>("wipe_tower_x", true);
-        ConfigOptionFloats* wipe_tower_y_opt = proj_cfg.option<ConfigOptionFloats>("wipe_tower_y", true);
-        wipe_tower_x_opt->set_at(&wipe_tower_x, plate_id, 0);
-        wipe_tower_y_opt->set_at(&wipe_tower_y, plate_id, 0);
+        WipeTowerInfo position;
+        position.m_plate_idx = plate_id;
+        position.m_pos = wipe_tower_origin.head<2>();
+        position.apply_wipe_tower();
     }
 
     reset_sequential_print_clearance();
@@ -5845,7 +5814,8 @@ void GLCanvas3D::do_rotate(const std::string& snapshot_type)
         // BBS: don't call translate if the z is zero
         const double shift_z = m->get_instance_min_z(i.second);
         // leave sinking instances as sinking
-        if ((min_zs.find({i.first, i.second})->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD) && (shift_z != 0.0f)) {
+        if (m->instances[i.second]->auto_drop && shift_z != 0.0 &&
+            (min_zs.find({i.first, i.second})->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD)) {
             const Vec3d shift(0.0, 0.0, -shift_z);
             m_selection.translate(i.first, i.second, shift);
             m->translate_instance(i.second, shift);
@@ -5927,8 +5897,8 @@ void GLCanvas3D::do_scale(const std::string& snapshot_type)
         // BBS: don't call translate if the z is zero
         double shift_z = m->get_instance_min_z(i.second);
         // leave sinking instances as sinking
-        if ((min_zs.empty() || min_zs.find({i.first, i.second})->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD) &&
-            (shift_z != 0.0f)) {
+        if (m->instances[i.second]->auto_drop && shift_z != 0.0 &&
+            (min_zs.empty() || min_zs.find({i.first, i.second})->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD)) {
             Vec3d shift(0.0, 0.0, -shift_z);
             m_selection.translate(i.first, i.second, shift);
             m->translate_instance(i.second, shift);
@@ -6024,8 +5994,8 @@ void GLCanvas3D::do_mirror(const std::string& snapshot_type)
         // BBS: don't call translate if the z is zero
         double shift_z = m->get_instance_min_z(i.second);
         // leave sinking instances as sinking
-        if ((min_zs.empty() || min_zs.find({i.first, i.second})->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD) &&
-            (shift_z != 0.0f)) {
+        if (m->instances[i.second]->auto_drop && shift_z != 0.0 &&
+            (min_zs.empty() || min_zs.find({i.first, i.second})->second >= SINKING_Z_THRESHOLD || shift_z > SINKING_Z_THRESHOLD)) {
             Vec3d shift(0.0, 0.0, -shift_z);
             m_selection.translate(i.first, i.second, shift);
             m->translate_instance(i.second, shift);
@@ -6120,24 +6090,9 @@ GLCanvas3D::WipeTowerInfo GLCanvas3D::get_wipe_tower_info(int plate_idx) const
             DynamicPrintConfig& proj_cfg = wxGetApp().preset_bundle->project_config;
             wti.m_pos                    = Vec2d(proj_cfg.opt<ConfigOptionFloats>("wipe_tower_x")->get_at(plate_idx),
                                                  proj_cfg.opt<ConfigOptionFloats>("wipe_tower_y")->get_at(plate_idx));
-            // BBS: don't support rotation
-            // wti.m_rotation = (M_PI/180.) * proj_cfg->opt_float("wipe_tower_rotation_angle");
-
-            auto& preset        = wxGetApp().preset_bundle->prints.get_edited_preset();
-            float wt_brim_width = preset.config.opt_float("prime_tower_brim_width");
-
-            const BoundingBoxf3& bb = vol->bounding_box();
-            wti.m_bb                = BoundingBoxf{to_2d(bb.min), to_2d(bb.max)};
-            wti.m_bb.offset(wt_brim_width);
-
-            float brim_width = wxGetApp().preset_bundle->prints.get_edited_preset().config.opt_float("prime_tower_brim_width");
-            wti.m_bb.offset((brim_width));
-
-            // BBS: the wipe tower pos might be outside bed
-            PartPlate* plate      = wxGetApp().plater()->get_partplate_list().get_plate(plate_idx);
-            Vec2d      plate_size = plate->get_size();
-            wti.m_pos.x()         = std::clamp(wti.m_pos.x(), 0.0, plate_size(0) - wti.m_bb.size().x());
-            wti.m_pos.y()         = std::clamp(wti.m_pos.y(), 0.0, plate_size(1) - wti.m_bb.size().y());
+            wti.m_rotation = vol->get_volume_rotation().z();
+            const BoundingBoxf3 bb = vol->bounding_box();
+            wti.m_bb = BoundingBoxf{to_2d(bb.min), to_2d(bb.max)};
 
             // BBS: add partplate logic
             wti.m_plate_idx = plate_idx;
@@ -9889,6 +9844,8 @@ void GLCanvas3D::_picking_pass()
             if (0 <= hit.raycaster_id && hit.raycaster_id < (int) m_volumes.volumes.size()) {
                 const GLVolume* volume = m_volumes.volumes[hit.raycaster_id];
                 if (volume->is_active && !volume->disabled && (volume->composite_id.volume_id >= 0 || m_render_sla_auxiliaries)) {
+                    // Use the surface selected by the ray, including a transparent tower.
+                    m_mouse.scene_position = hit.position.cast<double>();
                     // do not add the volume id if any gizmo is active and CTRL is pressed
                     if (m_gizmos.get_current_type() == GLGizmosManager::EType::Undefined || !wxGetKeyState(WXK_CONTROL))
                         m_hover_volume_idxs.emplace_back(hit.raycaster_id);
@@ -9930,6 +9887,8 @@ void GLCanvas3D::_picking_pass()
     _update_volumes_hover_state();
 
 #if ENABLE_RAYCAST_PICKING_DEBUG
+    if (!ImGui::GetCurrentContext()->WithinFrameScope)
+        return;
     ImGuiWrapper& imgui = *wxGetApp().imgui();
     imgui.begin(std::string("Hit result"), ImGuiWindowFlags_AlwaysAutoResize);
     std::string object_type = "None";
@@ -14847,7 +14806,7 @@ ModelInstance* get_model_instance(const GLVolume& gl_volume, const ModelObjectPt
     if (gl_volume.instance_idx() < 0)
         return nullptr;
     ModelObject* object = get_model_object(gl_volume, objects);
-    return get_model_instance(gl_volume, *object);
+    return object ? get_model_instance(gl_volume, *object) : nullptr;
 }
 
 ModelInstance* get_model_instance(const GLVolume& gl_volume, const ModelObject& object)
