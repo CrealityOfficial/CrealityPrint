@@ -972,12 +972,22 @@ wxDataViewItem ObjectDataViewModel::Delete(const wxDataViewItem &item)
         auto it = find(m_objects.begin(), m_objects.end(), node);
         if (it != m_objects.end())
         {
+#ifndef __WXGTK__
             // Delete all sub-items
             int i = (*it)->GetChildCount() - 1;
             while (i >= 0) {
                 Delete(wxDataViewItem((*it)->GetNthChild(i)));
                 i = (*it)->GetChildCount() - 1;
             }
+#else
+            // On GTK, do not notify the sub-items one by one. The object list is drawn with ImGui and
+            // its GtkTreeView is never expanded, so wxGTK never builds an object's children. Each
+            // ItemDeleted(object, child) then gets index -1 from GetIndexOf() and makes GTK delete the
+            // row at the object's own path instead, which corrupts the tree view; a later ItemAdded()
+            // (e.g. the merged object of "Assemble") then aborts in _gtk_rbtree_insert_after().
+            // The single ItemDeleted() below removes the object's row with its subtree, and the node's
+            // destructor frees the children.
+#endif
             m_objects.erase(it);
             node_parent->GetChildren().Remove(node);
         }
